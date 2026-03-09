@@ -36,10 +36,13 @@ func AddQACommands(root *cli.Command) {
 	}
 	root.AddCommand(qaCmd)
 
-	// Subcommands
+	// Go-focused subcommands
 	addWatchCommand(qaCmd)
 	addReviewCommand(qaCmd)
 	addHealthCommand(qaCmd)
 	addIssuesCommand(qaCmd)
 	addDocblockCommand(qaCmd)
+
+	// PHP subcommands
+	addPHPCommands(qaCmd)
 }
