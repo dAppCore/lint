@@ -1,0 +1,25 @@
+version: 1
+
+project:
+  name: core-lint
+  description: Pattern catalog and regex code checker
+  main: ./cmd/core-lint
+  binary: core-lint
+
+build:
+  cgo: false
+  flags:
+    - -trimpath
+  ldflags:
+    - -s
+    - -w
+
+targets:
+  - os: linux
+    arch: amd64
+  - os: linux
+    arch: arm64
+  - os: darwin
+    arch: arm64
+  - os: windows
+    arch: amd64
