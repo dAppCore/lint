@@ -20,8 +20,13 @@ func TestLoadDir_Good(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotEmpty(t, cat.Rules)
 
-	// The seed file has at least one rule.
-	assert.Equal(t, "go-sec-001", cat.Rules[0].ID)
+	// All 18 rules should load (6 security + 7 correctness + 5 modernise).
+	assert.Len(t, cat.Rules, 18)
+
+	// Verify we can find a rule from each file.
+	assert.NotNil(t, cat.ByID("go-sec-001"))
+	assert.NotNil(t, cat.ByID("go-cor-001"))
+	assert.NotNil(t, cat.ByID("go-mod-001"))
 }
 
 func TestLoadDir_Bad_NonexistentDir(t *testing.T) {
@@ -128,6 +133,17 @@ func TestByID_Bad_NotFound(t *testing.T) {
 		},
 	}
 	assert.Nil(t, cat.ByID("nonexistent"))
+}
+
+func TestLoadDir_Good_AllRulesValidate(t *testing.T) {
+	dir := findCatalogDir(t)
+	cat, err := LoadDir(dir)
+	require.NoError(t, err)
+
+	for _, r := range cat.Rules {
+		err := r.Validate()
+		assert.NoError(t, err, "rule %s failed validation", r.ID)
+	}
 }
 
 // findCatalogDir locates the catalog/ directory relative to the repo root.

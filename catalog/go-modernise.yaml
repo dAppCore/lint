@@ -1,0 +1,85 @@
+- id: go-mod-001
+  title: "Manual slice clone (use slices.Clone)"
+  severity: info
+  languages: [go]
+  tags: [modernise, stdlib]
+  pattern: 'append\(\[\]\w+\(nil\),\s*\w+\.\.\.\)'
+  fix: "Replace with slices.Clone() from the standard library (Go 1.21+)"
+  found_in: [go-io, go-config]
+  example_bad: 'copy := append([]string(nil), original...)'
+  example_good: 'copy := slices.Clone(original)'
+  first_seen: "2026-03-09"
+  detection: regex
+  auto_fixable: true
+
+- id: go-mod-002
+  title: "Legacy sort functions (use slices.Sort)"
+  severity: info
+  languages: [go]
+  tags: [modernise, stdlib]
+  pattern: 'sort\.Strings\(|sort\.Ints\(|sort\.Slice\('
+  exclude_pattern: 'sort\.SliceStable'
+  fix: "Replace with slices.Sort() or slices.SortFunc() from the standard library (Go 1.21+)"
+  found_in: [go-io]
+  example_bad: 'sort.Strings(names)'
+  example_good: 'slices.Sort(names)'
+  first_seen: "2026-03-09"
+  detection: regex
+  auto_fixable: true
+
+- id: go-mod-003
+  title: "Manual reverse loop (use slices.Reverse)"
+  severity: info
+  languages: [go]
+  tags: [modernise, stdlib]
+  pattern: 'for\s+\w+\s*:=\s*len\(\w+\)\s*-\s*1'
+  fix: "Replace with slices.Reverse() from the standard library (Go 1.21+)"
+  found_in: [go-io]
+  example_bad: 'for i := len(items) - 1; i >= 0; i-- { process(items[i]) }'
+  example_good: 'slices.Reverse(items); for _, item := range items { process(item) }'
+  first_seen: "2026-03-09"
+  detection: regex
+  auto_fixable: false
+
+- id: go-mod-004
+  title: "Manual WaitGroup Add+Done (use errgroup)"
+  severity: info
+  languages: [go]
+  tags: [modernise, concurrency]
+  pattern: 'wg\.Add\(1\)'
+  fix: "Consider errgroup.Group which manages Add/Done/Wait and collects the first error"
+  found_in: [go-process]
+  example_bad: |
+    wg.Add(1)
+    go func() {
+        defer wg.Done()
+        doWork()
+    }()
+  example_good: |
+    g, ctx := errgroup.WithContext(ctx)
+    g.Go(func() error {
+        return doWork()
+    })
+    if err := g.Wait(); err != nil { ... }
+  first_seen: "2026-03-09"
+  detection: regex
+  auto_fixable: false
+
+- id: go-mod-005
+  title: "Manual map key collection (use maps.Keys)"
+  severity: info
+  languages: [go]
+  tags: [modernise, stdlib]
+  pattern: 'for\s+\w+\s*:=\s*range\s+\w+\s*\{\s*\n\s*\w+\s*=\s*append'
+  exclude_pattern: 'maps\.Keys'
+  fix: "Replace with maps.Keys() or slices.Collect(maps.Keys()) from the standard library"
+  found_in: [go-config]
+  example_bad: |
+    var keys []string
+    for k := range m {
+        keys = append(keys, k)
+    }
+  example_good: 'keys := slices.Collect(maps.Keys(m))'
+  first_seen: "2026-03-09"
+  detection: regex
+  auto_fixable: true

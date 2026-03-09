@@ -3,8 +3,86 @@
   severity: high
   languages: [go]
   tags: [security, injection]
-  pattern: 'LIKE\s+\?'
-  fix: "Use parameterised LIKE with EscapeLike()"
+  pattern: 'LIKE\s+\?.*["%].*\+'
+  fix: "Use parameterised LIKE with EscapeLike() helper to sanitise wildcard characters"
   found_in: [go-store]
+  example_bad: 'db.Query("SELECT * FROM users WHERE name LIKE ?", "%"+input+"%")'
+  example_good: 'db.Query("SELECT * FROM users WHERE name LIKE ?", "%"+store.EscapeLike(input)+"%")'
   first_seen: "2026-03-09"
   detection: regex
+  auto_fixable: false
+
+- id: go-sec-002
+  title: "Path traversal via filepath.Join"
+  severity: high
+  languages: [go]
+  tags: [security, path-traversal]
+  pattern: 'filepath\.Join\(.*,\s*\w+\)'
+  exclude_pattern: 'filepath\.Clean|securejoin|ValidatePath'
+  fix: "Validate the path component or use securejoin to prevent directory traversal"
+  found_in: [go-io]
+  example_bad: 'path := filepath.Join(baseDir, userInput)'
+  example_good: 'path, err := securejoin.SecureJoin(baseDir, userInput)'
+  first_seen: "2026-03-09"
+  detection: regex
+  auto_fixable: false
+
+- id: go-sec-003
+  title: "XSS via unescaped HTML in fmt.Sprintf"
+  severity: high
+  languages: [go]
+  tags: [security, xss]
+  pattern: 'fmt\.Sprintf\(.*<.*>.*%s'
+  exclude_pattern: 'html\.EscapeString|template\.HTMLEscapeString'
+  fix: "Use html.EscapeString() on user-controlled values before interpolating into HTML"
+  found_in: [go-html]
+  example_bad: 'out := fmt.Sprintf("<div>%s</div>", userInput)'
+  example_good: 'out := fmt.Sprintf("<div>%s</div>", html.EscapeString(userInput))'
+  first_seen: "2026-03-09"
+  detection: regex
+  auto_fixable: true
+
+- id: go-sec-004
+  title: "Non-constant-time authentication comparison"
+  severity: critical
+  languages: [go]
+  tags: [security, timing-attack]
+  pattern: '==\s*\w*(token|key|secret|password|hash|digest|hmac|mac|sig)'
+  exclude_pattern: 'subtle\.ConstantTimeCompare|hmac\.Equal'
+  fix: "Use subtle.ConstantTimeCompare() or hmac.Equal() for timing-safe comparison"
+  found_in: [go-crypt]
+  example_bad: 'if token == expectedToken {'
+  example_good: 'if subtle.ConstantTimeCompare([]byte(token), []byte(expectedToken)) == 1 {'
+  first_seen: "2026-03-09"
+  detection: regex
+  auto_fixable: false
+
+- id: go-sec-005
+  title: "Log injection via string concatenation"
+  severity: medium
+  languages: [go]
+  tags: [security, injection]
+  pattern: 'log\.\w+\(.*\+.*\)'
+  exclude_pattern: 'strings\.ReplaceAll.*\\n|slog\.'
+  fix: "Use structured logging (slog) with named fields instead of string concatenation"
+  found_in: [go-log]
+  example_bad: 'log.Info("user logged in: " + username)'
+  example_good: 'slog.Info("user logged in", "username", username)'
+  first_seen: "2026-03-09"
+  detection: regex
+  auto_fixable: true
+
+- id: go-sec-006
+  title: "Secrets leaked in log output"
+  severity: critical
+  languages: [go]
+  tags: [security, secrets]
+  pattern: 'log\.\w+\(.*(?i)(password|secret|token|apikey|private.?key|credential)'
+  exclude_pattern: 'REDACTED|\*\*\*|redact'
+  fix: "Redact sensitive values before logging, or use a structured logger with field redaction"
+  found_in: [go-config]
+  example_bad: 'log.Debug("auth token: " + token)'
+  example_good: 'log.Debug("auth token: [REDACTED]")'
+  first_seen: "2026-03-09"
+  detection: regex
+  auto_fixable: false
