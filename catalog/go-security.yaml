@@ -1,0 +1,10 @@
+- id: go-sec-001
+  title: "SQL wildcard injection in LIKE clauses"
+  severity: high
+  languages: [go]
+  tags: [security, injection]
+  pattern: 'LIKE\s+\?'
+  fix: "Use parameterised LIKE with EscapeLike()"
+  found_in: [go-store]
+  first_seen: "2026-03-09"
+  detection: regex

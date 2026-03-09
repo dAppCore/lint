@@ -1,0 +1,17 @@
+- id: test-001
+  title: "Test rule one"
+  severity: high
+  languages: [go]
+  tags: [test]
+  pattern: 'TODO'
+  fix: "Remove TODO"
+  detection: regex
+
+- id: test-002
+  title: "Test rule two"
+  severity: low
+  languages: [go, php]
+  tags: [test]
+  pattern: 'FIXME'
+  fix: "Fix the issue"
+  detection: regex
