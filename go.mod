@@ -20,6 +20,7 @@ require (
 	forge.lthn.ai/core/go-devops v0.0.3 // indirect
 	forge.lthn.ai/core/go-help v0.1.2 // indirect
 	forge.lthn.ai/core/go-inference v0.0.2 // indirect
+	forge.lthn.ai/core/go-process v0.1.2 // indirect
 	github.com/ProtonMail/go-crypto v1.3.0 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/charmbracelet/bubbletea v1.3.10 // indirect
