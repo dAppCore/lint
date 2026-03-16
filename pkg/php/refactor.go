@@ -2,11 +2,12 @@ package php
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+
+	coreerr "forge.lthn.ai/core/go-log"
 )
 
 // RectorOptions configures Rector code refactoring.
@@ -40,7 +41,7 @@ func RunRector(ctx context.Context, opts RectorOptions) error {
 	if opts.Dir == "" {
 		cwd, err := os.Getwd()
 		if err != nil {
-			return fmt.Errorf("get working directory: %w", err)
+			return coreerr.E("php.RunRector", "get working directory", err)
 		}
 		opts.Dir = cwd
 	}

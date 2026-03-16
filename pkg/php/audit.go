@@ -3,11 +3,12 @@ package php
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+
+	coreerr "forge.lthn.ai/core/go-log"
 )
 
 // AuditOptions configures dependency security auditing.
@@ -40,7 +41,7 @@ func RunAudit(ctx context.Context, opts AuditOptions) ([]AuditResult, error) {
 	if opts.Dir == "" {
 		cwd, err := os.Getwd()
 		if err != nil {
-			return nil, fmt.Errorf("get working directory: %w", err)
+			return nil, coreerr.E("php.RunAudit", "get working directory", err)
 		}
 		opts.Dir = cwd
 	}

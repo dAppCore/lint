@@ -2,8 +2,9 @@ package lint
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
+
+	coreerr "forge.lthn.ai/core/go-log"
 )
 
 // VulnFinding represents a single vulnerability found by govulncheck.
@@ -89,7 +90,7 @@ func (t *Toolkit) VulnCheck(modulePath string) (*VulnResult, error) {
 
 	stdout, stderr, exitCode, err := t.Run("govulncheck", "-json", modulePath)
 	if err != nil && exitCode == -1 {
-		return nil, fmt.Errorf("govulncheck not installed or not available: %w", err)
+		return nil, coreerr.E("Toolkit.VulnCheck", "govulncheck not installed or not available", err)
 	}
 
 	return ParseVulnCheckJSON(stdout, stderr)

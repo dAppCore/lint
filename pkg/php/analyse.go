@@ -7,6 +7,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+
+	coreerr "forge.lthn.ai/core/go-log"
 )
 
 // AnalyseOptions configures PHP static analysis.
@@ -78,7 +80,7 @@ func Analyse(ctx context.Context, opts AnalyseOptions) error {
 	if opts.Dir == "" {
 		cwd, err := os.Getwd()
 		if err != nil {
-			return fmt.Errorf("get working directory: %w", err)
+			return coreerr.E("php.Analyse", "get working directory", err)
 		}
 		opts.Dir = cwd
 	}
@@ -90,7 +92,7 @@ func Analyse(ctx context.Context, opts AnalyseOptions) error {
 	// Check if analyser is available
 	analyser, found := DetectAnalyser(opts.Dir)
 	if !found {
-		return fmt.Errorf("no static analyser found (install PHPStan: composer require phpstan/phpstan --dev)")
+		return coreerr.E("php.Analyse", "no static analyser found (install PHPStan: composer require phpstan/phpstan --dev)", nil)
 	}
 
 	var cmdName string
@@ -192,7 +194,7 @@ func RunPsalm(ctx context.Context, opts PsalmOptions) error {
 	if opts.Dir == "" {
 		cwd, err := os.Getwd()
 		if err != nil {
-			return fmt.Errorf("get working directory: %w", err)
+			return coreerr.E("php.RunPsalm", "get working directory", err)
 		}
 		opts.Dir = cwd
 	}

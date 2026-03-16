@@ -199,7 +199,7 @@ func fetchPRs(ctx context.Context, repo, search string) ([]PullRequest, error) {
 	output, err := cmd.Output()
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
-			return nil, fmt.Errorf("%s", strings.TrimSpace(string(exitErr.Stderr)))
+			return nil, log.E("qa.fetchPRs", strings.TrimSpace(string(exitErr.Stderr)), nil)
 		}
 		return nil, err
 	}

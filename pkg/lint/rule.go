@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"slices"
 
+	coreerr "forge.lthn.ai/core/go-log"
 	"gopkg.in/yaml.v3"
 )
 
@@ -32,35 +33,35 @@ type Rule struct {
 // Validate checks that the rule has all required fields and that regex patterns compile.
 func (r *Rule) Validate() error {
 	if r.ID == "" {
-		return fmt.Errorf("rule validation: id must not be empty")
+		return coreerr.E("Rule.Validate", "id must not be empty", nil)
 	}
 	if r.Title == "" {
-		return fmt.Errorf("rule %s: title must not be empty", r.ID)
+		return coreerr.E("Rule.Validate", "rule "+r.ID+": title must not be empty", nil)
 	}
 	if r.Severity == "" {
-		return fmt.Errorf("rule %s: severity must not be empty", r.ID)
+		return coreerr.E("Rule.Validate", "rule "+r.ID+": severity must not be empty", nil)
 	}
 	if !slices.Contains(validSeverities, r.Severity) {
-		return fmt.Errorf("rule %s: severity %q is not valid (want one of %v)", r.ID, r.Severity, validSeverities)
+		return coreerr.E("Rule.Validate", fmt.Sprintf("rule %s: severity %q is not valid (want one of %v)", r.ID, r.Severity, validSeverities), nil)
 	}
 	if len(r.Languages) == 0 {
-		return fmt.Errorf("rule %s: languages must not be empty", r.ID)
+		return coreerr.E("Rule.Validate", "rule "+r.ID+": languages must not be empty", nil)
 	}
 	if r.Pattern == "" {
-		return fmt.Errorf("rule %s: pattern must not be empty", r.ID)
+		return coreerr.E("Rule.Validate", "rule "+r.ID+": pattern must not be empty", nil)
 	}
 	if r.Detection == "" {
-		return fmt.Errorf("rule %s: detection must not be empty", r.ID)
+		return coreerr.E("Rule.Validate", "rule "+r.ID+": detection must not be empty", nil)
 	}
 
 	// Only validate regex compilation when detection type is regex.
 	if r.Detection == "regex" {
 		if _, err := regexp.Compile(r.Pattern); err != nil {
-			return fmt.Errorf("rule %s: pattern does not compile: %w", r.ID, err)
+			return coreerr.E("Rule.Validate", "rule "+r.ID+": pattern does not compile", err)
 		}
 		if r.ExcludePattern != "" {
 			if _, err := regexp.Compile(r.ExcludePattern); err != nil {
-				return fmt.Errorf("rule %s: exclude_pattern does not compile: %w", r.ID, err)
+				return coreerr.E("Rule.Validate", "rule "+r.ID+": exclude_pattern does not compile", err)
 			}
 		}
 	}
@@ -72,7 +73,7 @@ func (r *Rule) Validate() error {
 func ParseRules(data []byte) ([]Rule, error) {
 	var rules []Rule
 	if err := yaml.Unmarshal(data, &rules); err != nil {
-		return nil, fmt.Errorf("parsing rules: %w", err)
+		return nil, coreerr.E("ParseRules", "parsing rules", err)
 	}
 	return rules, nil
 }

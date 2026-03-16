@@ -7,6 +7,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+
+	coreerr "forge.lthn.ai/core/go-log"
 )
 
 // InfectionOptions configures Infection mutation testing.
@@ -44,7 +46,7 @@ func RunInfection(ctx context.Context, opts InfectionOptions) error {
 	if opts.Dir == "" {
 		cwd, err := os.Getwd()
 		if err != nil {
-			return fmt.Errorf("get working directory: %w", err)
+			return coreerr.E("php.RunInfection", "get working directory", err)
 		}
 		opts.Dir = cwd
 	}

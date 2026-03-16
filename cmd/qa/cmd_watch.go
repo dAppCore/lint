@@ -261,7 +261,7 @@ func parseGitHubRepo(url string) (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("could not parse GitHub repo from URL: %s", url)
+	return "", log.E("qa.parseGitHubRepo", "could not parse GitHub repo from URL: "+url, nil)
 }
 
 // fetchWorkflowRunsForCommit fetches workflow runs for a specific commit

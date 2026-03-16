@@ -2,9 +2,10 @@ package lint
 
 import (
 	"bytes"
-	"fmt"
 	"regexp"
 	"strings"
+
+	coreerr "forge.lthn.ai/core/go-log"
 )
 
 // Finding represents a single match of a rule against a source file.
@@ -43,14 +44,14 @@ func NewMatcher(rules []Rule) (*Matcher, error) {
 
 		pat, err := regexp.Compile(r.Pattern)
 		if err != nil {
-			return nil, fmt.Errorf("compiling pattern for rule %s: %w", r.ID, err)
+			return nil, coreerr.E("NewMatcher", "compiling pattern for rule "+r.ID, err)
 		}
 
 		var excl *regexp.Regexp
 		if r.ExcludePattern != "" {
 			excl, err = regexp.Compile(r.ExcludePattern)
 			if err != nil {
-				return nil, fmt.Errorf("compiling exclude pattern for rule %s: %w", r.ID, err)
+				return nil, coreerr.E("NewMatcher", "compiling exclude pattern for rule "+r.ID, err)
 			}
 		}
 

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"forge.lthn.ai/core/cli/pkg/cli"
+	coreerr "forge.lthn.ai/core/go-log"
 	lint "forge.lthn.ai/core/lint"
 	lintpkg "forge.lthn.ai/core/lint/pkg/lint"
 )
@@ -29,7 +30,7 @@ func addLintCommands(root *cli.Command) {
 	checkCmd := cli.NewCommand("check", "Scan files for pattern matches", "", func(cmd *cli.Command, args []string) error {
 		cat, err := lint.LoadEmbeddedCatalog()
 		if err != nil {
-			return fmt.Errorf("loading catalog: %w", err)
+			return coreerr.E("cmd.check", "loading catalog", err)
 		}
 
 		rules := cat.Rules
@@ -55,7 +56,7 @@ func addLintCommands(root *cli.Command) {
 
 		scanner, err := lintpkg.NewScanner(rules)
 		if err != nil {
-			return fmt.Errorf("creating scanner: %w", err)
+			return coreerr.E("cmd.check", "creating scanner", err)
 		}
 
 		paths := args
@@ -67,7 +68,7 @@ func addLintCommands(root *cli.Command) {
 		for _, p := range paths {
 			info, err := os.Stat(p)
 			if err != nil {
-				return fmt.Errorf("stat %s: %w", p, err)
+				return coreerr.E("cmd.check", "stat "+p, err)
 			}
 
 			var findings []lintpkg.Finding
@@ -120,7 +121,7 @@ func addLintCommands(root *cli.Command) {
 	listCmd := cli.NewCommand("list", "List all rules in the catalog", "", func(cmd *cli.Command, args []string) error {
 		cat, err := lint.LoadEmbeddedCatalog()
 		if err != nil {
-			return fmt.Errorf("loading catalog: %w", err)
+			return coreerr.E("cmd.catalog.list", "loading catalog", err)
 		}
 
 		rules := cat.Rules
@@ -145,17 +146,17 @@ func addLintCommands(root *cli.Command) {
 	// catalog show
 	showCmd := cli.NewCommand("show", "Show details of a specific rule", "", func(cmd *cli.Command, args []string) error {
 		if len(args) == 0 {
-			return fmt.Errorf("rule ID required")
+			return coreerr.E("cmd.catalog.show", "rule ID required", nil)
 		}
 
 		cat, err := lint.LoadEmbeddedCatalog()
 		if err != nil {
-			return fmt.Errorf("loading catalog: %w", err)
+			return coreerr.E("cmd.catalog.show", "loading catalog", err)
 		}
 
 		r := cat.ByID(args[0])
 		if r == nil {
-			return fmt.Errorf("rule %q not found", args[0])
+			return coreerr.E("cmd.catalog.show", "rule "+args[0]+" not found", nil)
 		}
 
 		data, err := json.MarshalIndent(r, "", "  ")

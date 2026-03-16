@@ -2,11 +2,12 @@ package php
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+
+	coreerr "forge.lthn.ai/core/go-log"
 )
 
 // TestOptions configures PHP test execution.
@@ -63,7 +64,7 @@ func RunTests(ctx context.Context, opts TestOptions) error {
 	if opts.Dir == "" {
 		cwd, err := os.Getwd()
 		if err != nil {
-			return fmt.Errorf("get working directory: %w", err)
+			return coreerr.E("php.RunTests", "get working directory", err)
 		}
 		opts.Dir = cwd
 	}
