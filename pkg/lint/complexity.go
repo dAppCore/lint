@@ -1,13 +1,15 @@
 package lint
 
 import (
-	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
 	"os"
 	"path/filepath"
 	"strings"
+
+	coreio "forge.lthn.ai/core/go-io"
+	coreerr "forge.lthn.ai/core/go-log"
 )
 
 // ComplexityConfig controls cyclomatic complexity analysis.
@@ -45,9 +47,9 @@ func AnalyseComplexity(cfg ComplexityConfig) ([]ComplexityResult, error) {
 
 	var results []ComplexityResult
 
-	info, err := os.Stat(cfg.Path)
+	info, err := coreio.Local.Stat(cfg.Path)
 	if err != nil {
-		return nil, fmt.Errorf("stat %s: %w", cfg.Path, err)
+		return nil, coreerr.E("AnalyseComplexity", "stat "+cfg.Path, err)
 	}
 
 	if !info.IsDir() {
@@ -81,7 +83,7 @@ func AnalyseComplexity(cfg ComplexityConfig) ([]ComplexityResult, error) {
 		return nil
 	})
 	if err != nil {
-		return nil, fmt.Errorf("walk %s: %w", cfg.Path, err)
+		return nil, coreerr.E("AnalyseComplexity", "walk "+cfg.Path, err)
 	}
 
 	return results, nil
@@ -97,7 +99,7 @@ func AnalyseComplexitySource(src string, filename string, threshold int) ([]Comp
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, filename, src, parser.ParseComments)
 	if err != nil {
-		return nil, fmt.Errorf("parse %s: %w", filename, err)
+		return nil, coreerr.E("AnalyseComplexitySource", "parse "+filename, err)
 	}
 
 	var results []ComplexityResult
@@ -130,11 +132,11 @@ func AnalyseComplexitySource(src string, filename string, threshold int) ([]Comp
 
 // analyseFile parses a single Go file and returns functions exceeding the threshold.
 func analyseFile(path string, threshold int) ([]ComplexityResult, error) {
-	src, err := os.ReadFile(path)
+	src, err := coreio.Local.Read(path)
 	if err != nil {
-		return nil, fmt.Errorf("read %s: %w", path, err)
+		return nil, coreerr.E("analyseFile", "read "+path, err)
 	}
-	return AnalyseComplexitySource(string(src), path, threshold)
+	return AnalyseComplexitySource(src, path, threshold)
 }
 
 // calculateComplexity computes the cyclomatic complexity of a function.

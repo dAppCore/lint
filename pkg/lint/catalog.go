@@ -1,12 +1,13 @@
 package lint
 
 import (
-	"fmt"
 	"io/fs"
-	"os"
 	"path/filepath"
 	"slices"
 	"strings"
+
+	coreio "forge.lthn.ai/core/go-io"
+	coreerr "forge.lthn.ai/core/go-log"
 )
 
 // severityOrder maps severity names to numeric ranks for threshold comparison.
@@ -25,9 +26,9 @@ type Catalog struct {
 
 // LoadDir reads all .yaml files from the given directory and returns a Catalog.
 func LoadDir(dir string) (*Catalog, error) {
-	entries, err := os.ReadDir(dir)
+	entries, err := coreio.Local.List(dir)
 	if err != nil {
-		return nil, fmt.Errorf("loading catalog from %s: %w", dir, err)
+		return nil, coreerr.E("Catalog.LoadDir", "loading catalog from "+dir, err)
 	}
 
 	var rules []Rule
@@ -35,13 +36,13 @@ func LoadDir(dir string) (*Catalog, error) {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".yaml") {
 			continue
 		}
-		data, err := os.ReadFile(filepath.Join(dir, entry.Name()))
+		raw, err := coreio.Local.Read(filepath.Join(dir, entry.Name()))
 		if err != nil {
-			return nil, fmt.Errorf("reading %s: %w", entry.Name(), err)
+			return nil, coreerr.E("Catalog.LoadDir", "reading "+entry.Name(), err)
 		}
-		parsed, err := ParseRules(data)
+		parsed, err := ParseRules([]byte(raw))
 		if err != nil {
-			return nil, fmt.Errorf("parsing %s: %w", entry.Name(), err)
+			return nil, coreerr.E("Catalog.LoadDir", "parsing "+entry.Name(), err)
 		}
 		rules = append(rules, parsed...)
 	}
@@ -53,7 +54,7 @@ func LoadDir(dir string) (*Catalog, error) {
 func LoadFS(fsys fs.FS, dir string) (*Catalog, error) {
 	entries, err := fs.ReadDir(fsys, dir)
 	if err != nil {
-		return nil, fmt.Errorf("loading catalog from embedded %s: %w", dir, err)
+		return nil, coreerr.E("Catalog.LoadFS", "loading catalog from embedded "+dir, err)
 	}
 
 	var rules []Rule
@@ -63,11 +64,11 @@ func LoadFS(fsys fs.FS, dir string) (*Catalog, error) {
 		}
 		data, err := fs.ReadFile(fsys, dir+"/"+entry.Name())
 		if err != nil {
-			return nil, fmt.Errorf("reading embedded %s: %w", entry.Name(), err)
+			return nil, coreerr.E("Catalog.LoadFS", "reading embedded "+entry.Name(), err)
 		}
 		parsed, err := ParseRules(data)
 		if err != nil {
-			return nil, fmt.Errorf("parsing embedded %s: %w", entry.Name(), err)
+			return nil, coreerr.E("Catalog.LoadFS", "parsing embedded "+entry.Name(), err)
 		}
 		rules = append(rules, parsed...)
 	}

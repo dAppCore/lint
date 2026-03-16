@@ -1,12 +1,13 @@
 package lint
 
 import (
-	"fmt"
 	"io/fs"
-	"os"
 	"path/filepath"
 	"slices"
 	"strings"
+
+	coreio "forge.lthn.ai/core/go-io"
+	coreerr "forge.lthn.ai/core/go-log"
 )
 
 // extensionMap maps file extensions to language identifiers.
@@ -94,10 +95,11 @@ func (s *Scanner) ScanDir(root string) ([]Finding, error) {
 			return nil
 		}
 
-		content, err := os.ReadFile(path)
+		raw, err := coreio.Local.Read(path)
 		if err != nil {
-			return fmt.Errorf("reading %s: %w", path, err)
+			return coreerr.E("Scanner.ScanDir", "reading "+path, err)
 		}
+		content := []byte(raw)
 
 		// Build a matcher scoped to this file's language.
 		m, err := NewMatcher(langRules)
@@ -117,7 +119,7 @@ func (s *Scanner) ScanDir(root string) ([]Finding, error) {
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("scanning %s: %w", root, err)
+		return nil, coreerr.E("Scanner.ScanDir", "scanning "+root, err)
 	}
 
 	return findings, nil
@@ -125,10 +127,11 @@ func (s *Scanner) ScanDir(root string) ([]Finding, error) {
 
 // ScanFile scans a single file against all rules.
 func (s *Scanner) ScanFile(path string) ([]Finding, error) {
-	content, err := os.ReadFile(path)
+	raw, err := coreio.Local.Read(path)
 	if err != nil {
-		return nil, fmt.Errorf("reading %s: %w", path, err)
+		return nil, coreerr.E("Scanner.ScanFile", "reading "+path, err)
 	}
+	content := []byte(raw)
 
 	lang := DetectLanguage(filepath.Base(path))
 	if lang == "" {

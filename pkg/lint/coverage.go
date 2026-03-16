@@ -3,13 +3,15 @@ package lint
 import (
 	"bufio"
 	"encoding/json"
-	"fmt"
 	"math"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	coreio "forge.lthn.ai/core/go-io"
+	coreerr "forge.lthn.ai/core/go-log"
 )
 
 // CoverageSnapshot represents a point-in-time coverage measurement.
@@ -51,32 +53,32 @@ func NewCoverageStore(path string) *CoverageStore {
 func (s *CoverageStore) Append(snap CoverageSnapshot) error {
 	snapshots, err := s.Load()
 	if err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("load snapshots: %w", err)
+		return coreerr.E("CoverageStore.Append", "load snapshots", err)
 	}
 
 	snapshots = append(snapshots, snap)
 
 	data, err := json.MarshalIndent(snapshots, "", "  ")
 	if err != nil {
-		return fmt.Errorf("marshal snapshots: %w", err)
+		return coreerr.E("CoverageStore.Append", "marshal snapshots", err)
 	}
 
-	if err := os.WriteFile(s.Path, data, 0644); err != nil {
-		return fmt.Errorf("write %s: %w", s.Path, err)
+	if err := coreio.Local.Write(s.Path, string(data)); err != nil {
+		return coreerr.E("CoverageStore.Append", "write "+s.Path, err)
 	}
 	return nil
 }
 
 // Load reads all snapshots from the store.
 func (s *CoverageStore) Load() ([]CoverageSnapshot, error) {
-	data, err := os.ReadFile(s.Path)
+	raw, err := coreio.Local.Read(s.Path)
 	if err != nil {
 		return nil, err
 	}
 
 	var snapshots []CoverageSnapshot
-	if err := json.Unmarshal(data, &snapshots); err != nil {
-		return nil, fmt.Errorf("parse %s: %w", s.Path, err)
+	if err := json.Unmarshal([]byte(raw), &snapshots); err != nil {
+		return nil, coreerr.E("CoverageStore.Load", "parse "+s.Path, err)
 	}
 	return snapshots, nil
 }

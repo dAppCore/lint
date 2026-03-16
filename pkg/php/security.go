@@ -6,6 +6,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	coreio "forge.lthn.ai/core/go-io"
+	coreerr "forge.lthn.ai/core/go-log"
 )
 
 // SecurityOptions configures security scanning.
@@ -58,7 +61,7 @@ func RunSecurityChecks(ctx context.Context, opts SecurityOptions) (*SecurityResu
 	if opts.Dir == "" {
 		cwd, err := os.Getwd()
 		if err != nil {
-			return nil, fmt.Errorf("get working directory: %w", err)
+			return nil, coreerr.E("RunSecurityChecks", "get working directory", err)
 		}
 		opts.Dir = cwd
 	}
@@ -116,12 +119,10 @@ func runEnvSecurityChecks(dir string) []SecurityCheck {
 	var checks []SecurityCheck
 
 	envPath := filepath.Join(dir, ".env")
-	envBytes, err := os.ReadFile(envPath)
+	envContent, err := coreio.Local.Read(envPath)
 	if err != nil {
 		return checks
 	}
-
-	envContent := string(envBytes)
 	envLines := strings.Split(envContent, "\n")
 	envMap := make(map[string]string)
 	for _, line := range envLines {
