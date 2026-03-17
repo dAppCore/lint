@@ -1,7 +1,11 @@
 // Package detect identifies project types by examining filesystem markers.
 package detect
 
-import "os"
+import (
+	"path/filepath"
+
+	coreio "forge.lthn.ai/core/go-io"
+)
 
 // ProjectType identifies a project's language/framework.
 type ProjectType string
@@ -13,14 +17,12 @@ const (
 
 // IsGoProject returns true if dir contains a go.mod file.
 func IsGoProject(dir string) bool {
-	_, err := os.Stat(dir + "/go.mod")
-	return err == nil
+	return coreio.Local.Exists(filepath.Join(dir, "go.mod"))
 }
 
 // IsPHPProject returns true if dir contains a composer.json file.
 func IsPHPProject(dir string) bool {
-	_, err := os.Stat(dir + "/composer.json")
-	return err == nil
+	return coreio.Local.Exists(filepath.Join(dir, "composer.json"))
 }
 
 // DetectAll returns all detected project types in the directory.

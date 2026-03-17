@@ -209,6 +209,89 @@ func TestScanDir_Good_Subdirectories(t *testing.T) {
 	require.Len(t, findings, 1)
 }
 
+func TestLanguagesFromRules_Good(t *testing.T) {
+	rules := []Rule{
+		{Languages: []string{"go", "php"}},
+		{Languages: []string{"go", "ts"}},
+		{Languages: []string{"py"}},
+	}
+	langs := languagesFromRules(rules)
+	assert.Equal(t, []string{"go", "php", "py", "ts"}, langs)
+}
+
+func TestLanguagesFromRules_Good_Empty(t *testing.T) {
+	langs := languagesFromRules(nil)
+	assert.Empty(t, langs)
+}
+
+func TestIsExcludedDir_Good(t *testing.T) {
+	tests := []struct {
+		name string
+		want bool
+	}{
+		{"vendor", true},
+		{"node_modules", true},
+		{".git", true},
+		{"testdata", true},
+		{".core", true},
+		{".hidden", true},  // any dot-prefixed dir
+		{".idea", true},    // any dot-prefixed dir
+		{"src", false},
+		{"pkg", false},
+		{"cmd", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, IsExcludedDir(tt.name))
+		})
+	}
+}
+
+func TestScanFile_Bad_UnrecognisedExtension(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "readme.txt")
+	require.NoError(t, os.WriteFile(file, []byte("TODO: fix this"), 0o644))
+
+	rules := []Rule{
+		{
+			ID:        "test-001",
+			Title:     "Found TODO",
+			Severity:  "low",
+			Languages: []string{"go"},
+			Pattern:   `TODO`,
+			Fix:       "Remove TODO",
+			Detection: "regex",
+		},
+	}
+
+	s, err := NewScanner(rules)
+	require.NoError(t, err)
+
+	findings, err := s.ScanFile(file)
+	require.NoError(t, err)
+	assert.Empty(t, findings, "should not match unrecognised extensions")
+}
+
+func TestScanFile_Bad_NonexistentFile(t *testing.T) {
+	rules := []Rule{
+		{
+			ID:        "test-001",
+			Title:     "Test",
+			Severity:  "low",
+			Languages: []string{"go"},
+			Pattern:   `TODO`,
+			Fix:       "Fix",
+			Detection: "regex",
+		},
+	}
+
+	s, err := NewScanner(rules)
+	require.NoError(t, err)
+
+	_, err = s.ScanFile("/nonexistent/test.go")
+	assert.Error(t, err)
+}
+
 func TestScanDir_Bad_NonexistentDir(t *testing.T) {
 	rules := []Rule{
 		{
