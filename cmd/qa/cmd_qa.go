@@ -12,12 +12,13 @@ package qa
 
 import (
 	"forge.lthn.ai/core/cli/pkg/cli"
-	"forge.lthn.ai/core/go-i18n"
+	i18n "forge.lthn.ai/core/go-i18n"
 	"forge.lthn.ai/core/lint/locales"
 )
 
 func init() {
-	cli.RegisterCommands(AddQACommands, locales.FS)
+	i18n.RegisterLocales(locales.FS, ".")
+	cli.RegisterCommands(AddQACommands)
 }
 
 // Style aliases from shared package

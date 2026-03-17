@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"forge.lthn.ai/core/cli/pkg/cli"
+	coreio "forge.lthn.ai/core/go-io"
 	coreerr "forge.lthn.ai/core/go-log"
 	lint "forge.lthn.ai/core/lint"
 	lintpkg "forge.lthn.ai/core/lint/pkg/lint"
@@ -66,7 +67,7 @@ func addLintCommands(root *cli.Command) {
 
 		var allFindings []lintpkg.Finding
 		for _, p := range paths {
-			info, err := os.Stat(p)
+			info, err := coreio.Local.Stat(p)
 			if err != nil {
 				return coreerr.E("cmd.check", "stat "+p, err)
 			}
