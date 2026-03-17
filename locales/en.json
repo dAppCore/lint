@@ -1,0 +1,111 @@
+{
+  "cmd": {
+    "qa": {
+      "short": "Quality assurance checks",
+      "long": "Run quality assurance checks across the registry: CI health, issues, reviews, documentation coverage, and workflow monitoring.",
+      "docblock": {
+        "short": "Check documentation coverage",
+        "long": "Analyse exported symbols for missing doc comments and report coverage percentage against a configurable threshold.",
+        "coverage": "Documentation coverage",
+        "missing_docs": "Missing documentation:",
+        "flag": {
+          "threshold": "Minimum coverage percentage to pass"
+        }
+      },
+      "health": {
+        "short": "Show CI health across repos",
+        "long": "Check GitHub Actions workflow status for all repos in the registry and report which are passing, failing, or unconfigured.",
+        "summary": "CI Health",
+        "all_healthy": "All repos are healthy.",
+        "passing": "Passing",
+        "tests_failing": "Tests failing",
+        "cancelled": "Cancelled",
+        "skipped": "Skipped",
+        "running": "Running",
+        "fetch_error": "Failed to fetch workflow status",
+        "parse_error": "Failed to parse workflow response",
+        "no_ci_configured": "No CI configured",
+        "count_passing": "passing",
+        "count_failing": "failing",
+        "count_pending": "pending",
+        "count_no_ci": "no CI",
+        "count_disabled": "disabled",
+        "flag": {
+          "problems": "Show only repos with problems"
+        }
+      },
+      "issues": {
+        "short": "List open issues across repos",
+        "long": "Fetch and categorise open GitHub issues across registry repos, grouping by status: needs response, ready, blocked, and triage.",
+        "fetching": "Fetching issues...",
+        "no_issues": "No open issues found.",
+        "category": {
+          "needs_response": "Needs Response",
+          "ready": "Ready",
+          "blocked": "Blocked",
+          "triage": "Triage"
+        },
+        "hint": {
+          "blocked": "blocked by dependency",
+          "triage": "needs triage",
+          "needs_response": "awaiting response"
+        },
+        "flag": {
+          "mine": "Show only issues assigned to you",
+          "triage": "Show only issues needing triage",
+          "blocked": "Show only blocked issues",
+          "limit": "Maximum number of issues to fetch"
+        }
+      },
+      "review": {
+        "short": "List pull requests needing review",
+        "long": "Show open pull requests across registry repos, highlighting those awaiting your review and your own PRs.",
+        "your_prs": "Your pull requests",
+        "review_requested": "Review requested",
+        "no_prs": "No open pull requests.",
+        "no_reviews": "No reviews requested.",
+        "error": {
+          "no_repo": "Could not determine repository"
+        },
+        "flag": {
+          "mine": "Show only your pull requests",
+          "requested": "Show only PRs requesting your review",
+          "repo": "Filter by repository name"
+        }
+      },
+      "watch": {
+        "short": "Watch CI workflows for a commit",
+        "long": "Monitor GitHub Actions workflows for a specific commit, polling until all complete or the timeout is reached.",
+        "commit": "Watching commit",
+        "waiting_for_workflows": "Waiting for workflows...",
+        "all_passed": "All workflows passed.",
+        "workflows_failed": "{{.Count}} workflow(s) failed.",
+        "timeout": "Timed out after {{.Duration}}.",
+        "error": {
+          "not_git_repo": "Current directory is not a git repository",
+          "repo_format": "Could not determine owner/repo from remote"
+        },
+        "flag": {
+          "repo": "Repository in owner/name format",
+          "commit": "Commit SHA to watch",
+          "timeout": "Maximum time to wait"
+        }
+      }
+    }
+  },
+  "common": {
+    "flag": {
+      "json": "Output as JSON",
+      "registry": "Path to registry file",
+      "verbose": "Show detailed output"
+    },
+    "label": {
+      "error": "FAIL",
+      "success": "PASS"
+    }
+  },
+  "error": {
+    "gh_not_found": "GitHub CLI (gh) not found; install from https://cli.github.com",
+    "registry_not_found": "Registry file not found"
+  }
+}
