@@ -460,6 +460,57 @@ func sortSecurityChecks(checks []php.SecurityCheck) []php.SecurityCheck {
 	return checks
 }
 
+type auditJSONOutput struct {
+	Results            []AuditResultJSON `json:"results"`
+	HasVulnerabilities bool              `json:"has_vulnerabilities"`
+	Vulnerabilities    int               `json:"vulnerabilities"`
+}
+
+type AuditResultJSON struct {
+	Tool            string              `json:"tool"`
+	Vulnerabilities int                 `json:"vulnerabilities"`
+	Advisories      []php.AuditAdvisory `json:"advisories"`
+	Error           string              `json:"error,omitempty"`
+}
+
+func mapAuditResultsForJSON(results []php.AuditResult) auditJSONOutput {
+	output := auditJSONOutput{
+		Results: make([]AuditResultJSON, 0, len(results)),
+	}
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].Tool < results[j].Tool
+	})
+
+	for _, result := range results {
+		entry := AuditResultJSON{
+			Tool:            result.Tool,
+			Vulnerabilities: result.Vulnerabilities,
+			Advisories:      append([]php.AuditAdvisory(nil), result.Advisories...),
+		}
+		if result.Error != nil {
+			entry.Error = result.Error.Error()
+		}
+		sort.Slice(entry.Advisories, func(i, j int) bool {
+			if entry.Advisories[i].Package == entry.Advisories[j].Package {
+				return entry.Advisories[i].Title < entry.Advisories[j].Title
+			}
+			return entry.Advisories[i].Package < entry.Advisories[j].Package
+		})
+		output.Results = append(output.Results, entry)
+		output.Vulnerabilities += entry.Vulnerabilities
+	}
+
+	output.HasVulnerabilities = output.Vulnerabilities > 0
+	return output
+}
+
+func sortSecurityChecks(checks []php.SecurityCheck) []php.SecurityCheck {
+	sort.Slice(checks, func(i, j int) bool {
+		return checks[i].ID < checks[j].ID
+	})
+	return checks
+}
+
 // PHP rector command flags.
 var (
 	phpRectorFix        bool
