@@ -93,35 +93,42 @@ func addLintCommands(root *cli.Command) {
 			lintpkg.WriteText(os.Stdout, allFindings)
 		}
 
-		if len(allFindings) > 0 {
+		if checkFormat == "text" && len(allFindings) > 0 {
 			summary := lintpkg.Summarise(allFindings)
-			severityOrder := []string{"critical", "high", "medium", "low", "info"}
+			fmt.Fprintf(os.Stdout, "\n%d finding(s)", summary.Total)
+
+			orderedSeverities := []string{"critical", "high", "medium", "low", "info"}
 			seen := make(map[string]bool, len(summary.BySeverity))
-
 			var parts []string
-			for _, severity := range severityOrder {
-				if count, ok := summary.BySeverity[severity]; ok {
-					parts = append(parts, fmt.Sprintf("%d %s", count, severity))
-					seen[severity] = true
+
+			for _, sev := range orderedSeverities {
+				count := summary.BySeverity[sev]
+				if count == 0 {
+					continue
 				}
+				seen[sev] = true
+				parts = append(parts, fmt.Sprintf("%d %s", count, sev))
 			}
 
-			var unknown []string
+			var extraSeverities []string
 			for severity := range summary.BySeverity {
-				if !seen[severity] {
-					unknown = append(unknown, severity)
+				if seen[severity] {
+					continue
 				}
+				extraSeverities = append(extraSeverities, severity)
 			}
-			sort.Strings(unknown)
-			for _, severity := range unknown {
-				parts = append(parts, fmt.Sprintf("%d %s", summary.BySeverity[severity], severity))
+			sort.Strings(extraSeverities)
+			for _, severity := range extraSeverities {
+				count := summary.BySeverity[severity]
+				if count == 0 {
+					continue
+				}
+				parts = append(parts, fmt.Sprintf("%d %s", count, severity))
 			}
-
-			fmt.Printf("\n%d finding(s)", summary.Total)
 			if len(parts) > 0 {
-				fmt.Printf(" (%s)", strings.Join(parts, ", "))
+				fmt.Fprintf(os.Stdout, " (%s)", strings.Join(parts, ", "))
 			}
-			fmt.Println()
+			fmt.Fprintln(os.Stdout)
 		}
 
 		return nil

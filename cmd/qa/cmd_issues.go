@@ -79,6 +79,21 @@ type issuesOutput struct {
 	Triage        []Issue `json:"triage"`
 }
 
+type IssueCategoryOutput struct {
+	Category string  `json:"category"`
+	Count    int     `json:"count"`
+	Issues   []Issue `json:"issues"`
+}
+
+type IssuesOutput struct {
+	TotalIssues    int                   `json:"total_issues"`
+	FilteredIssues int                   `json:"filtered_issues"`
+	ShowingMine    bool                  `json:"showing_mine"`
+	ShowingTriage  bool                  `json:"showing_triage"`
+	ShowingBlocked bool                  `json:"showing_blocked"`
+	Categories     []IssueCategoryOutput `json:"categories"`
+}
+
 // addIssuesCommand adds the 'issues' subcommand to qa.
 func addIssuesCommand(parent *cli.Command) {
 	issuesCmd := &cli.Command{
@@ -126,15 +141,32 @@ func runQAIssues() error {
 	// Fetch issues from all repos
 	var allIssues []Issue
 	repoList := reg.List()
-	for _, repo := range repoList {
+
+	for i, repo := range repoList {
+		if !issuesJSON {
+			cli.Print("%s %d/%d %s\n",
+				dimStyle.Render(i18n.T("cmd.qa.issues.fetching")),
+				i+1, len(repoList), repo.Name)
+		}
+
 		issues, err := fetchQAIssues(reg.Org, repo.Name, issuesLimit)
 		if err != nil {
 			continue // Skip repos with errors
 		}
 		allIssues = append(allIssues, issues...)
 	}
+	totalIssues := len(allIssues)
 
 	if len(allIssues) == 0 {
+		emptyCategorised := map[string][]Issue{
+			"needs_response": {},
+			"ready":          {},
+			"blocked":        {},
+			"triage":         {},
+		}
+		if issuesJSON {
+			return printCategorisedIssuesJSON(0, emptyCategorised)
+		}
 		cli.Text(i18n.T("cmd.qa.issues.no_issues"))
 		return nil
 	}
@@ -154,18 +186,7 @@ func runQAIssues() error {
 	}
 
 	if issuesJSON {
-		output := issuesOutput{
-			NeedsResponse: categorised["needs_response"],
-			Ready:         categorised["ready"],
-			Blocked:       categorised["blocked"],
-			Triage:        categorised["triage"],
-		}
-		data, err := json.MarshalIndent(output, "", "  ")
-		if err != nil {
-			return err
-		}
-		cli.Print("%s", string(data))
-		return nil
+		return printCategorisedIssuesJSON(totalIssues, categorised)
 	}
 
 	// Print categorised issues
@@ -388,6 +409,38 @@ func printCategorisedIssues(categorised map[string][]Issue) {
 	if first {
 		cli.Text(i18n.T("cmd.qa.issues.no_issues"))
 	}
+}
+
+func printCategorisedIssuesJSON(totalIssues int, categorised map[string][]Issue) error {
+	categories := []string{"needs_response", "ready", "blocked", "triage"}
+	filteredIssues := 0
+	categoryOutput := make([]IssueCategoryOutput, 0, len(categories))
+
+	for _, category := range categories {
+		issues := categorised[category]
+		filteredIssues += len(issues)
+		categoryOutput = append(categoryOutput, IssueCategoryOutput{
+			Category: category,
+			Count:    len(issues),
+			Issues:   issues,
+		})
+	}
+
+	output := IssuesOutput{
+		TotalIssues:    totalIssues,
+		FilteredIssues: filteredIssues,
+		ShowingMine:    issuesMine,
+		ShowingTriage:  issuesTriage,
+		ShowingBlocked: issuesBlocked,
+		Categories:     categoryOutput,
+	}
+
+	data, err := json.MarshalIndent(output, "", "  ")
+	if err != nil {
+		return err
+	}
+	cli.Print("%s\n", string(data))
+	return nil
 }
 
 func printTriagedIssue(issue Issue) {
