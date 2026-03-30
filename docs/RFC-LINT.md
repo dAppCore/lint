@@ -341,6 +341,8 @@ Execution rules:
 | `warning` | `summary.errors == 0 && summary.warnings == 0` |
 | `info` | `summary.total == 0` |
 
+CLI exit status follows `report.Summary.Passed`, not raw tool state. A `skipped` or `timeout` tool run does not fail the command by itself.
+
 ## Catalog Surfaces
 
 The repository has two catalog paths. They are related, but they are not the same implementation.
@@ -470,7 +472,8 @@ Inventory rules:
 
 - JSON tools are parsed recursively and schema-tolerantly by searching for common keys such as `file`, `line`, `column`, `code`, `message`, and `severity`
 - Text tools are parsed from `file:line[:column]: message`
-- Unparseable command failures become one synthetic finding with `code: command-failed`
+- Non-empty output that does not match either parser becomes one synthetic finding with `code: diagnostic`
+- A failed command with no usable parsed output becomes one synthetic finding with `code: command-failed`
 - Duplicate findings are collapsed on `tool|file|line|column|code|message`
 - `ToolRun.Version` exists in the report schema but is not populated yet
 
@@ -510,6 +513,15 @@ type Summary struct {
     BySeverity map[string]int `json:"by_severity,omitempty"`
 }
 ```
+
+`ToolRun.Status` has four implemented values:
+
+| Status | Meaning |
+|--------|---------|
+| `passed` | The adapter ran and emitted no findings |
+| `failed` | The adapter ran and emitted findings or the command exited non-zero |
+| `skipped` | The binary was missing or hook mode skipped a non-fast adapter |
+| `timeout` | The command exceeded the 5 minute adapter timeout |
 
 `Finding` is shared with the legacy catalog scanner:
 
