@@ -1,6 +1,7 @@
 package qa
 
 import (
+	"encoding/json"
 	"io"
 	"os"
 	"path/filepath"
@@ -53,6 +54,126 @@ func TestPHPPsalmJSONOutput_DoesNotAppendSuccessBanner(t *testing.T) {
 	assert.Equal(t, "{\"tool\":\"psalm\",\"status\":\"ok\"}\n", output)
 	assert.NotContains(t, output, "Psalm analysis passed")
 	assert.NotContains(t, output, "PHP Psalm Analysis")
+}
+
+func TestPHPStanSARIFOutput_DoesNotAppendSuccessBanner(t *testing.T) {
+	dir := t.TempDir()
+	writeTestFile(t, filepath.Join(dir, "composer.json"), "{}")
+	writeExecutable(t, filepath.Join(dir, "vendor", "bin", "phpstan"), "#!/bin/sh\nprintf '%s\\n' '{\"version\":\"2.1.0\",\"runs\":[]}'\n")
+
+	restoreWorkingDir(t, dir)
+	resetPHPStanFlags(t)
+
+	parent := &cli.Command{Use: "qa"}
+	addPHPStanCommand(parent)
+	command := findSubcommand(t, parent, "stan")
+	require.NoError(t, command.Flags().Set("sarif", "true"))
+
+	output := captureStdout(t, func() {
+		require.NoError(t, command.RunE(command, nil))
+	})
+
+	assert.Equal(t, "{\"version\":\"2.1.0\",\"runs\":[]}\n", output)
+	assert.NotContains(t, output, "Static analysis passed")
+	assert.NotContains(t, output, "PHP Static Analysis")
+}
+
+func TestPHPPsalmSARIFOutput_DoesNotAppendSuccessBanner(t *testing.T) {
+	dir := t.TempDir()
+	writeTestFile(t, filepath.Join(dir, "composer.json"), "{}")
+	writeExecutable(t, filepath.Join(dir, "vendor", "bin", "psalm"), "#!/bin/sh\nprintf '%s\\n' '{\"version\":\"2.1.0\",\"runs\":[]}'\n")
+
+	restoreWorkingDir(t, dir)
+	resetPHPPsalmFlags(t)
+
+	parent := &cli.Command{Use: "qa"}
+	addPHPPsalmCommand(parent)
+	command := findSubcommand(t, parent, "psalm")
+	require.NoError(t, command.Flags().Set("sarif", "true"))
+
+	output := captureStdout(t, func() {
+		require.NoError(t, command.RunE(command, nil))
+	})
+
+	assert.Equal(t, "{\"version\":\"2.1.0\",\"runs\":[]}\n", output)
+	assert.NotContains(t, output, "Psalm analysis passed")
+	assert.NotContains(t, output, "PHP Psalm Analysis")
+}
+
+func TestPHPSecurityJSONOutput_UsesMachineFriendlyKeys(t *testing.T) {
+	dir := t.TempDir()
+	writeTestFile(t, filepath.Join(dir, "composer.json"), "{}")
+	writeTestFile(t, filepath.Join(dir, ".env"), "APP_DEBUG=true\nAPP_KEY=short\nAPP_URL=http://example.com\n")
+	writeExecutable(t, filepath.Join(dir, "bin", "composer"), "#!/bin/sh\nprintf '%s\\n' '{\"advisories\":{}}'\n")
+
+	restoreWorkingDir(t, dir)
+	prependPath(t, filepath.Join(dir, "bin"))
+	resetPHPSecurityFlags(t)
+
+	parent := &cli.Command{Use: "qa"}
+	addPHPSecurityCommand(parent)
+	command := findSubcommand(t, parent, "security")
+	require.NoError(t, command.Flags().Set("json", "true"))
+
+	output := captureStdout(t, func() {
+		require.Error(t, command.RunE(command, nil))
+	})
+
+	assert.Contains(t, output, "\"checks\"")
+	assert.Contains(t, output, "\"summary\"")
+	assert.Contains(t, output, "\"app_key_set\"")
+	assert.NotContains(t, output, "\"Checks\"")
+	assert.NotContains(t, output, "Security Checks")
+}
+
+func TestPHPSecuritySARIFOutput_IsStructuredAndChromeFree(t *testing.T) {
+	dir := t.TempDir()
+	writeTestFile(t, filepath.Join(dir, "composer.json"), "{}")
+	writeTestFile(t, filepath.Join(dir, ".env"), "APP_DEBUG=true\nAPP_KEY=short\nAPP_URL=http://example.com\n")
+	writeExecutable(t, filepath.Join(dir, "bin", "composer"), "#!/bin/sh\nprintf '%s\\n' '{\"advisories\":{}}'\n")
+
+	restoreWorkingDir(t, dir)
+	prependPath(t, filepath.Join(dir, "bin"))
+	resetPHPSecurityFlags(t)
+
+	parent := &cli.Command{Use: "qa"}
+	addPHPSecurityCommand(parent)
+	command := findSubcommand(t, parent, "security")
+	require.NoError(t, command.Flags().Set("sarif", "true"))
+
+	output := captureStdout(t, func() {
+		require.Error(t, command.RunE(command, nil))
+	})
+
+	var payload map[string]any
+	require.NoError(t, json.Unmarshal([]byte(output), &payload))
+	assert.Equal(t, "2.1.0", payload["version"])
+	assert.Contains(t, output, "\"ruleId\": \"app_key_set\"")
+	assert.NotContains(t, output, "Security Checks")
+	assert.NotContains(t, output, "Summary:")
+}
+
+func TestPHPTestJUnitOutput_PrintsOnlyXML(t *testing.T) {
+	dir := t.TempDir()
+	writeTestFile(t, filepath.Join(dir, "composer.json"), "{}")
+	writeExecutable(t, filepath.Join(dir, "vendor", "bin", "phpunit"), "#!/bin/sh\njunit=''\nwhile [ $# -gt 0 ]; do\n  if [ \"$1\" = \"--log-junit\" ]; then\n    shift\n    junit=\"$1\"\n  fi\n  shift\ndone\nprintf '%s\\n' 'human output should be suppressed'\nprintf '%s' '<testsuite tests=\"1\"></testsuite>' > \"$junit\"\n")
+
+	restoreWorkingDir(t, dir)
+	resetPHPTestFlags(t)
+
+	parent := &cli.Command{Use: "qa"}
+	addPHPTestCommand(parent)
+	command := findSubcommand(t, parent, "test")
+	require.NoError(t, command.Flags().Set("junit", "true"))
+
+	output := captureStdout(t, func() {
+		require.NoError(t, command.RunE(command, nil))
+	})
+
+	assert.Equal(t, "<testsuite tests=\"1\"></testsuite>\n", output)
+	assert.NotContains(t, output, "human output should be suppressed")
+	assert.NotContains(t, output, "PHP Tests")
+	assert.NotContains(t, output, "All tests passed")
 }
 
 func writeTestFile(t *testing.T, path string, content string) {
@@ -119,6 +240,45 @@ func resetPHPPsalmFlags(t *testing.T) {
 	})
 }
 
+func resetPHPSecurityFlags(t *testing.T) {
+	t.Helper()
+	oldSeverity := phpSecuritySeverity
+	oldJSON := phpSecurityJSON
+	oldSARIF := phpSecuritySARIF
+	oldURL := phpSecurityURL
+	phpSecuritySeverity = ""
+	phpSecurityJSON = false
+	phpSecuritySARIF = false
+	phpSecurityURL = ""
+	t.Cleanup(func() {
+		phpSecuritySeverity = oldSeverity
+		phpSecurityJSON = oldJSON
+		phpSecuritySARIF = oldSARIF
+		phpSecurityURL = oldURL
+	})
+}
+
+func resetPHPTestFlags(t *testing.T) {
+	t.Helper()
+	oldParallel := phpTestParallel
+	oldCoverage := phpTestCoverage
+	oldFilter := phpTestFilter
+	oldGroup := phpTestGroup
+	oldJUnit := phpTestJUnit
+	phpTestParallel = false
+	phpTestCoverage = false
+	phpTestFilter = ""
+	phpTestGroup = ""
+	phpTestJUnit = false
+	t.Cleanup(func() {
+		phpTestParallel = oldParallel
+		phpTestCoverage = oldCoverage
+		phpTestFilter = oldFilter
+		phpTestGroup = oldGroup
+		phpTestJUnit = oldJUnit
+	})
+}
+
 func findSubcommand(t *testing.T, parent *cli.Command, name string) *cli.Command {
 	t.Helper()
 	for _, command := range parent.Commands() {
@@ -150,4 +310,13 @@ func captureStdout(t *testing.T, fn func()) string {
 	output, err := io.ReadAll(reader)
 	require.NoError(t, err)
 	return string(output)
+}
+
+func prependPath(t *testing.T, dir string) {
+	t.Helper()
+	oldPath := os.Getenv("PATH")
+	require.NoError(t, os.Setenv("PATH", dir+string(os.PathListSeparator)+oldPath))
+	t.Cleanup(func() {
+		require.NoError(t, os.Setenv("PATH", oldPath))
+	})
 }

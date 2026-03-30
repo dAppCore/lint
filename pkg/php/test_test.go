@@ -288,7 +288,7 @@ func TestBuildPHPUnitCommand_Good_JUnit(t *testing.T) {
 
 	assert.Contains(t, args, "--log-junit")
 	assert.Contains(t, args, "test-results.xml")
-	assert.Contains(t, args, "--testdox")
+	assert.NotContains(t, args, "--testdox")
 }
 
 func TestBuildPHPUnitCommand_Good_AllFlags(t *testing.T) {
@@ -313,5 +313,5 @@ func TestBuildPHPUnitCommand_Good_AllFlags(t *testing.T) {
 	assert.Contains(t, args, "--group")
 	assert.Contains(t, args, "feature")
 	assert.Contains(t, args, "--log-junit")
-	assert.Contains(t, args, "--testdox")
+	assert.NotContains(t, args, "--testdox")
 }

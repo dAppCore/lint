@@ -22,30 +22,30 @@ type SecurityOptions struct {
 
 // SecurityResult holds the results of security scanning.
 type SecurityResult struct {
-	Checks  []SecurityCheck
-	Summary SecuritySummary
+	Checks  []SecurityCheck `json:"checks"`
+	Summary SecuritySummary `json:"summary"`
 }
 
 // SecurityCheck represents a single security check result.
 type SecurityCheck struct {
-	ID          string
-	Name        string
-	Description string
-	Severity    string
-	Passed      bool
-	Message     string
-	Fix         string
-	CWE         string
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Severity    string `json:"severity"`
+	Passed      bool   `json:"passed"`
+	Message     string `json:"message,omitempty"`
+	Fix         string `json:"fix,omitempty"`
+	CWE         string `json:"cwe,omitempty"`
 }
 
 // SecuritySummary summarises security check results.
 type SecuritySummary struct {
-	Total    int
-	Passed   int
-	Critical int
-	High     int
-	Medium   int
-	Low      int
+	Total    int `json:"total"`
+	Passed   int `json:"passed"`
+	Critical int `json:"critical"`
+	High     int `json:"high"`
+	Medium   int `json:"medium"`
+	Low      int `json:"low"`
 }
 
 // capitalise returns s with the first letter upper-cased.
