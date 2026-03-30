@@ -83,13 +83,22 @@ type Review struct {
 	State  string `json:"state"`
 }
 
+// ReviewFetchError captures a partial fetch failure while preserving any
+// successfully fetched PRs in the same review run.
+type ReviewFetchError struct {
+	Repo  string `json:"repo"`
+	Scope string `json:"scope"`
+	Error string `json:"error"`
+}
+
 type reviewOutput struct {
-	Mine             []PullRequest `json:"mine"`
-	Requested        []PullRequest `json:"requested"`
-	TotalMine        int           `json:"total_mine"`
-	TotalRequested   int           `json:"total_requested"`
-	ShowingMine      bool          `json:"showing_mine"`
-	ShowingRequested bool          `json:"showing_requested"`
+	Mine             []PullRequest      `json:"mine"`
+	Requested        []PullRequest      `json:"requested"`
+	TotalMine        int                `json:"total_mine"`
+	TotalRequested   int                `json:"total_requested"`
+	ShowingMine      bool               `json:"showing_mine"`
+	ShowingRequested bool               `json:"showing_requested"`
+	FetchErrors      []ReviewFetchError `json:"fetch_errors"`
 }
 
 // addReviewCommand adds the 'review' subcommand to the qa command.
@@ -133,34 +142,56 @@ func runReview() error {
 	// Default: show both mine and requested if neither flag is set
 	showMine := reviewMine || (!reviewMine && !reviewRequested)
 	showRequested := reviewRequested || (!reviewMine && !reviewRequested)
-	var minePRs, requestedPRs []PullRequest
+	minePRs := []PullRequest{}
+	requestedPRs := []PullRequest{}
+	fetchErrors := make([]ReviewFetchError, 0)
+	mineFetched := false
+	requestedFetched := false
 
 	if showMine {
 		prs, err := fetchPRs(ctx, repoFullName, "author:@me")
 		if err != nil {
-			return err
-		}
-		sort.Slice(prs, func(i, j int) bool {
-			if prs[i].Number == prs[j].Number {
-				return strings.Compare(prs[i].Title, prs[j].Title) < 0
+			fetchErrors = append(fetchErrors, ReviewFetchError{
+				Repo:  repoFullName,
+				Scope: "mine",
+				Error: strings.TrimSpace(err.Error()),
+			})
+			if !reviewJSON {
+				cli.Warnf("failed to fetch your PRs for %s: %s", repoFullName, strings.TrimSpace(err.Error()))
 			}
-			return prs[i].Number < prs[j].Number
-		})
-		minePRs = prs
+		} else {
+			sort.Slice(prs, func(i, j int) bool {
+				if prs[i].Number == prs[j].Number {
+					return strings.Compare(prs[i].Title, prs[j].Title) < 0
+				}
+				return prs[i].Number < prs[j].Number
+			})
+			minePRs = prs
+			mineFetched = true
+		}
 	}
 
 	if showRequested {
 		prs, err := fetchPRs(ctx, repoFullName, "review-requested:@me")
 		if err != nil {
-			return err
-		}
-		sort.Slice(prs, func(i, j int) bool {
-			if prs[i].Number == prs[j].Number {
-				return strings.Compare(prs[i].Title, prs[j].Title) < 0
+			fetchErrors = append(fetchErrors, ReviewFetchError{
+				Repo:  repoFullName,
+				Scope: "requested",
+				Error: strings.TrimSpace(err.Error()),
+			})
+			if !reviewJSON {
+				cli.Warnf("failed to fetch review requested PRs for %s: %s", repoFullName, strings.TrimSpace(err.Error()))
 			}
-			return prs[i].Number < prs[j].Number
-		})
-		requestedPRs = prs
+		} else {
+			sort.Slice(prs, func(i, j int) bool {
+				if prs[i].Number == prs[j].Number {
+					return strings.Compare(prs[i].Title, prs[j].Title) < 0
+				}
+				return prs[i].Number < prs[j].Number
+			})
+			requestedPRs = prs
+			requestedFetched = true
+		}
 	}
 
 	if reviewJSON {
@@ -171,6 +202,7 @@ func runReview() error {
 			TotalRequested:   len(requestedPRs),
 			ShowingMine:      showMine,
 			ShowingRequested: showRequested,
+			FetchErrors:      fetchErrors,
 		}, "", "  ")
 		if err != nil {
 			return err
@@ -179,14 +211,14 @@ func runReview() error {
 		return nil
 	}
 
-	if showMine {
+	if showMine && mineFetched {
 		if err := printMyPRs(minePRs); err != nil {
 			return err
 		}
 	}
 
-	if showRequested {
-		if showMine {
+	if showRequested && requestedFetched {
+		if showMine && mineFetched {
 			cli.Blank()
 		}
 		if err := printRequestedPRs(requestedPRs); err != nil {
@@ -196,6 +228,7 @@ func runReview() error {
 
 	return nil
 }
+
 // printMyPRs shows the user's open PRs with status
 func printMyPRs(prs []PullRequest) error {
 	if len(prs) == 0 {
@@ -211,6 +244,7 @@ func printMyPRs(prs []PullRequest) error {
 
 	return nil
 }
+
 // printRequestedPRs shows PRs where user's review is requested
 func printRequestedPRs(prs []PullRequest) error {
 	if len(prs) == 0 {
