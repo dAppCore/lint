@@ -79,6 +79,37 @@ func TestCompareCoverage(t *testing.T) {
 	assert.InDelta(t, 6.7, comp.TotalDelta, 0.1)
 }
 
+func TestCompareCoverage_SortsResultSlices(t *testing.T) {
+	prev := CoverageSnapshot{
+		Packages: map[string]float64{
+			"pkg/z": 90.0,
+			"pkg/b": 60.0,
+			"pkg/a": 80.0,
+			"pkg/c": 50.0,
+		},
+		Total: 70.0,
+	}
+	curr := CoverageSnapshot{
+		Packages: map[string]float64{
+			"pkg/b": 55.0,
+			"pkg/a": 70.0,
+			"pkg/c": 60.0,
+			"pkg/y": 40.0,
+		},
+		Total: 55.0,
+	}
+
+	comp := CompareCoverage(prev, curr)
+
+	assert.Equal(t, []string{"pkg/y"}, comp.NewPackages)
+	assert.Equal(t, []string{"pkg/z"}, comp.Removed)
+	require.Len(t, comp.Regressions, 2)
+	assert.Equal(t, "pkg/a", comp.Regressions[0].Package)
+	assert.Equal(t, "pkg/b", comp.Regressions[1].Package)
+	require.Len(t, comp.Improvements, 1)
+	assert.Equal(t, "pkg/c", comp.Improvements[0].Package)
+}
+
 func TestCompareCoverage_NoChange(t *testing.T) {
 	snap := CoverageSnapshot{
 		Packages: map[string]float64{"pkg/a": 80.0},

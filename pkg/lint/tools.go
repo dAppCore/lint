@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -488,6 +489,10 @@ func (t *Toolkit) DepGraph(pkg string) (*Graph, error) {
 
 	for node := range nodes {
 		graph.Nodes = append(graph.Nodes, node)
+	}
+	slices.Sort(graph.Nodes)
+	for src := range graph.Edges {
+		slices.Sort(graph.Edges[src])
 	}
 	return graph, nil
 }

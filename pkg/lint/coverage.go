@@ -2,10 +2,12 @@ package lint
 
 import (
 	"bufio"
+	"cmp"
 	"encoding/json"
 	"math"
 	"os"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -17,9 +19,9 @@ import (
 // CoverageSnapshot represents a point-in-time coverage measurement.
 type CoverageSnapshot struct {
 	Timestamp time.Time          `json:"timestamp"`
-	Packages  map[string]float64 `json:"packages"`        // package → coverage %
-	Total     float64            `json:"total"`            // overall coverage %
-	Meta      map[string]string  `json:"meta,omitempty"`   // optional metadata (commit, branch, etc.)
+	Packages  map[string]float64 `json:"packages"`       // package → coverage %
+	Total     float64            `json:"total"`          // overall coverage %
+	Meta      map[string]string  `json:"meta,omitempty"` // optional metadata (commit, branch, etc.)
 }
 
 // CoverageRegression flags a package whose coverage changed between runs.
@@ -246,6 +248,25 @@ func CompareCoverage(previous, current CoverageSnapshot) CoverageComparison {
 			comp.Removed = append(comp.Removed, pkg)
 		}
 	}
+
+	slices.Sort(comp.NewPackages)
+	slices.Sort(comp.Removed)
+	slices.SortFunc(comp.Regressions, func(a, b CoverageRegression) int {
+		return cmp.Or(
+			cmp.Compare(a.Package, b.Package),
+			cmp.Compare(a.Previous, b.Previous),
+			cmp.Compare(a.Current, b.Current),
+			cmp.Compare(a.Delta, b.Delta),
+		)
+	})
+	slices.SortFunc(comp.Improvements, func(a, b CoverageRegression) int {
+		return cmp.Or(
+			cmp.Compare(a.Package, b.Package),
+			cmp.Compare(a.Previous, b.Previous),
+			cmp.Compare(a.Current, b.Current),
+			cmp.Compare(a.Delta, b.Delta),
+		)
+	})
 
 	return comp
 }

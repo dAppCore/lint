@@ -135,6 +135,18 @@ func TestToolkit_DepGraph_Good(t *testing.T) {
 	assert.Len(t, graph.Edges["modA@v1"], 2)
 }
 
+func TestToolkit_DepGraph_SortsNodesAndEdges(t *testing.T) {
+	output := "modB@v2 modD@v1\nmodA@v1 modC@v3\nmodA@v1 modB@v2"
+	setupMockCmd(t, "go", output)
+
+	tk := NewToolkit(t.TempDir())
+	graph, err := tk.DepGraph("./...")
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{"modA@v1", "modB@v2", "modC@v3", "modD@v1"}, graph.Nodes)
+	assert.Equal(t, []string{"modB@v2", "modC@v3"}, graph.Edges["modA@v1"])
+}
+
 func TestToolkit_RaceDetect_Good(t *testing.T) {
 	setupMockCmd(t, "go", "ok\texample.com/safe\t0.1s")
 

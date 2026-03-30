@@ -47,6 +47,24 @@ func TestAuditAdvisory_Fields(t *testing.T) {
 	assert.Equal(t, []string{"CVE-2025-9999", "GHSA-xxxx"}, adv.Identifiers)
 }
 
+func TestSortAuditAdvisories_Good(t *testing.T) {
+	advisories := []AuditAdvisory{
+		{Package: "vendor/package-b", Title: "Zulu"},
+		{Package: "vendor/package-a", Title: "Beta"},
+		{Package: "vendor/package-b", Title: "Alpha"},
+	}
+
+	sortAuditAdvisories(advisories)
+
+	require.Len(t, advisories, 3)
+	assert.Equal(t, "vendor/package-a", advisories[0].Package)
+	assert.Equal(t, "Beta", advisories[0].Title)
+	assert.Equal(t, "vendor/package-b", advisories[1].Package)
+	assert.Equal(t, "Alpha", advisories[1].Title)
+	assert.Equal(t, "vendor/package-b", advisories[2].Package)
+	assert.Equal(t, "Zulu", advisories[2].Title)
+}
+
 func TestRunComposerAudit_ParsesJSON(t *testing.T) {
 	// Test the JSON parsing of composer audit output by verifying
 	// the struct can be populated from JSON matching composer's format.
@@ -101,24 +119,20 @@ func TestRunComposerAudit_ParsesJSON(t *testing.T) {
 			})
 		}
 	}
+	sortAuditAdvisories(result.Advisories)
 	result.Vulnerabilities = len(result.Advisories)
 
 	assert.Equal(t, "composer", result.Tool)
 	assert.Equal(t, 3, result.Vulnerabilities)
 	assert.Len(t, result.Advisories, 3)
-
-	// Build a map of advisories by package for deterministic assertions
-	byPkg := make(map[string][]AuditAdvisory)
-	for _, a := range result.Advisories {
-		byPkg[a.Package] = append(byPkg[a.Package], a)
-	}
-
-	assert.Len(t, byPkg["vendor/package-a"], 1)
-	assert.Equal(t, "Remote Code Execution", byPkg["vendor/package-a"][0].Title)
-	assert.Equal(t, "https://example.com/advisory/1", byPkg["vendor/package-a"][0].URL)
-	assert.Equal(t, []string{"CVE-2025-1234"}, byPkg["vendor/package-a"][0].Identifiers)
-
-	assert.Len(t, byPkg["vendor/package-b"], 2)
+	assert.Equal(t, "vendor/package-a", result.Advisories[0].Package)
+	assert.Equal(t, "Remote Code Execution", result.Advisories[0].Title)
+	assert.Equal(t, "https://example.com/advisory/1", result.Advisories[0].URL)
+	assert.Equal(t, []string{"CVE-2025-1234"}, result.Advisories[0].Identifiers)
+	assert.Equal(t, "vendor/package-b", result.Advisories[1].Package)
+	assert.Equal(t, "Cross-Site Scripting", result.Advisories[1].Title)
+	assert.Equal(t, "vendor/package-b", result.Advisories[2].Package)
+	assert.Equal(t, "Open Redirect", result.Advisories[2].Title)
 }
 
 func TestNpmAuditJSON_ParsesCorrectly(t *testing.T) {
@@ -164,19 +178,15 @@ func TestNpmAuditJSON_ParsesCorrectly(t *testing.T) {
 			Severity: vuln.Severity,
 		})
 	}
+	sortAuditAdvisories(result.Advisories)
 
 	assert.Equal(t, "npm", result.Tool)
 	assert.Equal(t, 2, result.Vulnerabilities)
 	assert.Len(t, result.Advisories, 2)
-
-	// Build map for deterministic assertions
-	byPkg := make(map[string]AuditAdvisory)
-	for _, a := range result.Advisories {
-		byPkg[a.Package] = a
-	}
-
-	assert.Equal(t, "high", byPkg["lodash"].Severity)
-	assert.Equal(t, "low", byPkg["minimist"].Severity)
+	assert.Equal(t, "lodash", result.Advisories[0].Package)
+	assert.Equal(t, "high", result.Advisories[0].Severity)
+	assert.Equal(t, "minimist", result.Advisories[1].Package)
+	assert.Equal(t, "low", result.Advisories[1].Severity)
 }
 
 func TestRunAudit_SkipsNpmWithoutPackageJSON(t *testing.T) {
