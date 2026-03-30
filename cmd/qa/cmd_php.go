@@ -14,8 +14,10 @@ package qa
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 
 	"forge.lthn.ai/core/cli/pkg/cli"
@@ -65,8 +67,10 @@ func addPHPFmtCommand(parent *cli.Command) {
 				return cli.Err("not a PHP project (no composer.json found)")
 			}
 
-			cli.Print("%s %s\n", headerStyle.Render("PHP Format"), dimStyle.Render("(Pint)"))
-			cli.Blank()
+			if !phpFmtJSON {
+				cli.Print("%s %s\n", headerStyle.Render("PHP Format"), dimStyle.Render("(Pint)"))
+				cli.Blank()
+			}
 
 			return php.Format(context.Background(), php.FormatOptions{
 				Dir:  cwd,
@@ -111,8 +115,10 @@ func addPHPStanCommand(parent *cli.Command) {
 				return cli.Err("no static analyser found (install PHPStan: composer require phpstan/phpstan --dev)")
 			}
 
-			cli.Print("%s %s\n", headerStyle.Render("PHP Static Analysis"), dimStyle.Render(fmt.Sprintf("(%s)", analyser)))
-			cli.Blank()
+			if !phpStanJSON {
+				cli.Print("%s %s\n", headerStyle.Render("PHP Static Analysis"), dimStyle.Render(fmt.Sprintf("(%s)", analyser)))
+				cli.Blank()
+			}
 
 			err = php.Analyse(context.Background(), php.AnalyseOptions{
 				Dir:    cwd,
@@ -125,8 +131,10 @@ func addPHPStanCommand(parent *cli.Command) {
 				return cli.Err("static analysis found issues")
 			}
 
-			cli.Blank()
-			cli.Print("%s\n", successStyle.Render("Static analysis passed"))
+			if !phpStanJSON {
+				cli.Blank()
+				cli.Print("%s\n", successStyle.Render("Static analysis passed"))
+			}
 			return nil
 		},
 	}
@@ -168,8 +176,10 @@ func addPHPPsalmCommand(parent *cli.Command) {
 				return cli.Err("Psalm not found (install: composer require vimeo/psalm --dev)")
 			}
 
-			cli.Print("%s\n", headerStyle.Render("PHP Psalm Analysis"))
-			cli.Blank()
+			if !phpPsalmJSON {
+				cli.Print("%s\n", headerStyle.Render("PHP Psalm Analysis"))
+				cli.Blank()
+			}
 
 			err = php.RunPsalm(context.Background(), php.PsalmOptions{
 				Dir:      cwd,
@@ -184,8 +194,10 @@ func addPHPPsalmCommand(parent *cli.Command) {
 				return cli.Err("Psalm found issues")
 			}
 
-			cli.Blank()
-			cli.Print("%s\n", successStyle.Render("Psalm analysis passed"))
+			if !phpPsalmJSON {
+				cli.Blank()
+				cli.Print("%s\n", successStyle.Render("Psalm analysis passed"))
+			}
 			return nil
 		},
 	}
@@ -220,8 +232,10 @@ func addPHPAuditCommand(parent *cli.Command) {
 				return cli.Err("not a PHP project (no composer.json found)")
 			}
 
-			cli.Print("%s\n", headerStyle.Render("Dependency Audit"))
-			cli.Blank()
+			if !phpAuditJSON {
+				cli.Print("%s\n", headerStyle.Render("Dependency Audit"))
+				cli.Blank()
+			}
 
 			results, err := php.RunAudit(context.Background(), php.AuditOptions{
 				Dir:  cwd,
@@ -230,6 +244,20 @@ func addPHPAuditCommand(parent *cli.Command) {
 			})
 			if err != nil {
 				return err
+			}
+
+			if phpAuditJSON {
+				payload := mapAuditResultsForJSON(results)
+				data, err := json.MarshalIndent(payload, "", "  ")
+				if err != nil {
+					return err
+				}
+				fmt.Println(string(data))
+
+				if payload.HasVulnerabilities {
+					return cli.Err("vulnerabilities found in dependencies")
+				}
+				return nil
 			}
 
 			hasVulns := false
@@ -293,8 +321,10 @@ func addPHPSecurityCommand(parent *cli.Command) {
 				return cli.Err("not a PHP project (no composer.json found)")
 			}
 
-			cli.Print("%s\n", headerStyle.Render("Security Checks"))
-			cli.Blank()
+			if !phpSecurityJSON {
+				cli.Print("%s\n", headerStyle.Render("Security Checks"))
+				cli.Blank()
+			}
 
 			result, err := php.RunSecurityChecks(context.Background(), php.SecurityOptions{
 				Dir:      cwd,
@@ -305,6 +335,22 @@ func addPHPSecurityCommand(parent *cli.Command) {
 			})
 			if err != nil {
 				return err
+			}
+
+			result.Checks = sortSecurityChecks(result.Checks)
+
+			if phpSecurityJSON {
+				data, err := json.MarshalIndent(result, "", "  ")
+				if err != nil {
+					return err
+				}
+				fmt.Println(string(data))
+
+				summary := result.Summary
+				if summary.Critical > 0 || summary.High > 0 {
+					return cli.Err("security checks failed")
+				}
+				return nil
 			}
 
 			// Print each check result
@@ -360,7 +406,58 @@ func addPHPSecurityCommand(parent *cli.Command) {
 	cmd.Flags().BoolVar(&phpSecuritySARIF, "sarif", false, "Output results in SARIF format")
 	cmd.Flags().StringVar(&phpSecurityURL, "url", "", "URL to check HTTP security headers")
 
-	parent.AddCommand(cmd)
+		parent.AddCommand(cmd)
+}
+
+type auditJSONOutput struct {
+	Results            []AuditResultJSON `json:"results"`
+	HasVulnerabilities bool              `json:"has_vulnerabilities"`
+	Vulnerabilities    int               `json:"vulnerabilities"`
+}
+
+type AuditResultJSON struct {
+	Tool            string              `json:"tool"`
+	Vulnerabilities int                 `json:"vulnerabilities"`
+	Advisories      []php.AuditAdvisory `json:"advisories"`
+	Error           string              `json:"error,omitempty"`
+}
+
+func mapAuditResultsForJSON(results []php.AuditResult) auditJSONOutput {
+	output := auditJSONOutput{
+		Results: make([]AuditResultJSON, 0, len(results)),
+	}
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].Tool < results[j].Tool
+	})
+
+	for _, result := range results {
+		entry := AuditResultJSON{
+			Tool:            result.Tool,
+			Vulnerabilities: result.Vulnerabilities,
+			Advisories:      append([]php.AuditAdvisory(nil), result.Advisories...),
+		}
+		if result.Error != nil {
+			entry.Error = result.Error.Error()
+		}
+		sort.Slice(entry.Advisories, func(i, j int) bool {
+			if entry.Advisories[i].Package == entry.Advisories[j].Package {
+				return entry.Advisories[i].Title < entry.Advisories[j].Title
+			}
+			return entry.Advisories[i].Package < entry.Advisories[j].Package
+		})
+		output.Results = append(output.Results, entry)
+		output.Vulnerabilities += entry.Vulnerabilities
+	}
+
+	output.HasVulnerabilities = output.Vulnerabilities > 0
+	return output
+}
+
+func sortSecurityChecks(checks []php.SecurityCheck) []php.SecurityCheck {
+	sort.Slice(checks, func(i, j int) bool {
+		return checks[i].ID < checks[j].ID
+	})
+	return checks
 }
 
 // PHP rector command flags.
