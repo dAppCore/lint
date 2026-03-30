@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 
 	"forge.lthn.ai/core/cli/pkg/cli"
@@ -94,15 +95,33 @@ func addLintCommands(root *cli.Command) {
 
 		if len(allFindings) > 0 {
 			summary := lintpkg.Summarise(allFindings)
-			fmt.Fprintf(os.Stderr, "\n%d finding(s)", summary.Total)
+			severityOrder := []string{"critical", "high", "medium", "low", "info"}
+			seen := make(map[string]bool, len(summary.BySeverity))
+
 			var parts []string
-			for sev, count := range summary.BySeverity {
-				parts = append(parts, fmt.Sprintf("%d %s", count, sev))
+			for _, severity := range severityOrder {
+				if count, ok := summary.BySeverity[severity]; ok {
+					parts = append(parts, fmt.Sprintf("%d %s", count, severity))
+					seen[severity] = true
+				}
 			}
+
+			var unknown []string
+			for severity := range summary.BySeverity {
+				if !seen[severity] {
+					unknown = append(unknown, severity)
+				}
+			}
+			sort.Strings(unknown)
+			for _, severity := range unknown {
+				parts = append(parts, fmt.Sprintf("%d %s", summary.BySeverity[severity], severity))
+			}
+
+			fmt.Printf("\n%d finding(s)", summary.Total)
 			if len(parts) > 0 {
-				fmt.Fprintf(os.Stderr, " (%s)", strings.Join(parts, ", "))
+				fmt.Printf(" (%s)", strings.Join(parts, ", "))
 			}
-			fmt.Fprintln(os.Stderr)
+			fmt.Println()
 		}
 
 		return nil
@@ -133,6 +152,14 @@ func addLintCommands(root *cli.Command) {
 			fmt.Println("No rules found.")
 			return nil
 		}
+
+		rules = append([]lintpkg.Rule(nil), rules...)
+		sort.Slice(rules, func(i, j int) int {
+			if rules[i].Severity == rules[j].Severity {
+				return strings.Compare(rules[i].ID, rules[j].ID)
+			}
+			return strings.Compare(rules[i].Severity, rules[j].Severity)
+		})
 
 		for _, r := range rules {
 			fmt.Printf("%-14s [%-8s] %s\n", r.ID, r.Severity, r.Title)

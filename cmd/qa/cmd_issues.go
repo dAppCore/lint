@@ -30,6 +30,7 @@ var (
 	issuesBlocked  bool
 	issuesRegistry string
 	issuesLimit    int
+	issuesJSON     bool
 )
 
 // Issue represents a GitHub issue with triage metadata
@@ -71,6 +72,13 @@ type Issue struct {
 	ActionHint string
 }
 
+type issuesOutput struct {
+	NeedsResponse []Issue `json:"needs_response"`
+	Ready         []Issue `json:"ready"`
+	Blocked       []Issue `json:"blocked"`
+	Triage        []Issue `json:"triage"`
+}
+
 // addIssuesCommand adds the 'issues' subcommand to qa.
 func addIssuesCommand(parent *cli.Command) {
 	issuesCmd := &cli.Command{
@@ -87,6 +95,7 @@ func addIssuesCommand(parent *cli.Command) {
 	issuesCmd.Flags().BoolVarP(&issuesBlocked, "blocked", "b", false, i18n.T("cmd.qa.issues.flag.blocked"))
 	issuesCmd.Flags().StringVar(&issuesRegistry, "registry", "", i18n.T("common.flag.registry"))
 	issuesCmd.Flags().IntVarP(&issuesLimit, "limit", "l", 50, i18n.T("cmd.qa.issues.flag.limit"))
+	issuesCmd.Flags().BoolVar(&issuesJSON, "json", false, i18n.T("common.flag.json"))
 
 	parent.AddCommand(issuesCmd)
 }
@@ -118,18 +127,13 @@ func runQAIssues() error {
 	var allIssues []Issue
 	repoList := reg.List()
 
-	for i, repo := range repoList {
-		cli.Print("\033[2K\r%s %d/%d %s",
-			dimStyle.Render(i18n.T("cmd.qa.issues.fetching")),
-			i+1, len(repoList), repo.Name)
-
+	for _, repo := range repoList {
 		issues, err := fetchQAIssues(reg.Org, repo.Name, issuesLimit)
 		if err != nil {
 			continue // Skip repos with errors
 		}
 		allIssues = append(allIssues, issues...)
 	}
-	cli.Print("\033[2K\r") // Clear progress
 
 	if len(allIssues) == 0 {
 		cli.Text(i18n.T("cmd.qa.issues.no_issues"))
@@ -148,6 +152,21 @@ func runQAIssues() error {
 	}
 	if issuesBlocked {
 		categorised = filterCategory(categorised, "blocked")
+	}
+
+	if issuesJSON {
+		output := issuesOutput{
+			NeedsResponse: categorised["needs_response"],
+			Ready:         categorised["ready"],
+			Blocked:       categorised["blocked"],
+			Triage:        categorised["triage"],
+		}
+		data, err := json.MarshalIndent(output, "", "  ")
+		if err != nil {
+			return err
+		}
+		cli.Print("%s", string(data))
+		return nil
 	}
 
 	// Print categorised issues
@@ -205,7 +224,16 @@ func categoriseIssues(issues []Issue) map[string][]Issue {
 	// Sort each category by priority
 	for cat := range result {
 		slices.SortFunc(result[cat], func(a, b Issue) int {
-			return cmp.Compare(a.Priority, b.Priority)
+			if priority := cmp.Compare(a.Priority, b.Priority); priority != 0 {
+				return priority
+			}
+			if byDate := cmp.Compare(b.UpdatedAt.Unix(), a.UpdatedAt.Unix()); byDate != 0 {
+				return byDate
+			}
+			if repo := cmp.Compare(a.RepoName, b.RepoName); repo != 0 {
+				return repo
+			}
+			return cmp.Compare(a.Number, b.Number)
 		})
 	}
 

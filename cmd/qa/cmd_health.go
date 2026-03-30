@@ -24,6 +24,7 @@ import (
 var (
 	healthProblems bool
 	healthRegistry string
+	healthJSON     bool
 )
 
 // HealthWorkflowRun represents a GitHub Actions workflow run
@@ -38,11 +39,23 @@ type HealthWorkflowRun struct {
 
 // RepoHealth represents the CI health of a single repo
 type RepoHealth struct {
-	Name         string
+	Name         string `json:"name"`
 	Status       string // "passing", "failing", "pending", "no_ci", "disabled"
-	Message      string
-	URL          string
+	Message      string `json:"message"`
+	URL          string `json:"url"`
 	FailingSince string
+}
+
+type healthOutput struct {
+	Repos  []RepoHealth `json:"repos"`
+	Counts struct {
+		Total    int `json:"total"`
+		Passing  int `json:"passing"`
+		Failing  int `json:"failing"`
+		Pending  int `json:"pending"`
+		NoCI     int `json:"no_ci"`
+		Disabled int `json:"disabled"`
+	} `json:"counts"`
 }
 
 // addHealthCommand adds the 'health' subcommand to qa.
@@ -58,6 +71,7 @@ func addHealthCommand(parent *cli.Command) {
 
 	healthCmd.Flags().BoolVarP(&healthProblems, "problems", "p", false, i18n.T("cmd.qa.health.flag.problems"))
 	healthCmd.Flags().StringVar(&healthRegistry, "registry", "", i18n.T("common.flag.registry"))
+	healthCmd.Flags().BoolVar(&healthJSON, "json", false, i18n.T("common.flag.json"))
 
 	parent.AddCommand(healthCmd)
 }
@@ -89,19 +103,19 @@ func runHealth() error {
 	var healthResults []RepoHealth
 	repoList := reg.List()
 
-	for i, repo := range repoList {
-		cli.Print("\033[2K\r%s %d/%d %s",
-			dimStyle.Render(i18n.T("cmd.qa.issues.fetching")),
-			i+1, len(repoList), repo.Name)
-
+	for _, repo := range repoList {
 		health := fetchRepoHealth(reg.Org, repo.Name)
 		healthResults = append(healthResults, health)
 	}
-	cli.Print("\033[2K\r") // Clear progress
+
+	allHealthResults := append([]RepoHealth(nil), healthResults...)
 
 	// Sort: problems first, then passing
 	slices.SortFunc(healthResults, func(a, b RepoHealth) int {
-		return cmp.Compare(healthPriority(a.Status), healthPriority(b.Status))
+		if p := cmp.Compare(healthPriority(a.Status), healthPriority(b.Status)); p != 0 {
+			return p
+		}
+		return strings.Compare(a.Name, b.Name)
 	})
 
 	// Filter if --problems flag
@@ -115,14 +129,52 @@ func runHealth() error {
 		healthResults = problems
 	}
 
+	if healthJSON {
+		var counts struct {
+			Total    int `json:"total"`
+			Passing  int `json:"passing"`
+			Failing  int `json:"failing"`
+			Pending  int `json:"pending"`
+			NoCI     int `json:"no_ci"`
+			Disabled int `json:"disabled"`
+		}
+
+		for _, h := range healthResults {
+			counts.Total++
+			switch h.Status {
+			case "passing":
+				counts.Passing++
+			case "failing":
+				counts.Failing++
+			case "pending":
+				counts.Pending++
+			case "no_ci":
+				counts.NoCI++
+			case "disabled":
+				counts.Disabled++
+			}
+		}
+
+		output := healthOutput{
+			Repos:  healthResults,
+			Counts: counts,
+		}
+		data, err := json.MarshalIndent(output, "", "  ")
+		if err != nil {
+			return err
+		}
+		cli.Print("%s", string(data))
+		return nil
+	}
+
 	// Calculate summary
 	passing := 0
-	for _, h := range healthResults {
+	for _, h := range allHealthResults {
 		if h.Status == "passing" {
 			passing++
 		}
 	}
-	total := len(repoList)
+	total := len(allHealthResults)
 	percentage := 0
 	if total > 0 {
 		percentage = (passing * 100) / total
@@ -262,6 +314,10 @@ func printHealthGroup(status string, repos []RepoHealth, style *cli.AnsiStyle) {
 	if len(repos) == 0 {
 		return
 	}
+
+	slices.SortFunc(repos, func(a, b RepoHealth) int {
+		return strings.Compare(a.Name, b.Name)
+	})
 
 	var label string
 	switch status {
