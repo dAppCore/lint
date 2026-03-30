@@ -46,7 +46,7 @@ An agent should be able to navigate the module from the path alone:
 |------|---------|
 | `cmd/core-lint/main.go` | CLI surface for `run`, `detect`, `tools`, `init`, language shortcuts, `hook`, and the legacy `lint` namespace |
 | `pkg/lint/service.go` | Orchestrator for config loading, language selection, adapter selection, hook mode, and report assembly |
-| `pkg/lint/adapter.go` | Adapter interface, built-in registry, external command execution, and output parsers |
+| `pkg/lint/adapter.go` | Adapter interface, external adapter registry, built-in catalog fallback, external command execution, and output parsers |
 | `pkg/lint/config.go` | Repo-local config contract and defaults for `core-lint init` |
 | `pkg/lint/detect_project.go` | Project language detection from markers and file names |
 | `pkg/lint/report.go` | `Summary` aggregation and JSON/text/GitHub/SARIF writers |
@@ -378,7 +378,10 @@ An agent must not assume that `core-lint lint check` and `core-lint run` execute
 
 ## Adapter Inventory
 
-The registry in `pkg/lint/adapter.go` is the implementation contract.
+The implementation has two adapter sources in `pkg/lint/adapter.go`:
+
+- `defaultAdapters()` defines the external-tool registry exposed by `core-lint tools`
+- `newCatalogAdapter()` defines the built-in Go fallback injected by `Service.Run()` when Go is in scope
 
 ### ToolInfo Contract
 
@@ -400,12 +403,13 @@ Inventory rules:
 - `--lang` filters via `Adapter.MatchesLanguage()`
 - `Available` reflects a `PATH` lookup at runtime, not config membership
 - `Entitlement` is descriptive metadata; the current implementation does not enforce it
+- the built-in `catalog` adapter is not returned by `core-lint tools`; it is injected only during `run`-style orchestration on Go projects
 
-### Built-in
+### Injected During Run
 
 | Adapter | Languages | Category | Fast | Notes |
 |---------|-----------|----------|------|-------|
-| `catalog` | `go` | `correctness` | yes | Built-in regex fallback rules |
+| `catalog` | `go` | `correctness` | yes | Built-in regex fallback rules; injected by `Service.Run()`, not listed by `core-lint tools` |
 
 ### Go
 
