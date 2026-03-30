@@ -134,7 +134,7 @@ func runReview() error {
 	if showMine {
 		prs, err := fetchPRs(ctx, repoFullName, "author:@me")
 		if err != nil {
-			return log.E("qa.review", "failed to fetch your PRs", err)
+			return err
 		}
 		sort.Slice(prs, func(i, j int) int {
 			if prs[i].Number == prs[j].Number {
@@ -148,7 +148,7 @@ func runReview() error {
 	if showRequested {
 		prs, err := fetchPRs(ctx, repoFullName, "review-requested:@me")
 		if err != nil {
-			return log.E("qa.review", "failed to fetch review requests", err)
+			return err
 		}
 		sort.Slice(prs, func(i, j int) int {
 			if prs[i].Number == prs[j].Number {
@@ -185,8 +185,7 @@ func runReview() error {
 
 	return nil
 }
-
-// showMyPRs shows the user's open PRs with status
+// printMyPRs shows the user's open PRs with status
 func printMyPRs(prs []PullRequest) error {
 	if len(prs) == 0 {
 		cli.Print("%s\n", dimStyle.Render(i18n.T("cmd.qa.review.no_prs")))
@@ -201,8 +200,7 @@ func printMyPRs(prs []PullRequest) error {
 
 	return nil
 }
-
-// showRequestedReviews shows PRs where user's review is requested
+// printRequestedPRs shows PRs where user's review is requested
 func printRequestedPRs(prs []PullRequest) error {
 	if len(prs) == 0 {
 		cli.Print("%s\n", dimStyle.Render(i18n.T("cmd.qa.review.no_reviews")))

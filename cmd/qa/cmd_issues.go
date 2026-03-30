@@ -126,7 +126,6 @@ func runQAIssues() error {
 	// Fetch issues from all repos
 	var allIssues []Issue
 	repoList := reg.List()
-
 	for _, repo := range repoList {
 		issues, err := fetchQAIssues(reg.Org, repo.Name, issuesLimit)
 		if err != nil {
