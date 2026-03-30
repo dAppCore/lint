@@ -59,6 +59,7 @@ type DocblockResult struct {
 	Total      int               `json:"total"`
 	Documented int               `json:"documented"`
 	Missing    []MissingDocblock `json:"missing,omitempty"`
+	Warnings   []DocblockWarning `json:"warnings,omitempty"`
 	Passed     bool              `json:"passed"`
 }
 
@@ -69,6 +70,13 @@ type MissingDocblock struct {
 	Name   string `json:"name"`
 	Kind   string `json:"kind"` // func, type, const, var
 	Reason string `json:"reason,omitempty"`
+}
+
+// DocblockWarning captures a partial parse failure while still preserving
+// the successfully parsed files in the same directory.
+type DocblockWarning struct {
+	Path  string `json:"path"`
+	Error string `json:"error"`
 }
 
 // RunDocblockCheck checks docblock coverage for the given packages.
@@ -92,14 +100,6 @@ func RunDocblockCheck(paths []string, threshold float64, verbose, jsonOutput boo
 		return nil
 	}
 
-	// Sort missing by file then line
-	slices.SortFunc(result.Missing, func(a, b MissingDocblock) int {
-		return cmp.Or(
-			cmp.Compare(a.File, b.File),
-			cmp.Compare(a.Line, b.Line),
-		)
-	})
-
 	// Print result
 	if verbose && len(result.Missing) > 0 {
 		cli.Print("%s\n\n", i18n.T("cmd.qa.docblock.missing_docs"))
@@ -110,6 +110,13 @@ func RunDocblockCheck(paths []string, threshold float64, verbose, jsonOutput boo
 				dimStyle.Render(m.Kind),
 				m.Name,
 			)
+		}
+		cli.Blank()
+	}
+
+	if len(result.Warnings) > 0 {
+		for _, warning := range result.Warnings {
+			cli.Warnf("failed to parse %s: %s", warning.Path, warning.Error)
 		}
 		cli.Blank()
 	}
@@ -167,9 +174,12 @@ func CheckDocblockCoverage(patterns []string) (*DocblockResult, error) {
 			return !strings.HasSuffix(fi.Name(), "_test.go")
 		}, parser.ParseComments)
 		if err != nil {
-			// Log parse errors but continue to check other directories
-			cli.Warnf("failed to parse %s: %v", dir, err)
-			continue
+			// Preserve partial results when a directory contains both valid and
+			// invalid files. The caller decides how to present the warning.
+			result.Warnings = append(result.Warnings, DocblockWarning{
+				Path:  dir,
+				Error: err.Error(),
+			})
 		}
 
 		for _, pkg := range pkgs {
@@ -182,6 +192,21 @@ func CheckDocblockCoverage(patterns []string) (*DocblockResult, error) {
 	if result.Total > 0 {
 		result.Coverage = float64(result.Documented) / float64(result.Total) * 100
 	}
+
+	slices.SortFunc(result.Missing, func(a, b MissingDocblock) int {
+		return cmp.Or(
+			cmp.Compare(a.File, b.File),
+			cmp.Compare(a.Line, b.Line),
+			cmp.Compare(a.Kind, b.Kind),
+			cmp.Compare(a.Name, b.Name),
+		)
+	})
+	slices.SortFunc(result.Warnings, func(a, b DocblockWarning) int {
+		return cmp.Or(
+			cmp.Compare(a.Path, b.Path),
+			cmp.Compare(a.Error, b.Error),
+		)
+	})
 
 	return result, nil
 }
