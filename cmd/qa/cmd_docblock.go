@@ -93,7 +93,7 @@ func RunDocblockCheck(paths []string, threshold float64, verbose, jsonOutput boo
 		if err != nil {
 			return err
 		}
-		fmt.Println(string(data))
+		cli.Print("%s\n", string(data))
 		if !result.Passed {
 			return cli.Err("docblock coverage %.1f%% below threshold %.1f%%", result.Coverage, threshold)
 		}

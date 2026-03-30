@@ -252,7 +252,7 @@ func addPHPAuditCommand(parent *cli.Command) {
 				if err != nil {
 					return err
 				}
-				fmt.Println(string(data))
+				cli.Print("%s\n", string(data))
 
 				if payload.HasVulnerabilities {
 					return cli.Err("vulnerabilities found in dependencies")
@@ -344,7 +344,7 @@ func addPHPSecurityCommand(parent *cli.Command) {
 				if err != nil {
 					return err
 				}
-				fmt.Println(string(data))
+				cli.Print("%s\n", string(data))
 
 				summary := result.Summary
 				if summary.Critical > 0 || summary.High > 0 {
@@ -358,7 +358,7 @@ func addPHPSecurityCommand(parent *cli.Command) {
 				if err != nil {
 					return err
 				}
-				fmt.Println(string(data))
+				cli.Print("%s\n", string(data))
 
 				summary := result.Summary
 				if summary.Critical > 0 || summary.High > 0 {

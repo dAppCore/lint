@@ -30,6 +30,7 @@ func LoadDir(dir string) (*Catalog, error) {
 	if err != nil {
 		return nil, coreerr.E("Catalog.LoadDir", "loading catalog from "+dir, err)
 	}
+	sortDirEntries(entries)
 
 	var rules []Rule
 	for _, entry := range entries {
@@ -56,6 +57,7 @@ func LoadFS(fsys fs.FS, dir string) (*Catalog, error) {
 	if err != nil {
 		return nil, coreerr.E("Catalog.LoadFS", "loading catalog from embedded "+dir, err)
 	}
+	sortDirEntries(entries)
 
 	var rules []Rule
 	for _, entry := range entries {
@@ -74,6 +76,12 @@ func LoadFS(fsys fs.FS, dir string) (*Catalog, error) {
 	}
 
 	return &Catalog{Rules: rules}, nil
+}
+
+func sortDirEntries(entries []fs.DirEntry) {
+	slices.SortFunc(entries, func(a, b fs.DirEntry) int {
+		return strings.Compare(a.Name(), b.Name())
+	})
 }
 
 // ForLanguage returns all rules that apply to the given language.

@@ -197,7 +197,7 @@ func addLintCommands(root *cli.Command) {
 		if err != nil {
 			return err
 		}
-		fmt.Println(string(data))
+		cli.Print("%s\n", string(data))
 		return nil
 	})
 

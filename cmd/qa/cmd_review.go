@@ -212,7 +212,7 @@ func runReview() error {
 		if err != nil {
 			return err
 		}
-		fmt.Println(string(data))
+		cli.Print("%s\n", string(data))
 		if successfulFetches == 0 && len(fetchErrors) > 0 {
 			return cli.Err("failed to fetch pull requests for %s", repoFullName)
 		}
