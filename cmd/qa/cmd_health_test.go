@@ -83,6 +83,76 @@ esac
 	assert.NotContains(t, output, `"FailingSince"`)
 }
 
+func TestRunHealthJSONOutput_ProblemsOnlyKeepsOverallSummary(t *testing.T) {
+	dir := t.TempDir()
+	writeTestFile(t, filepath.Join(dir, "repos.yaml"), `version: 1
+org: forge
+base_path: .
+repos:
+  alpha:
+    type: module
+  beta:
+    type: module
+`)
+	writeExecutable(t, filepath.Join(dir, "gh"), `#!/bin/sh
+case "$*" in
+  *"--repo forge/alpha"*)
+    cat <<'JSON'
+[
+  {
+    "status": "completed",
+    "conclusion": "success",
+    "name": "CI",
+    "headSha": "abc123",
+    "updatedAt": "2026-03-30T00:00:00Z",
+    "url": "https://example.com/alpha/run/1"
+  }
+]
+JSON
+    ;;
+  *"--repo forge/beta"*)
+    printf '%s\n' 'simulated workflow lookup failure' >&2
+    exit 1
+    ;;
+  *)
+    printf '%s\n' "unexpected gh invocation: $*" >&2
+    exit 1
+    ;;
+esac
+`)
+
+	restoreWorkingDir(t, dir)
+	prependPath(t, dir)
+	resetHealthFlags(t)
+	t.Cleanup(func() {
+		healthRegistry = ""
+	})
+
+	parent := &cli.Command{Use: "qa"}
+	addHealthCommand(parent)
+	command := findSubcommand(t, parent, "health")
+	require.NoError(t, command.Flags().Set("registry", filepath.Join(dir, "repos.yaml")))
+	require.NoError(t, command.Flags().Set("json", "true"))
+	require.NoError(t, command.Flags().Set("problems", "true"))
+
+	output := captureStdout(t, func() {
+		require.NoError(t, command.RunE(command, nil))
+	})
+
+	var payload HealthOutput
+	require.NoError(t, json.Unmarshal([]byte(output), &payload))
+	assert.Equal(t, 2, payload.Summary.TotalRepos)
+	assert.Equal(t, 1, payload.Summary.Passing)
+	assert.Equal(t, 1, payload.Summary.Errors)
+	assert.Equal(t, 1, payload.Summary.FilteredRepos)
+	assert.True(t, payload.Summary.ProblemsOnly)
+	assert.Equal(t, 1, payload.Summary.ByStatus["passing"])
+	assert.Equal(t, 1, payload.Summary.ByStatus["error"])
+	require.Len(t, payload.Repos, 1)
+	assert.Equal(t, "error", payload.Repos[0].Status)
+	assert.Equal(t, "beta", payload.Repos[0].Name)
+}
+
 func TestRunHealthHumanOutput_ShowsFetchErrorsAsErrors(t *testing.T) {
 	dir := t.TempDir()
 	writeTestFile(t, filepath.Join(dir, "repos.yaml"), `version: 1

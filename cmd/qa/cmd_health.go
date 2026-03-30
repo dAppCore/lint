@@ -105,20 +105,21 @@ func runHealth() error {
 	}
 
 	repoList := reg.List()
-	healthResults := make([]RepoHealth, 0, len(repoList))
+	allHealthResults := make([]RepoHealth, 0, len(repoList))
 	for _, repo := range repoList {
 		health := fetchRepoHealth(reg.Org, repo.Name)
-		healthResults = append(healthResults, health)
+		allHealthResults = append(allHealthResults, health)
 	}
 
 	// Sort by severity first, then repo name for deterministic output.
-	slices.SortFunc(healthResults, func(a, b RepoHealth) int {
+	slices.SortFunc(allHealthResults, func(a, b RepoHealth) int {
 		if p := cmp.Compare(healthPriority(a.Status), healthPriority(b.Status)); p != 0 {
 			return p
 		}
 		return strings.Compare(a.Name, b.Name)
 	})
 
+	healthResults := allHealthResults
 	if healthProblems {
 		problems := make([]RepoHealth, 0, len(healthResults))
 		for _, h := range healthResults {
@@ -129,7 +130,7 @@ func runHealth() error {
 		healthResults = problems
 	}
 
-	summary := summariseHealthResults(len(repoList), healthResults, healthProblems)
+	summary := summariseHealthResults(len(repoList), len(healthResults), allHealthResults, healthProblems)
 	if healthJSON {
 		return printHealthJSON(summary, healthResults)
 	}
@@ -264,10 +265,10 @@ func healthPriority(status string) int {
 	}
 }
 
-func summariseHealthResults(totalRepos int, results []RepoHealth, problemsOnly bool) HealthSummary {
+func summariseHealthResults(totalRepos int, filteredRepos int, results []RepoHealth, problemsOnly bool) HealthSummary {
 	summary := HealthSummary{
 		TotalRepos:    totalRepos,
-		FilteredRepos: len(results),
+		FilteredRepos: filteredRepos,
 		ByStatus:      make(map[string]int),
 		ProblemsOnly:  problemsOnly,
 	}
