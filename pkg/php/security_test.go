@@ -297,5 +297,8 @@ func setupSecurityFixture(t *testing.T, dir string, envContent string) {
 	require.NoError(t, os.WriteFile(composerBin, []byte("#!/bin/sh\ncat <<'JSON'\n{\"advisories\":{}}\nJSON\n"), 0o755))
 
 	oldPath := os.Getenv("PATH")
-	t.Setenv("PATH", dir+string(os.PathListSeparator)+oldPath)
+	require.NoError(t, os.Setenv("PATH", dir+string(os.PathListSeparator)+oldPath))
+	t.Cleanup(func() {
+		require.NoError(t, os.Setenv("PATH", oldPath))
+	})
 }
