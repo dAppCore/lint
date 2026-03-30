@@ -9,10 +9,12 @@
 package qa
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
 	"os/exec"
+	"slices"
 	"strings"
 	"time"
 
@@ -43,11 +45,12 @@ type WorkflowRun struct {
 
 // WorkflowJob represents a job within a workflow run
 type WorkflowJob struct {
-	ID         int64  `json:"databaseId"`
-	Name       string `json:"name"`
-	Status     string `json:"status"`
-	Conclusion string `json:"conclusion"`
-	URL        string `json:"url"`
+	ID         int64     `json:"databaseId"`
+	Name       string    `json:"name"`
+	Status     string    `json:"status"`
+	Conclusion string    `json:"conclusion"`
+	URL        string    `json:"url"`
+	Steps      []JobStep `json:"steps"`
 }
 
 // JobStep represents a step within a job
@@ -110,6 +113,7 @@ func runWatch() error {
 	// Poll for workflow runs
 	pollInterval := 3 * time.Second
 	var lastStatus string
+	waitingStatus := dimStyle.Render(i18n.T("cmd.qa.watch.waiting_for_workflows"))
 
 	for {
 		// Check if context deadline exceeded
@@ -125,7 +129,10 @@ func runWatch() error {
 
 		if len(runs) == 0 {
 			// No workflows triggered yet, keep waiting
-			cli.Print("\033[2K\r%s", dimStyle.Render(i18n.T("cmd.qa.watch.waiting_for_workflows")))
+			if waitingStatus != lastStatus {
+				cli.Print("%s\n", waitingStatus)
+				lastStatus = waitingStatus
+			}
 			time.Sleep(pollInterval)
 			continue
 		}
@@ -169,12 +176,11 @@ func runWatch() error {
 
 		// Only print if status changed
 		if status != lastStatus {
-			cli.Print("\033[2K\r%s", status)
+			cli.Print("%s\n", status)
 			lastStatus = status
 		}
 
 		if allComplete {
-			cli.Blank()
 			cli.Blank()
 			return printResults(ctx, repoFullName, runs)
 		}
@@ -308,14 +314,17 @@ func printResults(ctx context.Context, repoFullName string, runs []WorkflowRun) 
 		}
 	}
 
+	slices.SortFunc(successes, compareWorkflowRun)
+	slices.SortFunc(failures, compareWorkflowRun)
+
 	// Print successes briefly
 	for _, run := range successes {
-		cli.Print("%s %s\n", successStyle.Render(cli.Glyph(":check:")), run.Name)
+		cli.Print("%s %s\n", successStyle.Render(i18n.T("common.label.success")), run.Name)
 	}
 
 	// Print failures with details
 	for _, run := range failures {
-		cli.Print("%s %s\n", errorStyle.Render(cli.Glyph(":cross:")), run.Name)
+		cli.Print("%s %s\n", errorStyle.Render(i18n.T("common.label.error")), run.Name)
 
 		// Fetch failed job details
 		failedJob, failedStep, errorLine := fetchFailureDetails(ctx, repoFullName, run.ID)
@@ -359,25 +368,20 @@ func fetchFailureDetails(ctx context.Context, repoFullName string, runID int64) 
 	}
 
 	var result struct {
-		Jobs []struct {
-			Name       string `json:"name"`
-			Conclusion string `json:"conclusion"`
-			Steps      []struct {
-				Name       string `json:"name"`
-				Conclusion string `json:"conclusion"`
-				Number     int    `json:"number"`
-			} `json:"steps"`
-		} `json:"jobs"`
+		Jobs []WorkflowJob `json:"jobs"`
 	}
 
 	if err := json.Unmarshal(output, &result); err != nil {
 		return "", "", ""
 	}
 
+	slices.SortFunc(result.Jobs, compareWorkflowJob)
+
 	// Find the failed job and step
 	for _, job := range result.Jobs {
 		if job.Conclusion == "failure" {
 			jobName = job.Name
+			slices.SortFunc(job.Steps, compareJobStep)
 			for _, step := range job.Steps {
 				if step.Conclusion == "failure" {
 					stepName = fmt.Sprintf("%d: %s", step.Number, step.Name)
@@ -441,4 +445,34 @@ func fetchErrorFromLogs(ctx context.Context, repoFullName string, runID int64) s
 	}
 
 	return ""
+}
+
+func compareWorkflowRun(a, b WorkflowRun) int {
+	return cmp.Or(
+		cmp.Compare(a.Name, b.Name),
+		cmp.Compare(a.DisplayTitle, b.DisplayTitle),
+		a.CreatedAt.Compare(b.CreatedAt),
+		a.UpdatedAt.Compare(b.UpdatedAt),
+		cmp.Compare(a.ID, b.ID),
+		cmp.Compare(a.URL, b.URL),
+	)
+}
+
+func compareWorkflowJob(a, b WorkflowJob) int {
+	return cmp.Or(
+		cmp.Compare(a.Name, b.Name),
+		cmp.Compare(a.Conclusion, b.Conclusion),
+		cmp.Compare(a.Status, b.Status),
+		cmp.Compare(a.ID, b.ID),
+		cmp.Compare(a.URL, b.URL),
+	)
+}
+
+func compareJobStep(a, b JobStep) int {
+	return cmp.Or(
+		cmp.Compare(a.Number, b.Number),
+		cmp.Compare(a.Name, b.Name),
+		cmp.Compare(a.Conclusion, b.Conclusion),
+		cmp.Compare(a.Status, b.Status),
+	)
 }
