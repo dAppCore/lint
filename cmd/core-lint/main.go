@@ -161,11 +161,11 @@ func addLintCommands(root *cli.Command) {
 		}
 
 		rules = append([]lintpkg.Rule(nil), rules...)
-		sort.Slice(rules, func(i, j int) int {
+		sort.Slice(rules, func(i, j int) bool {
 			if rules[i].Severity == rules[j].Severity {
-				return strings.Compare(rules[i].ID, rules[j].ID)
+				return strings.Compare(rules[i].ID, rules[j].ID) < 0
 			}
-			return strings.Compare(rules[i].Severity, rules[j].Severity)
+			return strings.Compare(rules[i].Severity, rules[j].Severity) < 0
 		})
 
 		for _, r := range rules {

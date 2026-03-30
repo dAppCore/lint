@@ -140,11 +140,11 @@ func runReview() error {
 		if err != nil {
 			return err
 		}
-		sort.Slice(prs, func(i, j int) int {
+		sort.Slice(prs, func(i, j int) bool {
 			if prs[i].Number == prs[j].Number {
-				return strings.Compare(prs[i].Title, prs[j].Title)
+				return strings.Compare(prs[i].Title, prs[j].Title) < 0
 			}
-			return prs[i].Number - prs[j].Number
+			return prs[i].Number < prs[j].Number
 		})
 		minePRs = prs
 	}
@@ -154,11 +154,11 @@ func runReview() error {
 		if err != nil {
 			return err
 		}
-		sort.Slice(prs, func(i, j int) int {
+		sort.Slice(prs, func(i, j int) bool {
 			if prs[i].Number == prs[j].Number {
-				return strings.Compare(prs[i].Title, prs[j].Title)
+				return strings.Compare(prs[i].Title, prs[j].Title) < 0
 			}
-			return prs[i].Number - prs[j].Number
+			return prs[i].Number < prs[j].Number
 		})
 		requestedPRs = prs
 	}
