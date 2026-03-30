@@ -98,6 +98,66 @@ esac
 	assert.NotContains(t, output, `"ActionHint"`)
 }
 
+func TestRunQAIssuesJSONOutput_SortsFetchErrorsByRepoName(t *testing.T) {
+	dir := t.TempDir()
+	writeTestFile(t, filepath.Join(dir, "repos.yaml"), `version: 1
+org: forge
+base_path: .
+repos:
+  beta:
+    type: module
+  alpha:
+    type: module
+`)
+	writeExecutable(t, filepath.Join(dir, "gh"), `#!/bin/sh
+case "$*" in
+  *"issue list --repo forge/alpha"*)
+    printf '%s\n' 'alpha failed' >&2
+    exit 1
+    ;;
+  *"issue list --repo forge/beta"*)
+    printf '%s\n' 'beta failed' >&2
+    exit 1
+    ;;
+  *)
+    printf '%s\n' "unexpected gh invocation: $*" >&2
+    exit 1
+    ;;
+esac
+`)
+
+	restoreWorkingDir(t, dir)
+	prependPath(t, dir)
+	resetIssuesFlags(t)
+	t.Cleanup(func() {
+		issuesRegistry = ""
+	})
+
+	parent := &cli.Command{Use: "qa"}
+	addIssuesCommand(parent)
+	command := findSubcommand(t, parent, "issues")
+	require.NoError(t, command.Flags().Set("registry", filepath.Join(dir, "repos.yaml")))
+	require.NoError(t, command.Flags().Set("json", "true"))
+
+	output := captureStdout(t, func() {
+		require.NoError(t, command.RunE(command, nil))
+	})
+
+	var payload IssuesOutput
+	require.NoError(t, json.Unmarshal([]byte(output), &payload))
+	require.Len(t, payload.FetchErrors, 2)
+	assert.Equal(t, "alpha", payload.FetchErrors[0].Repo)
+	assert.Equal(t, "beta", payload.FetchErrors[1].Repo)
+}
+
+func TestCalculatePriority_UsesMostUrgentLabelRegardlessOfOrder(t *testing.T) {
+	labelsA := []string{"low", "critical"}
+	labelsB := []string{"critical", "low"}
+
+	assert.Equal(t, 1, calculatePriority(labelsA))
+	assert.Equal(t, 1, calculatePriority(labelsB))
+}
+
 func resetIssuesFlags(t *testing.T) {
 	t.Helper()
 	oldMine := issuesMine

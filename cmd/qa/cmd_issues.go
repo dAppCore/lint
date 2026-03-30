@@ -141,6 +141,10 @@ func runQAIssues() error {
 	var allIssues []Issue
 	fetchErrors := make([]IssueFetchError, 0)
 	repoList := reg.List()
+	// Registry repos are map-backed, so sort before fetching to keep output stable.
+	slices.SortFunc(repoList, func(a, b *repos.Repo) int {
+		return cmp.Compare(a.Name, b.Name)
+	})
 
 	for i, repo := range repoList {
 		if !issuesJSON {
@@ -311,24 +315,26 @@ func categoriseIssue(issue *Issue, currentUser string) {
 
 	// Default: ready to work
 	issue.Category = "ready"
-	issue.Priority = calculatePriority(issue, labels)
+	issue.Priority = calculatePriority(labels)
 	issue.ActionHint = ""
 }
 
-func calculatePriority(issue *Issue, labels []string) int {
+// calculatePriority chooses the most urgent matching label so label order
+// does not change how issues are ranked.
+func calculatePriority(labels []string) int {
 	priority := 50
 
 	// Priority labels
 	for _, l := range labels {
 		switch {
 		case strings.Contains(l, "critical") || strings.Contains(l, "urgent"):
-			priority = 1
+			priority = min(priority, 1)
 		case strings.Contains(l, "high"):
-			priority = 10
+			priority = min(priority, 10)
 		case strings.Contains(l, "medium"):
-			priority = 30
+			priority = min(priority, 30)
 		case strings.Contains(l, "low"):
-			priority = 70
+			priority = min(priority, 70)
 		case l == "good-first-issue" || l == "good first issue":
 			priority = min(priority, 15) // Boost good first issues
 		case l == "help-wanted" || l == "help wanted":
