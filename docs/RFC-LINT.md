@@ -9,9 +9,21 @@
 
 `core/lint` is a standalone Go CLI and library that detects project languages, runs matching lint adapters, merges their findings into one report, and writes machine-readable output for local development, CI, and agent QA.
 
-The binary does not bundle external linters. It orchestrates tools already present in `PATH`, treats missing tools as `skipped`, and always returns a structured report.
+The binary does not bundle external linters. It orchestrates tools already present in `PATH`, treats missing tools as `skipped`, and keeps the orchestration report contract separate from the legacy catalog commands.
 
 This RFC describes the implementation that exists in this repository. It replaces the earlier draft that described a future Core service with Tasks, IPC actions, MCP wrapping, build stages, artifact stages, entitlement gates, and scheduled runs. Those designs are not the current contract.
+
+## Motivation
+
+Earlier drafts described a future `core/lint` service that does not exist in this module. Agents dispatched to this repository need the contract that is implemented now, not the architecture that might exist later.
+
+The current implementation has three properties that matter for AX:
+
+- one CLI binary with explicit command paths
+- one orchestration DTO (`RunInput`) and one orchestration report (`Report`)
+- one clear split between adapter-driven runs and the older embedded catalog commands
+
+An agent should be able to read the paths, map the commands, and predict the output shapes without reverse-engineering aspirational features from an outdated RFC.
 
 ## AX Decisions
 
@@ -145,6 +157,8 @@ Tool group selection is intentionally simple and deterministic:
 
 `Lang` is stronger than `CI` and `SBOM`. If `Lang` is set, the language group wins and the extra groups are not appended.
 
+`Category=style`, `Category=correctness`, and other non-group categories act as adapter-side filters only. They do not map to dedicated config groups.
+
 Final adapter selection has one extra Go-specific exception: if Go is present and `Category != "compliance"`, `Service.Run()` prepends the built-in `catalog` adapter after registry filtering. That means `core-lint security` on a Go project can still emit `catalog` findings tagged `security`.
 
 ## Config Contract
@@ -215,6 +229,7 @@ exclude:
 - Relative `--config` paths resolve relative to `Path`
 - Unknown tool names in config are inert; the adapter registry is authoritative
 - The current default config includes `prettier`, but the adapter registry does not yet provide a `prettier` adapter
+- `paths` and `exclude` are part of the file schema, but the current orchestration path does not read them; detection and scanning still rely on built-in defaults
 - `LintConfig` still accepts a `schedules` map, but no current CLI command reads or executes it
 
 ## Detection Contract
@@ -580,6 +595,26 @@ These items are intentionally not part of the current contract:
 
 Any future RFC that adds those capabilities must describe the code that implements them, not just the aspiration.
 
+## Compatibility
+
+This RFC matches the code that ships today:
+
+- a standard Go CLI binary built from `cmd/core-lint`
+- external tools resolved from `PATH` at runtime
+- no required Core runtime, IPC layer, scheduler, or generated action graph
+
+The contract is compatible with the current unit tests and CLI Taskfile tests because it describes the existing paths, flags, DTOs, and outputs rather than a future service boundary.
+
+## Adoption
+
+This contract applies immediately to:
+
+- the root orchestration commands such as `core-lint run`, `core-lint detect`, `core-lint tools`, `core-lint init`, and `core-lint hook`
+- the namespaced aliases under `core-lint lint ...`
+- the legacy embedded catalog commands under `core-lint lint check` and `core-lint lint catalog ...`
+
+Future work that adds scheduler support, runtime registration, entitlement enforcement, parallel execution, or SBOM file outputs must land behind a new RFC revision that points to implemented code.
+
 ## References
 
 - `docs/RFC-CORE-008-AGENT-EXPERIENCE.md`
@@ -593,3 +628,4 @@ Any future RFC that adds those capabilities must describe the code that implemen
 ## Changelog
 
 - 2026-03-30: Rewrote the RFC to match the implemented standalone CLI, adapter registry, fallback catalog adapter, hook mode, and CLI test paths
+- 2026-03-30: Clarified the implemented report boundary, category filtering semantics, ignored config fields, and AX-style motivation/compatibility/adoption sections
