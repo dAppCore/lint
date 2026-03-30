@@ -77,9 +77,9 @@ The RFC commands are mounted twice: once at the root and once under `core-lint l
 | Full orchestration | `core-lint run [path]` | `core-lint lint run [path]` | `core-lint run --output json .` |
 | Go only | `core-lint go [path]` | `core-lint lint go [path]` | `core-lint go .` |
 | PHP only | `core-lint php [path]` | `core-lint lint php [path]` | `core-lint php .` |
-| JS and TS | `core-lint js [path]` | `core-lint lint js [path]` | `core-lint js .` |
+| JS group shortcut | `core-lint js [path]` | `core-lint lint js [path]` | `core-lint js .` |
 | Python only | `core-lint python [path]` | `core-lint lint python [path]` | `core-lint python .` |
-| Security tools only | `core-lint security [path]` | `core-lint lint security [path]` | `core-lint security --ci .` |
+| Security group shortcut | `core-lint security [path]` | `core-lint lint security [path]` | `core-lint security --ci .` |
 | Compliance tools only | `core-lint compliance [path]` | `core-lint lint compliance [path]` | `core-lint compliance --output json .` |
 | Language detection | `core-lint detect [path]` | `core-lint lint detect [path]` | `core-lint detect --output json .` |
 | Tool inventory | `core-lint tools` | `core-lint lint tools` | `core-lint tools --output json --lang go` |
@@ -89,6 +89,8 @@ The RFC commands are mounted twice: once at the root and once under `core-lint l
 | Embedded catalog scan | none | `core-lint lint check [path...]` | `core-lint lint check --format json tests/cli/lint/check/fixtures` |
 | Embedded catalog list | none | `core-lint lint catalog list` | `core-lint lint catalog list --lang go` |
 | Embedded catalog show | none | `core-lint lint catalog show RULE_ID` | `core-lint lint catalog show go-sec-001` |
+
+`core-lint js` is a shortcut for `Lang=js`, not a dedicated TypeScript command. TypeScript-only runs use `core-lint run --lang ts ...` or plain `run` with auto-detection.
 
 ## RunInput Contract
 
@@ -121,11 +123,20 @@ type RunInput struct {
 6. `Lang` overrides auto-detection
 7. `Files` override directory detection for language inference
 
+### CLI Output Resolution
+
+The CLI resolves output before it calls `Service.Run()`:
+
+1. explicit `--output` wins
+2. otherwise `--ci` becomes `github`
+3. otherwise the loaded config `output` value is used
+4. if the config output is empty, the CLI falls back to `text`
+
 ### Category and Language Precedence
 
 Tool group selection is intentionally simple and deterministic:
 
-1. `Category=security` means only `lint.security`
+1. `Category=security` selects the `lint.security` config group
 2. `Category=compliance` means only `lint.compliance`
 3. `Lang=go|php|js|ts|python|...` means only that language group
 4. Plain `run` uses all detected language groups plus `infra`
@@ -133,6 +144,8 @@ Tool group selection is intentionally simple and deterministic:
 6. Plain `run --sbom` adds the `compliance` group
 
 `Lang` is stronger than `CI` and `SBOM`. If `Lang` is set, the language group wins and the extra groups are not appended.
+
+Final adapter selection has one extra Go-specific exception: if Go is present and `Category != "compliance"`, `Service.Run()` prepends the built-in `catalog` adapter after registry filtering. That means `core-lint security` on a Go project can still emit `catalog` findings tagged `security`.
 
 ## Config Contract
 
@@ -202,6 +215,7 @@ exclude:
 - Relative `--config` paths resolve relative to `Path`
 - Unknown tool names in config are inert; the adapter registry is authoritative
 - The current default config includes `prettier`, but the adapter registry does not yet provide a `prettier` adapter
+- `LintConfig` still accepts a `schedules` map, but no current CLI command reads or executes it
 
 ## Detection Contract
 
@@ -518,7 +532,7 @@ exec core-lint run --hook
 # core-lint hook end
 ```
 
-If the hook file already exists, install appends a guarded block instead of overwriting the file.
+If the hook file already exists, install appends a guarded block instead of overwriting the file. In that appended case the command line becomes `core-lint run --hook || exit $?` rather than `exec core-lint run --hook`.
 
 ## Test Contract
 
