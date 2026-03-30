@@ -1,0 +1,19 @@
+version: "3"
+
+tasks:
+  test:
+    cmds:
+      - |
+          bash <<'EOF'
+          set -euo pipefail
+          source ../../_lib/run.sh
+
+          go build -trimpath -ldflags="-s -w" -o bin/core-lint ../../../../cmd/core-lint
+
+          project_dir="$(mktemp -d)"
+          output="$(mktemp)"
+          run_capture_stdout 0 "$output" ./bin/core-lint init "$project_dir"
+          test -f "$project_dir/.core/lint.yaml"
+          grep -Fq "golangci-lint" "$project_dir/.core/lint.yaml"
+          EOF
+

@@ -10,13 +10,18 @@ import (
 
 // Finding represents a single match of a rule against a source file.
 type Finding struct {
-	RuleID   string `json:"rule_id"`
-	Title    string `json:"title"`
-	Severity string `json:"severity"`
+	Tool     string `json:"tool,omitempty"`
 	File     string `json:"file"`
 	Line     int    `json:"line"`
-	Match    string `json:"match"`
-	Fix      string `json:"fix"`
+	Column   int    `json:"column,omitempty"`
+	Severity string `json:"severity"`
+	Code     string `json:"code,omitempty"`
+	Message  string `json:"message,omitempty"`
+	Category string `json:"category,omitempty"`
+	Fix      string `json:"fix,omitempty"`
+	RuleID   string `json:"rule_id,omitempty"`
+	Title    string `json:"title,omitempty"`
+	Match    string `json:"match,omitempty"`
 	Repo     string `json:"repo,omitempty"`
 }
 

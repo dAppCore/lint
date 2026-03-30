@@ -1,0 +1,13 @@
+version: "3"
+
+tasks:
+  test:
+    cmds:
+      - task -d check test
+      - task -d catalog/list test
+      - task -d catalog/show test
+      - task -d detect test
+      - task -d tools test
+      - task -d init test
+      - task -d run test
+

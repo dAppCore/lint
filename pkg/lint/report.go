@@ -4,12 +4,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 )
 
 // Summary holds aggregate counts for a set of findings.
 type Summary struct {
 	Total      int            `json:"total"`
-	BySeverity map[string]int `json:"by_severity"`
+	Errors     int            `json:"errors"`
+	Warnings   int            `json:"warnings"`
+	Info       int            `json:"info"`
+	Passed     bool           `json:"passed"`
+	BySeverity map[string]int `json:"by_severity,omitempty"`
 }
 
 // Summarise counts findings by severity.
@@ -19,8 +24,21 @@ func Summarise(findings []Finding) Summary {
 		BySeverity: make(map[string]int),
 	}
 	for _, f := range findings {
-		s.BySeverity[f.Severity]++
+		severity := strings.TrimSpace(f.Severity)
+		if severity == "" {
+			severity = "warning"
+		}
+		s.BySeverity[severity]++
+		switch severity {
+		case "error":
+			s.Errors++
+		case "info":
+			s.Info++
+		default:
+			s.Warnings++
+		}
 	}
+	s.Passed = s.Errors == 0
 	return s
 }
 
@@ -53,6 +71,136 @@ func WriteJSONL(w io.Writer, findings []Finding) error {
 //	file:line [severity] title (rule-id)
 func WriteText(w io.Writer, findings []Finding) {
 	for _, f := range findings {
-		fmt.Fprintf(w, "%s:%d [%s] %s (%s)\n", f.File, f.Line, f.Severity, f.Title, f.RuleID)
+		message := f.Message
+		if message == "" {
+			message = f.Title
+		}
+		code := f.Code
+		if code == "" {
+			code = f.RuleID
+		}
+		fmt.Fprintf(w, "%s:%d [%s] %s (%s)\n", f.File, f.Line, f.Severity, message, code)
 	}
+}
+
+// WriteReportJSON writes the RFC report document as pretty-printed JSON.
+func WriteReportJSON(w io.Writer, report Report) error {
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	return enc.Encode(report)
+}
+
+// WriteReportText writes report findings followed by a short summary.
+func WriteReportText(w io.Writer, report Report) {
+	WriteText(w, report.Findings)
+	fmt.Fprintf(w, "\n%d finding(s): %d error(s), %d warning(s), %d info\n", report.Summary.Total, report.Summary.Errors, report.Summary.Warnings, report.Summary.Info)
+}
+
+// WriteReportGitHub writes GitHub Actions annotation lines.
+func WriteReportGitHub(w io.Writer, report Report) {
+	for _, finding := range report.Findings {
+		level := finding.Severity
+		if level == "" {
+			level = "warning"
+		}
+
+		location := ""
+		if finding.File != "" {
+			location = fmt.Sprintf(" file=%s", finding.File)
+			if finding.Line > 0 {
+				location += fmt.Sprintf(",line=%d", finding.Line)
+			}
+			if finding.Column > 0 {
+				location += fmt.Sprintf(",col=%d", finding.Column)
+			}
+		}
+
+		message := finding.Message
+		if message == "" {
+			message = finding.Title
+		}
+		code := finding.Code
+		if code == "" {
+			code = finding.RuleID
+		}
+		fmt.Fprintf(w, "::%s%s::[%s] %s (%s)\n", level, location, finding.Tool, message, code)
+	}
+}
+
+// WriteReportSARIF writes a minimal SARIF document for code scanning tools.
+func WriteReportSARIF(w io.Writer, report Report) error {
+	type sarifMessage struct {
+		Text string `json:"text"`
+	}
+	type sarifRegion struct {
+		StartLine   int `json:"startLine,omitempty"`
+		StartColumn int `json:"startColumn,omitempty"`
+	}
+	type sarifArtifactLocation struct {
+		URI string `json:"uri,omitempty"`
+	}
+	type sarifPhysicalLocation struct {
+		ArtifactLocation sarifArtifactLocation `json:"artifactLocation"`
+		Region           sarifRegion           `json:"region,omitempty"`
+	}
+	type sarifLocation struct {
+		PhysicalLocation sarifPhysicalLocation `json:"physicalLocation"`
+	}
+	type sarifResult struct {
+		RuleID    string          `json:"ruleId,omitempty"`
+		Level     string          `json:"level,omitempty"`
+		Message   sarifMessage    `json:"message"`
+		Locations []sarifLocation `json:"locations,omitempty"`
+	}
+	type sarifRun struct {
+		Tool struct {
+			Driver struct {
+				Name string `json:"name"`
+			} `json:"driver"`
+		} `json:"tool"`
+		Results []sarifResult `json:"results"`
+	}
+	type sarifLog struct {
+		Version string     `json:"version"`
+		Schema  string     `json:"$schema"`
+		Runs    []sarifRun `json:"runs"`
+	}
+
+	sarifRunValue := sarifRun{}
+	sarifRunValue.Tool.Driver.Name = "core-lint"
+
+	for _, finding := range report.Findings {
+		message := finding.Message
+		if message == "" {
+			message = finding.Title
+		}
+		ruleID := finding.Code
+		if ruleID == "" {
+			ruleID = finding.RuleID
+		}
+
+		result := sarifResult{
+			RuleID:  ruleID,
+			Level:   finding.Severity,
+			Message: sarifMessage{Text: message},
+		}
+		if finding.File != "" {
+			result.Locations = []sarifLocation{{
+				PhysicalLocation: sarifPhysicalLocation{
+					ArtifactLocation: sarifArtifactLocation{URI: finding.File},
+					Region: sarifRegion{
+						StartLine:   finding.Line,
+						StartColumn: finding.Column,
+					},
+				},
+			}}
+		}
+		sarifRunValue.Results = append(sarifRunValue.Results, result)
+	}
+
+	return json.NewEncoder(w).Encode(sarifLog{
+		Version: "2.1.0",
+		Schema:  "https://json.schemastore.org/sarif-2.1.0.json",
+		Runs:    []sarifRun{sarifRunValue},
+	})
 }
