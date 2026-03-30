@@ -153,6 +153,63 @@ func TestPHPSecuritySARIFOutput_IsStructuredAndChromeFree(t *testing.T) {
 	assert.NotContains(t, output, "Summary:")
 }
 
+func TestPHPAuditJSONOutput_UsesLowerCaseAdvisoryKeys(t *testing.T) {
+	dir := t.TempDir()
+	writeTestFile(t, filepath.Join(dir, "composer.json"), "{}")
+	writeExecutable(t, filepath.Join(dir, "composer"), `#!/bin/sh
+cat <<'JSON'
+{
+  "advisories": {
+    "vendor/package-a": [
+      {
+        "title": "Remote Code Execution",
+        "link": "https://example.com/advisory/1",
+        "cve": "CVE-2025-1234",
+        "affectedVersions": ">=1.0,<1.5"
+      }
+    ]
+  }
+}
+JSON
+`)
+
+	restoreWorkingDir(t, dir)
+	prependPath(t, dir)
+	resetPHPAuditFlags(t)
+
+	parent := &cli.Command{Use: "qa"}
+	addPHPAuditCommand(parent)
+	command := findSubcommand(t, parent, "audit")
+	require.NoError(t, command.Flags().Set("json", "true"))
+
+	var runErr error
+	output := captureStdout(t, func() {
+		runErr = command.RunE(command, nil)
+	})
+
+	require.Error(t, runErr)
+
+	var payload struct {
+		Results []struct {
+			Tool       string `json:"tool"`
+			Advisories []struct {
+				Package string `json:"package"`
+			} `json:"advisories"`
+		} `json:"results"`
+		HasVulnerabilities bool `json:"has_vulnerabilities"`
+		Vulnerabilities    int  `json:"vulnerabilities"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(output), &payload))
+	require.Len(t, payload.Results, 1)
+	assert.Equal(t, "composer", payload.Results[0].Tool)
+	require.Len(t, payload.Results[0].Advisories, 1)
+	assert.Equal(t, "vendor/package-a", payload.Results[0].Advisories[0].Package)
+	assert.True(t, payload.HasVulnerabilities)
+	assert.Equal(t, 1, payload.Vulnerabilities)
+	assert.NotContains(t, output, "\"Package\"")
+	assert.NotContains(t, output, "Dependency Audit")
+}
+
 func TestPHPTestJUnitOutput_PrintsOnlyXML(t *testing.T) {
 	dir := t.TempDir()
 	writeTestFile(t, filepath.Join(dir, "composer.json"), "{}")
@@ -255,6 +312,18 @@ func resetPHPSecurityFlags(t *testing.T) {
 		phpSecurityJSON = oldJSON
 		phpSecuritySARIF = oldSARIF
 		phpSecurityURL = oldURL
+	})
+}
+
+func resetPHPAuditFlags(t *testing.T) {
+	t.Helper()
+	oldJSON := phpAuditJSON
+	oldFix := phpAuditFix
+	phpAuditJSON = false
+	phpAuditFix = false
+	t.Cleanup(func() {
+		phpAuditJSON = oldJSON
+		phpAuditFix = oldFix
 	})
 }
 

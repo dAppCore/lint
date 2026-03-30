@@ -424,34 +424,51 @@ func addPHPSecurityCommand(parent *cli.Command) {
 }
 
 type auditJSONOutput struct {
-	Results            []AuditResultJSON `json:"results"`
+	Results            []auditResultJSON `json:"results"`
 	HasVulnerabilities bool              `json:"has_vulnerabilities"`
 	Vulnerabilities    int               `json:"vulnerabilities"`
 }
 
-type AuditResultJSON struct {
+type auditResultJSON struct {
 	Tool            string              `json:"tool"`
 	Vulnerabilities int                 `json:"vulnerabilities"`
-	Advisories      []php.AuditAdvisory `json:"advisories"`
+	Advisories      []auditAdvisoryJSON `json:"advisories"`
 	Error           string              `json:"error,omitempty"`
+}
+
+type auditAdvisoryJSON struct {
+	Package     string   `json:"package"`
+	Severity    string   `json:"severity,omitempty"`
+	Title       string   `json:"title,omitempty"`
+	URL         string   `json:"url,omitempty"`
+	Identifiers []string `json:"identifiers,omitempty"`
 }
 
 func mapAuditResultsForJSON(results []php.AuditResult) auditJSONOutput {
 	output := auditJSONOutput{
-		Results: make([]AuditResultJSON, 0, len(results)),
+		Results: make([]auditResultJSON, 0, len(results)),
 	}
 	sort.Slice(results, func(i, j int) bool {
 		return results[i].Tool < results[j].Tool
 	})
 
 	for _, result := range results {
-		entry := AuditResultJSON{
+		entry := auditResultJSON{
 			Tool:            result.Tool,
 			Vulnerabilities: result.Vulnerabilities,
-			Advisories:      append([]php.AuditAdvisory(nil), result.Advisories...),
 		}
 		if result.Error != nil {
 			entry.Error = result.Error.Error()
+		}
+		entry.Advisories = make([]auditAdvisoryJSON, 0, len(result.Advisories))
+		for _, advisory := range result.Advisories {
+			entry.Advisories = append(entry.Advisories, auditAdvisoryJSON{
+				Package:     advisory.Package,
+				Severity:    advisory.Severity,
+				Title:       advisory.Title,
+				URL:         advisory.URL,
+				Identifiers: append([]string(nil), advisory.Identifiers...),
+			})
 		}
 		sort.Slice(entry.Advisories, func(i, j int) bool {
 			if entry.Advisories[i].Package == entry.Advisories[j].Package {

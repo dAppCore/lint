@@ -1,10 +1,12 @@
 package php
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	coreio "forge.lthn.ai/core/go-io"
@@ -111,6 +113,12 @@ func RunSecurityChecks(ctx context.Context, opts SecurityOptions) (*SecurityResu
 			}
 		}
 	}
+
+	// Keep the check order stable for callers that consume the package result
+	// directly instead of going through the CLI layer.
+	slices.SortFunc(result.Checks, func(a, b SecurityCheck) int {
+		return cmp.Compare(a.ID, b.ID)
+	})
 
 	return result, nil
 }

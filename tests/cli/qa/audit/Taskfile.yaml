@@ -16,5 +16,5 @@ tasks:
           run_capture_stdout 1 "$output" ../../bin/core qa audit --json
           jq -e '.results[0].tool == "composer" and .results[0].vulnerabilities == 1' "$output" >/dev/null
           jq -e '.has_vulnerabilities == true and .vulnerabilities == 1' "$output" >/dev/null
-          jq -e '.results[0].advisories[0].Package == "vendor/package-a"' "$output" >/dev/null
+          jq -e '.results[0].advisories[0].package == "vendor/package-a"' "$output" >/dev/null
           EOF

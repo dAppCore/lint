@@ -269,8 +269,15 @@ func summariseHealthResults(totalRepos int, filteredRepos int, results []RepoHea
 	summary := HealthSummary{
 		TotalRepos:    totalRepos,
 		FilteredRepos: filteredRepos,
-		ByStatus:      make(map[string]int),
-		ProblemsOnly:  problemsOnly,
+		ByStatus: map[string]int{
+			"passing":  0,
+			"failing":  0,
+			"error":    0,
+			"pending":  0,
+			"disabled": 0,
+			"no_ci":    0,
+		},
+		ProblemsOnly: problemsOnly,
 	}
 
 	for _, health := range results {
