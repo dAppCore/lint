@@ -139,15 +139,123 @@ esac
 	require.NoError(t, command.Flags().Set("registry", filepath.Join(dir, "repos.yaml")))
 	require.NoError(t, command.Flags().Set("json", "true"))
 
+	var runErr error
 	output := captureStdout(t, func() {
-		require.NoError(t, command.RunE(command, nil))
+		runErr = command.RunE(command, nil)
 	})
 
+	require.Error(t, runErr)
 	var payload IssuesOutput
 	require.NoError(t, json.Unmarshal([]byte(output), &payload))
 	require.Len(t, payload.FetchErrors, 2)
 	assert.Equal(t, "alpha", payload.FetchErrors[0].Repo)
 	assert.Equal(t, "beta", payload.FetchErrors[1].Repo)
+}
+
+func TestRunQAIssuesJSONOutput_ReturnsErrorWhenAllFetchesFail(t *testing.T) {
+	dir := t.TempDir()
+	writeTestFile(t, filepath.Join(dir, "repos.yaml"), `version: 1
+org: forge
+base_path: .
+repos:
+  beta:
+    type: module
+  alpha:
+    type: module
+`)
+	writeExecutable(t, filepath.Join(dir, "gh"), `#!/bin/sh
+case "$*" in
+  *"issue list --repo forge/alpha"*)
+    printf '%s\n' 'alpha failed' >&2
+    exit 1
+    ;;
+  *"issue list --repo forge/beta"*)
+    printf '%s\n' 'beta failed' >&2
+    exit 1
+    ;;
+  *)
+    printf '%s\n' "unexpected gh invocation: $*" >&2
+    exit 1
+    ;;
+esac
+`)
+
+	restoreWorkingDir(t, dir)
+	prependPath(t, dir)
+	resetIssuesFlags(t)
+	t.Cleanup(func() {
+		issuesRegistry = ""
+	})
+
+	parent := &cli.Command{Use: "qa"}
+	addIssuesCommand(parent)
+	command := findSubcommand(t, parent, "issues")
+	require.NoError(t, command.Flags().Set("registry", filepath.Join(dir, "repos.yaml")))
+	require.NoError(t, command.Flags().Set("json", "true"))
+
+	var runErr error
+	output := captureStdout(t, func() {
+		runErr = command.RunE(command, nil)
+	})
+
+	require.Error(t, runErr)
+
+	var payload IssuesOutput
+	require.NoError(t, json.Unmarshal([]byte(output), &payload))
+	require.Len(t, payload.Categories, 4)
+	assert.Empty(t, payload.Categories[0].Issues)
+	require.Len(t, payload.FetchErrors, 2)
+	assert.Equal(t, "alpha", payload.FetchErrors[0].Repo)
+	assert.Equal(t, "beta", payload.FetchErrors[1].Repo)
+}
+
+func TestRunQAIssuesHumanOutput_ReturnsErrorWhenAllFetchesFail(t *testing.T) {
+	dir := t.TempDir()
+	writeTestFile(t, filepath.Join(dir, "repos.yaml"), `version: 1
+org: forge
+base_path: .
+repos:
+  beta:
+    type: module
+  alpha:
+    type: module
+`)
+	writeExecutable(t, filepath.Join(dir, "gh"), `#!/bin/sh
+case "$*" in
+  *"issue list --repo forge/alpha"*)
+    printf '%s\n' 'alpha failed' >&2
+    exit 1
+    ;;
+  *"issue list --repo forge/beta"*)
+    printf '%s\n' 'beta failed' >&2
+    exit 1
+    ;;
+  *)
+    printf '%s\n' "unexpected gh invocation: $*" >&2
+    exit 1
+    ;;
+esac
+`)
+
+	restoreWorkingDir(t, dir)
+	prependPath(t, dir)
+	resetIssuesFlags(t)
+	t.Cleanup(func() {
+		issuesRegistry = ""
+	})
+
+	parent := &cli.Command{Use: "qa"}
+	addIssuesCommand(parent)
+	command := findSubcommand(t, parent, "issues")
+	require.NoError(t, command.Flags().Set("registry", filepath.Join(dir, "repos.yaml")))
+
+	var runErr error
+	output := captureStdout(t, func() {
+		runErr = command.RunE(command, nil)
+	})
+
+	require.Error(t, runErr)
+	assert.NotContains(t, output, "cmd.qa.issues.no_issues")
 }
 
 func TestCalculatePriority_UsesMostUrgentLabelRegardlessOfOrder(t *testing.T) {

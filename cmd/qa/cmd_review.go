@@ -147,6 +147,7 @@ func runReview() error {
 	fetchErrors := make([]ReviewFetchError, 0)
 	mineFetched := false
 	requestedFetched := false
+	successfulFetches := 0
 
 	if showMine {
 		prs, err := fetchPRs(ctx, repoFullName, "author:@me")
@@ -168,6 +169,7 @@ func runReview() error {
 			})
 			minePRs = prs
 			mineFetched = true
+			successfulFetches++
 		}
 	}
 
@@ -191,24 +193,34 @@ func runReview() error {
 			})
 			requestedPRs = prs
 			requestedFetched = true
+			successfulFetches++
 		}
 	}
 
+	output := reviewOutput{
+		Mine:             minePRs,
+		Requested:        requestedPRs,
+		TotalMine:        len(minePRs),
+		TotalRequested:   len(requestedPRs),
+		ShowingMine:      showMine,
+		ShowingRequested: showRequested,
+		FetchErrors:      fetchErrors,
+	}
+
 	if reviewJSON {
-		data, err := json.MarshalIndent(reviewOutput{
-			Mine:             minePRs,
-			Requested:        requestedPRs,
-			TotalMine:        len(minePRs),
-			TotalRequested:   len(requestedPRs),
-			ShowingMine:      showMine,
-			ShowingRequested: showRequested,
-			FetchErrors:      fetchErrors,
-		}, "", "  ")
+		data, err := json.MarshalIndent(output, "", "  ")
 		if err != nil {
 			return err
 		}
 		fmt.Println(string(data))
+		if successfulFetches == 0 && len(fetchErrors) > 0 {
+			return cli.Err("failed to fetch pull requests for %s", repoFullName)
+		}
 		return nil
+	}
+
+	if successfulFetches == 0 && len(fetchErrors) > 0 {
+		return cli.Err("failed to fetch pull requests for %s", repoFullName)
 	}
 
 	if showMine && mineFetched {

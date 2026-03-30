@@ -145,6 +145,7 @@ func runQAIssues() error {
 	slices.SortFunc(repoList, func(a, b *repos.Repo) int {
 		return cmp.Compare(a.Name, b.Name)
 	})
+	successfulFetches := 0
 
 	for i, repo := range repoList {
 		if !issuesJSON {
@@ -168,6 +169,7 @@ func runQAIssues() error {
 			continue // Skip repos with errors
 		}
 		allIssues = append(allIssues, issues...)
+		successfulFetches++
 	}
 	totalIssues := len(allIssues)
 
@@ -179,7 +181,16 @@ func runQAIssues() error {
 			"triage":         {},
 		}
 		if issuesJSON {
-			return printCategorisedIssuesJSON(0, emptyCategorised, fetchErrors)
+			if err := printCategorisedIssuesJSON(0, emptyCategorised, fetchErrors); err != nil {
+				return err
+			}
+			if successfulFetches == 0 && len(fetchErrors) > 0 {
+				return cli.Err("failed to fetch issues from any repository")
+			}
+			return nil
+		}
+		if successfulFetches == 0 && len(fetchErrors) > 0 {
+			return cli.Err("failed to fetch issues from any repository")
 		}
 		cli.Text(i18n.T("cmd.qa.issues.no_issues"))
 		return nil

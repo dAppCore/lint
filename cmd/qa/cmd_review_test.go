@@ -80,6 +80,54 @@ esac
 	assert.Contains(t, payload.FetchErrors[0].Error, "simulated author query failure")
 }
 
+func TestRunReviewJSONOutput_ReturnsErrorWhenAllFetchesFail(t *testing.T) {
+	dir := t.TempDir()
+	writeExecutable(t, filepath.Join(dir, "gh"), `#!/bin/sh
+case "$*" in
+  *"author:@me"*)
+    printf '%s\n' 'simulated author query failure' >&2
+    exit 1
+    ;;
+  *"review-requested:@me"*)
+    printf '%s\n' 'simulated requested query failure' >&2
+    exit 1
+    ;;
+  *)
+    printf '%s\n' "unexpected gh invocation: $*" >&2
+    exit 1
+    ;;
+esac
+`)
+
+	restoreWorkingDir(t, dir)
+	prependPath(t, dir)
+	resetReviewFlags(t)
+	t.Cleanup(func() {
+		reviewRepo = ""
+	})
+
+	parent := &cli.Command{Use: "qa"}
+	addReviewCommand(parent)
+	command := findSubcommand(t, parent, "review")
+	require.NoError(t, command.Flags().Set("repo", "forge/example"))
+	require.NoError(t, command.Flags().Set("json", "true"))
+
+	var runErr error
+	output := captureStdout(t, func() {
+		runErr = command.RunE(command, nil)
+	})
+
+	require.Error(t, runErr)
+
+	var payload reviewOutput
+	require.NoError(t, json.Unmarshal([]byte(output), &payload))
+	assert.Empty(t, payload.Mine)
+	assert.Empty(t, payload.Requested)
+	require.Len(t, payload.FetchErrors, 2)
+	assert.Equal(t, "mine", payload.FetchErrors[0].Scope)
+	assert.Equal(t, "requested", payload.FetchErrors[1].Scope)
+}
+
 func TestRunReviewHumanOutput_PreservesSuccessfulSectionWhenOneFetchFails(t *testing.T) {
 	dir := t.TempDir()
 	writeExecutable(t, filepath.Join(dir, "gh"), `#!/bin/sh
@@ -139,6 +187,47 @@ esac
 	assert.Contains(t, output, "gh pr checkout 42")
 	assert.NotContains(t, output, "Your pull requests")
 	assert.NotContains(t, output, "cmd.qa.review.no_prs")
+}
+
+func TestRunReviewHumanOutput_ReturnsErrorWhenAllFetchesFail(t *testing.T) {
+	dir := t.TempDir()
+	writeExecutable(t, filepath.Join(dir, "gh"), `#!/bin/sh
+case "$*" in
+  *"author:@me"*)
+    printf '%s\n' 'simulated author query failure' >&2
+    exit 1
+    ;;
+  *"review-requested:@me"*)
+    printf '%s\n' 'simulated requested query failure' >&2
+    exit 1
+    ;;
+  *)
+    printf '%s\n' "unexpected gh invocation: $*" >&2
+    exit 1
+    ;;
+esac
+`)
+
+	restoreWorkingDir(t, dir)
+	prependPath(t, dir)
+	resetReviewFlags(t)
+	t.Cleanup(func() {
+		reviewRepo = ""
+	})
+
+	parent := &cli.Command{Use: "qa"}
+	addReviewCommand(parent)
+	command := findSubcommand(t, parent, "review")
+	require.NoError(t, command.Flags().Set("repo", "forge/example"))
+
+	var runErr error
+	output := captureStdout(t, func() {
+		runErr = command.RunE(command, nil)
+	})
+
+	require.Error(t, runErr)
+	assert.NotContains(t, output, "Your pull requests")
+	assert.NotContains(t, output, "Review requested")
 }
 
 func TestAnalyzePRStatus_UsesDeterministicFailedCheckName(t *testing.T) {
