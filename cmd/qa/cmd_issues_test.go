@@ -158,6 +158,29 @@ func TestCalculatePriority_UsesMostUrgentLabelRegardlessOfOrder(t *testing.T) {
 	assert.Equal(t, 1, calculatePriority(labelsB))
 }
 
+func TestPrintTriagedIssue_SortsImportantLabels(t *testing.T) {
+	var issue Issue
+	require.NoError(t, json.Unmarshal([]byte(`{
+		"number": 7,
+		"title": "Stabilise output",
+		"updatedAt": "2026-03-30T00:00:00Z",
+		"labels": {
+			"nodes": [
+				{"name": "priority:urgent"},
+				{"name": "agent:ready"}
+			]
+		}
+	}`), &issue))
+	issue.RepoName = "alpha"
+
+	output := captureStdout(t, func() {
+		printTriagedIssue(issue)
+	})
+
+	assert.Contains(t, output, "[agent:ready, priority:urgent]")
+	assert.NotContains(t, output, "[priority:urgent, agent:ready]")
+}
+
 func resetIssuesFlags(t *testing.T) {
 	t.Helper()
 	oldMine := issuesMine

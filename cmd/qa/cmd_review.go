@@ -336,7 +336,7 @@ func analyzePRStatus(pr PullRequest) (status string, style *cli.AnsiStyle, actio
 	ciPassed := true
 	ciFailed := false
 	ciPending := false
-	var failedCheck string
+	var failedChecks []string
 
 	if pr.StatusChecks != nil {
 		for _, check := range pr.StatusChecks.Contexts {
@@ -344,9 +344,7 @@ func analyzePRStatus(pr PullRequest) (status string, style *cli.AnsiStyle, actio
 			case "FAILURE", "failure":
 				ciFailed = true
 				ciPassed = false
-				if failedCheck == "" {
-					failedCheck = check.Name
-				}
+				failedChecks = append(failedChecks, check.Name)
 			case "PENDING", "pending", "":
 				if check.State == "PENDING" || check.State == "" {
 					ciPending = true
@@ -369,7 +367,11 @@ func analyzePRStatus(pr PullRequest) (status string, style *cli.AnsiStyle, actio
 	}
 
 	if ciFailed {
-		return "✗", errorStyle, fmt.Sprintf("CI failed: %s", failedCheck)
+		if len(failedChecks) > 0 {
+			sort.Strings(failedChecks)
+			return "✗", errorStyle, fmt.Sprintf("CI failed: %s", failedChecks[0])
+		}
+		return "✗", errorStyle, "CI failed"
 	}
 
 	if changesRequested {

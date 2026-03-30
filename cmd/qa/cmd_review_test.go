@@ -141,6 +141,24 @@ esac
 	assert.NotContains(t, output, "cmd.qa.review.no_prs")
 }
 
+func TestAnalyzePRStatus_UsesDeterministicFailedCheckName(t *testing.T) {
+	pr := PullRequest{
+		Mergeable:      "MERGEABLE",
+		ReviewDecision: "",
+		StatusChecks: &StatusCheckRollup{
+			Contexts: []StatusContext{
+				{State: "FAILURE", Conclusion: "failure", Name: "Zulu"},
+				{State: "FAILURE", Conclusion: "failure", Name: "Alpha"},
+			},
+		},
+	}
+
+	status, _, action := analyzePRStatus(pr)
+
+	assert.Equal(t, "✗", status)
+	assert.Equal(t, "CI failed: Alpha", action)
+}
+
 func resetReviewFlags(t *testing.T) {
 	t.Helper()
 	oldMine := reviewMine

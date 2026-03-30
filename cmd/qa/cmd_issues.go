@@ -481,6 +481,7 @@ func printTriagedIssue(issue Issue) {
 		}
 	}
 	if len(importantLabels) > 0 {
+		slices.Sort(importantLabels)
 		cli.Print(" %s", warningStyle.Render("["+strings.Join(importantLabels, ", ")+"]"))
 	}
 
