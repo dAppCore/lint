@@ -1,9 +1,9 @@
 # RFC-LINT: core/lint Agent-Native CLI and Adapter Contract
 
-- Status: Implemented
-- Date: 2026-03-30
-- Applies to: `forge.lthn.ai/core/lint`
-- Standard: [`docs/RFC-CORE-008-AGENT-EXPERIENCE.md`](./RFC-CORE-008-AGENT-EXPERIENCE.md)
+- **Status:** Implemented
+- **Date:** 2026-03-30
+- **Applies to:** `forge.lthn.ai/core/lint`
+- **Standard:** [`docs/RFC-CORE-008-AGENT-EXPERIENCE.md`](./RFC-CORE-008-AGENT-EXPERIENCE.md)
 
 ## Abstract
 
@@ -25,16 +25,18 @@ The current implementation has three properties that matter for AX:
 
 An agent should be able to read the paths, map the commands, and predict the output shapes without reverse-engineering aspirational features from an outdated RFC.
 
-## AX Decisions
+## AX Principles Applied
 
 This RFC follows the Agent Experience standard directly:
 
-1. Predictable names: `RunInput`, `Report`, `ToolRun`, `ToolInfo`, `Service`, `Adapter`.
-2. Comments as usage examples: command examples use real flags and real paths.
-3. Path is documentation: the implementation map is the contract.
-4. One input shape for orchestration: `pkg/lint/service.go` owns `RunInput`.
-5. One output shape for orchestration: `pkg/lint/service.go` owns `Report`.
-6. Stable sequencing over hidden magic: adapters run in deterministic order and reports are sorted before output.
+1. Predictable names over short names: `RunInput`, `Report`, `ToolRun`, `ToolInfo`, `Service`, and `Adapter` are the contract nouns across the CLI and package boundary.
+2. Comments as usage examples: command examples use real flags and real paths such as `core-lint run --output json .` and `core-lint tools --output json --lang go`.
+3. Path is documentation: the implementation map is the contract, and `tests/cli/lint/{path}` mirrors the command path it validates.
+4. Declarative over imperative: `.core/lint.yaml` declares tool groups, thresholds, and output defaults instead of encoding those decisions in hidden CLI behavior.
+5. One input shape for orchestration: `pkg/lint/service.go` owns `RunInput`.
+6. One output shape for orchestration: `pkg/lint/service.go` owns `Report`.
+7. CLI tests as artifact validation: the Taskfiles under `tests/cli/lint/...` are the runnable contract for the binary surface.
+8. Stable sequencing over hidden magic: adapters run sequentially, then tool runs and findings are sorted before output.
 
 ## Path Map
 
@@ -373,6 +375,27 @@ An agent must not assume that `core-lint lint check` and `core-lint run` execute
 ## Adapter Inventory
 
 The registry in `pkg/lint/adapter.go` is the implementation contract.
+
+### ToolInfo Contract
+
+`core-lint tools` returns the runtime inventory from `Service.Tools()`:
+
+```go
+type ToolInfo struct {
+    Name        string   `json:"name"`
+    Available   bool     `json:"available"`
+    Languages   []string `json:"languages"`
+    Category    string   `json:"category"`
+    Entitlement string   `json:"entitlement,omitempty"`
+}
+```
+
+Inventory rules:
+
+- results are sorted by `Name`
+- `--lang` filters via `Adapter.MatchesLanguage()`
+- `Available` reflects a `PATH` lookup at runtime, not config membership
+- `Entitlement` is descriptive metadata; the current implementation does not enforce it
 
 ### Built-in
 
