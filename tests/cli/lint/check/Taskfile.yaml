@@ -1,0 +1,17 @@
+version: "3"
+
+tasks:
+  test:
+    cmds:
+      - |
+          bash <<'EOF'
+          set -euo pipefail
+          source ../../_lib/run.sh
+
+          go build -trimpath -ldflags="-s -w" -o bin/core-lint ../../../../cmd/core-lint
+
+          output="$(mktemp)"
+          run_capture_stdout 0 "$output" ./bin/core-lint lint check --format=json fixtures
+          jq -e 'length == 1 and .[0].rule_id == "go-cor-003" and .[0].file == "input.go"' "$output" >/dev/null
+          jq -e '.[0].severity == "medium" and .[0].fix != ""' "$output" >/dev/null
+          EOF

@@ -1,0 +1,19 @@
+version: "3"
+
+tasks:
+  test:
+    cmds:
+      - |
+          bash <<'EOF'
+          set -euo pipefail
+          source ../../_lib/run.sh
+
+          go build -trimpath -ldflags="-s -w" -o bin/core ../_harness
+
+          cd fixtures/project
+          output="$(mktemp)"
+          run_capture_all 1 "$output" ../../bin/core qa rector
+          grep -Fq "Rector Refactoring" "$output"
+          grep -Fq "(dry-run)" "$output"
+          grep -Fq "1 refactoring suggestion in src/Bad.php" "$output"
+          EOF

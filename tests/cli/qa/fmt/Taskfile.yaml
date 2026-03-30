@@ -1,0 +1,18 @@
+version: "3"
+
+tasks:
+  test:
+    cmds:
+      - |
+          bash <<'EOF'
+          set -euo pipefail
+          source ../../_lib/run.sh
+
+          go build -trimpath -ldflags="-s -w" -o bin/core ../_harness
+
+          cd fixtures/project
+          output="$(mktemp)"
+          export PATH="../bin:$PATH"
+          run_capture_stdout 0 "$output" ../../bin/core qa fmt --json
+          jq -e '.tool == "pint" and .changed == true and .files[0].path == "src/Bad.php"' "$output" >/dev/null
+          EOF

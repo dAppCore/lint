@@ -1,0 +1,26 @@
+#!/usr/bin/env sh
+
+case "$*" in
+  *"--repo forge/alpha"*)
+    cat <<'JSON'
+[
+  {
+    "status": "completed",
+    "conclusion": "success",
+    "name": "CI",
+    "headSha": "abc123",
+    "updatedAt": "2026-03-30T00:00:00Z",
+    "url": "https://example.com/alpha/run/1"
+  }
+]
+JSON
+    ;;
+  *"--repo forge/beta"*)
+    printf '%s\n' 'simulated workflow lookup failure' >&2
+    exit 1
+    ;;
+  *)
+    printf '%s\n' "unexpected gh invocation: $*" >&2
+    exit 1
+    ;;
+esac

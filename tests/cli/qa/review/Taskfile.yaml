@@ -1,0 +1,20 @@
+version: "3"
+
+tasks:
+  test:
+    cmds:
+      - |
+          bash <<'EOF'
+          set -euo pipefail
+          source ../../_lib/run.sh
+
+          go build -trimpath -ldflags="-s -w" -o bin/core ../_harness
+
+          output="$(mktemp)"
+          export PATH="$(pwd)/fixtures/bin:$PATH"
+          run_capture_stdout 0 "$output" ./bin/core qa review --repo forge/example --json
+          jq -e '.showing_mine == true and .showing_requested == true' "$output" >/dev/null
+          jq -e '.mine | length == 0 and .requested | length == 1' "$output" >/dev/null
+          jq -e '.requested[0].number == 42 and .requested[0].title == "Refine agent output"' "$output" >/dev/null
+          jq -e '.fetch_errors[0].repo == "forge/example" and .fetch_errors[0].scope == "mine"' "$output" >/dev/null
+          EOF

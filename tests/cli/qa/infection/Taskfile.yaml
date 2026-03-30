@@ -1,0 +1,22 @@
+version: "3"
+
+tasks:
+  test:
+    cmds:
+      - |
+          bash <<'EOF'
+          set -euo pipefail
+          source ../../_lib/run.sh
+
+          go build -trimpath -ldflags="-s -w" -o bin/core ../_harness
+
+          cd fixtures/project
+          output="$(mktemp)"
+          run_capture_all 1 "$output" ../../bin/core qa infection --min-msi 80 --min-covered-msi 90 --threads 8 --filter src --only-covered
+          grep -Fq "Mutation Testing" "$output"
+          grep -Fq -- "--min-msi=80" "$output"
+          grep -Fq -- "--min-covered-msi=90" "$output"
+          grep -Fq -- "--threads=8" "$output"
+          grep -Fq -- "--filter=src" "$output"
+          grep -Fq -- "--only-covered" "$output"
+          EOF

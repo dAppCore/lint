@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+
+printf '%s\n' '1 refactoring suggestion in src/Bad.php'
+exit 1
