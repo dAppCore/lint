@@ -14,7 +14,7 @@
       },
       "health": {
         "short": "Show CI health across repos",
-        "long": "Check GitHub Actions workflow status for all repos in the registry and report which are passing, failing, or unconfigured.",
+        "long": "Check GitHub Actions workflow status for all repos in the registry and report which are passing, failing, errored, or unconfigured.",
         "summary": "CI Health",
         "all_healthy": "All repos are healthy.",
         "passing": "Passing",
@@ -27,6 +27,7 @@
         "no_ci_configured": "No CI configured",
         "count_passing": "passing",
         "count_failing": "failing",
+        "count_error": "error",
         "count_pending": "pending",
         "count_no_ci": "no CI",
         "count_disabled": "disabled",

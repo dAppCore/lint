@@ -40,23 +40,24 @@ type HealthWorkflowRun struct {
 // RepoHealth represents the CI health of a single repo.
 type RepoHealth struct {
 	Name         string `json:"name"`
-	Status       string `json:"status"` // passing, failing, pending, no_ci, disabled
+	Status       string `json:"status"` // passing, failing, error, pending, no_ci, disabled
 	Message      string `json:"message"`
 	URL          string `json:"url"`
-	FailingSince string `json:"failing_since"`
+	FailingSince string `json:"failing_since,omitempty"`
 }
 
 // HealthSummary captures aggregate health counts.
 type HealthSummary struct {
-	TotalRepos    int           `json:"total_repos"`
-	FilteredRepos int           `json:"filtered_repos"`
-	Passing       int           `json:"passing"`
-	Failing       int           `json:"failing"`
-	Pending       int           `json:"pending"`
-	Disabled      int           `json:"disabled"`
-	NotConfigured int           `json:"not_configured"`
-	PassingRate   int           `json:"passing_rate"`
-	ProblemsOnly  bool          `json:"problems_only"`
+	TotalRepos    int            `json:"total_repos"`
+	FilteredRepos int            `json:"filtered_repos"`
+	Passing       int            `json:"passing"`
+	Failing       int            `json:"failing"`
+	Errors        int            `json:"errors"`
+	Pending       int            `json:"pending"`
+	Disabled      int            `json:"disabled"`
+	NotConfigured int            `json:"not_configured"`
+	PassingRate   int            `json:"passing_rate"`
+	ProblemsOnly  bool           `json:"problems_only"`
 	ByStatus      map[string]int `json:"by_status"`
 }
 
@@ -150,6 +151,7 @@ func runHealth() error {
 	}
 
 	printHealthGroup("failing", grouped["failing"], errorStyle)
+	printHealthGroup("error", grouped["error"], errorStyle)
 	printHealthGroup("pending", grouped["pending"], warningStyle)
 	printHealthGroup("no_ci", grouped["no_ci"], dimStyle)
 	printHealthGroup("disabled", grouped["disabled"], dimStyle)
@@ -185,7 +187,7 @@ func fetchRepoHealth(org, repoName string) RepoHealth {
 		}
 		return RepoHealth{
 			Name:    repoName,
-			Status:  "no_ci",
+			Status:  "error",
 			Message: i18n.T("cmd.qa.health.fetch_error"),
 		}
 	}
@@ -194,7 +196,7 @@ func fetchRepoHealth(org, repoName string) RepoHealth {
 	if err := json.Unmarshal(output, &runs); err != nil {
 		return RepoHealth{
 			Name:    repoName,
-			Status:  "no_ci",
+			Status:  "error",
 			Message: i18n.T("cmd.qa.health.parse_error"),
 		}
 	}
@@ -247,16 +249,18 @@ func healthPriority(status string) int {
 	switch status {
 	case "failing":
 		return 0
-	case "pending":
+	case "error":
 		return 1
-	case "no_ci":
+	case "pending":
 		return 2
-	case "disabled":
+	case "no_ci":
 		return 3
-	case "passing":
+	case "disabled":
 		return 4
-	default:
+	case "passing":
 		return 5
+	default:
+		return 6
 	}
 }
 
@@ -275,6 +279,8 @@ func summariseHealthResults(totalRepos int, results []RepoHealth, problemsOnly b
 			summary.Passing++
 		case "failing":
 			summary.Failing++
+		case "error":
+			summary.Errors++
 		case "pending":
 			summary.Pending++
 		case "disabled":
@@ -316,6 +322,8 @@ func printHealthGroup(status string, repos []RepoHealth, style *cli.AnsiStyle) {
 	switch status {
 	case "failing":
 		label = i18n.T("cmd.qa.health.count_failing")
+	case "error":
+		label = i18n.T("cmd.qa.health.count_error")
 	case "pending":
 		label = i18n.T("cmd.qa.health.count_pending")
 	case "no_ci":

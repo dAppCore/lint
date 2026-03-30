@@ -66,17 +66,10 @@ type Issue struct {
 	URL string `json:"url"`
 
 	// Computed fields
-	RepoName   string
-	Priority   int    // Lower = higher priority
-	Category   string // "needs_response", "ready", "blocked", "triage"
-	ActionHint string
-}
-
-type issuesOutput struct {
-	NeedsResponse []Issue `json:"needs_response"`
-	Ready         []Issue `json:"ready"`
-	Blocked       []Issue `json:"blocked"`
-	Triage        []Issue `json:"triage"`
+	RepoName   string `json:"repo_name"`
+	Priority   int    `json:"priority"` // Lower = higher priority
+	Category   string `json:"category"` // "needs_response", "ready", "blocked", "triage"
+	ActionHint string `json:"action_hint,omitempty"`
 }
 
 type IssueFetchError struct {
