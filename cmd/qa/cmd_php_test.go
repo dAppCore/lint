@@ -153,6 +153,47 @@ func TestPHPSecuritySARIFOutput_IsStructuredAndChromeFree(t *testing.T) {
 	assert.NotContains(t, output, "Summary:")
 }
 
+func TestPHPSecurityJSONOutput_RespectsSeverityFilter(t *testing.T) {
+	dir := t.TempDir()
+	writeTestFile(t, filepath.Join(dir, "composer.json"), "{}")
+	writeTestFile(t, filepath.Join(dir, ".env"), "APP_DEBUG=true\nAPP_KEY=short\nAPP_URL=http://example.com\n")
+	writeExecutable(t, filepath.Join(dir, "bin", "composer"), "#!/bin/sh\nprintf '%s\\n' '{\"advisories\":{}}'\n")
+
+	restoreWorkingDir(t, dir)
+	prependPath(t, filepath.Join(dir, "bin"))
+	resetPHPSecurityFlags(t)
+
+	parent := &cli.Command{Use: "qa"}
+	addPHPSecurityCommand(parent)
+	command := findSubcommand(t, parent, "security")
+	require.NoError(t, command.Flags().Set("json", "true"))
+	require.NoError(t, command.Flags().Set("severity", "critical"))
+
+	output := captureStdout(t, func() {
+		require.Error(t, command.RunE(command, nil))
+	})
+
+	var payload struct {
+		Checks []struct {
+			ID       string `json:"id"`
+			Severity string `json:"severity"`
+		} `json:"checks"`
+		Summary struct {
+			Total    int `json:"total"`
+			Passed   int `json:"passed"`
+			Critical int `json:"critical"`
+			High     int `json:"high"`
+		} `json:"summary"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(output), &payload))
+	assert.Equal(t, 3, payload.Summary.Total)
+	assert.Equal(t, 1, payload.Summary.Passed)
+	assert.Equal(t, 2, payload.Summary.Critical)
+	assert.Zero(t, payload.Summary.High)
+	require.Len(t, payload.Checks, 3)
+	assert.NotContains(t, output, "https_enforced")
+}
+
 func TestPHPAuditJSONOutput_UsesLowerCaseAdvisoryKeys(t *testing.T) {
 	dir := t.TempDir()
 	writeTestFile(t, filepath.Join(dir, "composer.json"), "{}")

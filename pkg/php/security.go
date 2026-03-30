@@ -4,10 +4,14 @@ import (
 	"cmp"
 	"context"
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
 	coreio "forge.lthn.ai/core/go-io"
 	coreerr "forge.lthn.ai/core/go-log"
@@ -58,6 +62,50 @@ func capitalise(s string) string {
 	return strings.ToUpper(s[:1]) + s[1:]
 }
 
+// securitySeverityRank maps severities to a sortable rank.
+// Lower numbers are more severe.
+func securitySeverityRank(severity string) (int, bool) {
+	switch strings.ToLower(strings.TrimSpace(severity)) {
+	case "critical":
+		return 0, true
+	case "high":
+		return 1, true
+	case "medium":
+		return 2, true
+	case "low":
+		return 3, true
+	case "info":
+		return 4, true
+	default:
+		return 0, false
+	}
+}
+
+// filterSecurityChecks returns checks at or above the requested severity.
+func filterSecurityChecks(checks []SecurityCheck, minimum string) ([]SecurityCheck, error) {
+	if strings.TrimSpace(minimum) == "" {
+		return checks, nil
+	}
+
+	minRank, ok := securitySeverityRank(minimum)
+	if !ok {
+		return nil, coreerr.E("filterSecurityChecks", "invalid security severity "+minimum, nil)
+	}
+
+	filtered := make([]SecurityCheck, 0, len(checks))
+	for _, check := range checks {
+		rank, ok := securitySeverityRank(check.Severity)
+		if !ok {
+			continue
+		}
+		if rank <= minRank {
+			filtered = append(filtered, check)
+		}
+	}
+
+	return filtered, nil
+}
+
 // RunSecurityChecks runs security checks on the project.
 func RunSecurityChecks(ctx context.Context, opts SecurityOptions) (*SecurityResult, error) {
 	if opts.Dir == "" {
@@ -95,24 +143,14 @@ func RunSecurityChecks(ctx context.Context, opts SecurityOptions) (*SecurityResu
 	fsChecks := runFilesystemSecurityChecks(opts.Dir)
 	result.Checks = append(result.Checks, fsChecks...)
 
-	// Calculate summary
-	for _, check := range result.Checks {
-		result.Summary.Total++
-		if check.Passed {
-			result.Summary.Passed++
-		} else {
-			switch check.Severity {
-			case "critical":
-				result.Summary.Critical++
-			case "high":
-				result.Summary.High++
-			case "medium":
-				result.Summary.Medium++
-			case "low":
-				result.Summary.Low++
-			}
-		}
+	// Check HTTP security headers when a URL is supplied.
+	result.Checks = append(result.Checks, runHTTPSecurityHeaderChecks(ctx, opts.URL)...)
+
+	filteredChecks, err := filterSecurityChecks(result.Checks, opts.Severity)
+	if err != nil {
+		return nil, err
 	}
+	result.Checks = filteredChecks
 
 	// Keep the check order stable for callers that consume the package result
 	// directly instead of going through the CLI layer.
@@ -120,7 +158,92 @@ func RunSecurityChecks(ctx context.Context, opts SecurityOptions) (*SecurityResu
 		return cmp.Compare(a.ID, b.ID)
 	})
 
+	// Calculate summary after any severity filtering has been applied.
+	for _, check := range result.Checks {
+		result.Summary.Total++
+		if check.Passed {
+			result.Summary.Passed++
+			continue
+		}
+
+		switch check.Severity {
+		case "critical":
+			result.Summary.Critical++
+		case "high":
+			result.Summary.High++
+		case "medium":
+			result.Summary.Medium++
+		case "low":
+			result.Summary.Low++
+		}
+	}
+
 	return result, nil
+}
+
+func runHTTPSecurityHeaderChecks(ctx context.Context, rawURL string) []SecurityCheck {
+	if strings.TrimSpace(rawURL) == "" {
+		return nil
+	}
+
+	check := SecurityCheck{
+		ID:          "http_security_headers",
+		Name:        "HTTP Security Headers",
+		Description: "Check for common security headers on the supplied URL",
+		Severity:    "high",
+		CWE:         "CWE-693",
+	}
+
+	parsedURL, err := url.Parse(rawURL)
+	if err != nil || parsedURL.Scheme == "" || parsedURL.Host == "" {
+		check.Message = "Invalid URL"
+		check.Fix = "Provide a valid http:// or https:// URL"
+		return []SecurityCheck{check}
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	if err != nil {
+		check.Message = err.Error()
+		check.Fix = "Provide a reachable URL"
+		return []SecurityCheck{check}
+	}
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		check.Message = err.Error()
+		check.Fix = "Ensure the URL is reachable"
+		return []SecurityCheck{check}
+	}
+	defer resp.Body.Close()
+	_, _ = io.Copy(io.Discard, resp.Body)
+
+	requiredHeaders := []string{
+		"Content-Security-Policy",
+		"X-Frame-Options",
+		"X-Content-Type-Options",
+		"Referrer-Policy",
+	}
+	if strings.EqualFold(parsedURL.Scheme, "https") {
+		requiredHeaders = append(requiredHeaders, "Strict-Transport-Security")
+	}
+
+	var missing []string
+	for _, header := range requiredHeaders {
+		if strings.TrimSpace(resp.Header.Get(header)) == "" {
+			missing = append(missing, header)
+		}
+	}
+
+	if len(missing) == 0 {
+		check.Passed = true
+		check.Message = "Common security headers are present"
+		return []SecurityCheck{check}
+	}
+
+	check.Message = fmt.Sprintf("Missing headers: %s", strings.Join(missing, ", "))
+	check.Fix = "Add the missing security headers to the response"
+	return []SecurityCheck{check}
 }
 
 func runEnvSecurityChecks(dir string) []SecurityCheck {
