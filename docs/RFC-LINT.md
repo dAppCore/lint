@@ -106,6 +106,8 @@ The RFC commands are mounted twice: once at the root and once under `core-lint l
 
 `core-lint js` is a shortcut for `Lang=js`, not a dedicated TypeScript command. TypeScript-only runs use `core-lint run --lang ts ...` or plain `run` with auto-detection.
 
+`core-lint compliance` is also not identical to `core-lint run --sbom`. The shortcut sets `Category=compliance`, so the final adapter filter keeps only adapters whose runtime category is `compliance`. `run --sbom` appends the compliance config group without that category filter.
+
 ## RunInput Contract
 
 All orchestration commands resolve into one DTO:
@@ -160,6 +162,8 @@ Tool group selection is intentionally simple and deterministic:
 `Lang` is stronger than `CI` and `SBOM`. If `Lang` is set, the language group wins and the extra groups are not appended.
 
 `Category=style`, `Category=correctness`, and other non-group categories act as adapter-side filters only. They do not map to dedicated config groups.
+
+One current consequence is that `grype` is listed in the default `lint.compliance` config group but advertises `Category() == "security"`. `core-lint compliance` therefore filters it out, while plain `core-lint run --sbom` still leaves it eligible.
 
 Final adapter selection has one extra Go-specific exception: if Go is present and `Category != "compliance"`, `Service.Run()` prepends the built-in `catalog` adapter after registry filtering. That means `core-lint security` on a Go project can still emit `catalog` findings tagged `security`.
 
