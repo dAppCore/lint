@@ -79,6 +79,11 @@ type issuesOutput struct {
 	Triage        []Issue `json:"triage"`
 }
 
+type IssueFetchError struct {
+	Repo  string `json:"repo"`
+	Error string `json:"error"`
+}
+
 type IssueCategoryOutput struct {
 	Category string  `json:"category"`
 	Count    int     `json:"count"`
@@ -92,6 +97,7 @@ type IssuesOutput struct {
 	ShowingTriage  bool                  `json:"showing_triage"`
 	ShowingBlocked bool                  `json:"showing_blocked"`
 	Categories     []IssueCategoryOutput `json:"categories"`
+	FetchErrors    []IssueFetchError     `json:"fetch_errors"`
 }
 
 // addIssuesCommand adds the 'issues' subcommand to qa.
@@ -140,6 +146,7 @@ func runQAIssues() error {
 
 	// Fetch issues from all repos
 	var allIssues []Issue
+	fetchErrors := make([]IssueFetchError, 0)
 	repoList := reg.List()
 
 	for i, repo := range repoList {
@@ -151,6 +158,16 @@ func runQAIssues() error {
 
 		issues, err := fetchQAIssues(reg.Org, repo.Name, issuesLimit)
 		if err != nil {
+			fetchErrors = append(fetchErrors, IssueFetchError{
+				Repo:  repo.Name,
+				Error: strings.TrimSpace(err.Error()),
+			})
+			if !issuesJSON {
+				cli.Print("%s\n", warningStyle.Render(i18n.T(
+					"cmd.qa.issues.fetch_error",
+					map[string]any{"Repo": repo.Name, "Error": strings.TrimSpace(err.Error())},
+				)))
+			}
 			continue // Skip repos with errors
 		}
 		allIssues = append(allIssues, issues...)
@@ -165,7 +182,7 @@ func runQAIssues() error {
 			"triage":         {},
 		}
 		if issuesJSON {
-			return printCategorisedIssuesJSON(0, emptyCategorised)
+			return printCategorisedIssuesJSON(0, emptyCategorised, fetchErrors)
 		}
 		cli.Text(i18n.T("cmd.qa.issues.no_issues"))
 		return nil
@@ -186,7 +203,7 @@ func runQAIssues() error {
 	}
 
 	if issuesJSON {
-		return printCategorisedIssuesJSON(totalIssues, categorised)
+		return printCategorisedIssuesJSON(totalIssues, categorised, fetchErrors)
 	}
 
 	// Print categorised issues
@@ -209,6 +226,9 @@ func fetchQAIssues(org, repoName string, limit int) ([]Issue, error) {
 	cmd := exec.Command("gh", args...)
 	output, err := cmd.Output()
 	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			return nil, log.E("qa.fetchQAIssues", strings.TrimSpace(string(exitErr.Stderr)), nil)
+		}
 		return nil, err
 	}
 
@@ -411,7 +431,7 @@ func printCategorisedIssues(categorised map[string][]Issue) {
 	}
 }
 
-func printCategorisedIssuesJSON(totalIssues int, categorised map[string][]Issue) error {
+func printCategorisedIssuesJSON(totalIssues int, categorised map[string][]Issue, fetchErrors []IssueFetchError) error {
 	categories := []string{"needs_response", "ready", "blocked", "triage"}
 	filteredIssues := 0
 	categoryOutput := make([]IssueCategoryOutput, 0, len(categories))
@@ -433,6 +453,7 @@ func printCategorisedIssuesJSON(totalIssues int, categorised map[string][]Issue)
 		ShowingTriage:  issuesTriage,
 		ShowingBlocked: issuesBlocked,
 		Categories:     categoryOutput,
+		FetchErrors:    fetchErrors,
 	}
 
 	data, err := json.MarshalIndent(output, "", "  ")

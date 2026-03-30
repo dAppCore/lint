@@ -45,6 +45,7 @@
           "blocked": "Blocked",
           "triage": "Triage"
         },
+        "fetch_error": "Failed to fetch issues from {{.Repo}}: {{.Error}}",
         "hint": {
           "blocked": "blocked by dependency",
           "triage": "needs triage",

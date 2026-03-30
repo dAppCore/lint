@@ -84,8 +84,12 @@ type Review struct {
 }
 
 type reviewOutput struct {
-	Mine      []PullRequest `json:"mine"`
-	Requested []PullRequest `json:"requested"`
+	Mine             []PullRequest `json:"mine"`
+	Requested        []PullRequest `json:"requested"`
+	TotalMine        int           `json:"total_mine"`
+	TotalRequested   int           `json:"total_requested"`
+	ShowingMine      bool          `json:"showing_mine"`
+	ShowingRequested bool          `json:"showing_requested"`
 }
 
 // addReviewCommand adds the 'review' subcommand to the qa command.
@@ -160,7 +164,14 @@ func runReview() error {
 	}
 
 	if reviewJSON {
-		data, err := json.MarshalIndent(reviewOutput{Mine: minePRs, Requested: requestedPRs}, "", "  ")
+		data, err := json.MarshalIndent(reviewOutput{
+			Mine:             minePRs,
+			Requested:        requestedPRs,
+			TotalMine:        len(minePRs),
+			TotalRequested:   len(requestedPRs),
+			ShowingMine:      showMine,
+			ShowingRequested: showRequested,
+		}, "", "  ")
 		if err != nil {
 			return err
 		}
