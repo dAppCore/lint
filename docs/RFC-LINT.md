@@ -402,7 +402,9 @@ type ToolInfo struct {
 Inventory rules:
 
 - results are sorted by `Name`
-- `--lang` filters via `Adapter.MatchesLanguage()`
+- `--lang` filters via `Adapter.MatchesLanguage()`, not strict equality on the `Languages` field
+- wildcard adapters with `Languages() == []string{"*"}` still appear under any `--lang` filter
+- category tokens also match, so `core-lint tools --lang security` returns security adapters plus wildcard adapters
 - `Available` reflects a `PATH` lookup at runtime, not config membership
 - `Entitlement` is descriptive metadata; the current implementation does not enforce it
 - the built-in `catalog` adapter is not returned by `core-lint tools`; it is injected only during `run`-style orchestration on Go projects
@@ -568,6 +570,14 @@ During orchestration:
 | GitHub annotations | `--output github` or `--ci` | `WriteReportGitHub` |
 | SARIF | `--output sarif` | `WriteReportSARIF` |
 
+### Stream Contract
+
+For `run`-style commands, the selected writer always writes the report document to `stdout`.
+
+If the report fails the configured threshold, the CLI still writes the report to `stdout`, then returns an error. The error path adds human-facing diagnostics on `stderr`.
+
+Agents and CI jobs that need machine-readable output should parse `stdout` and treat `stderr` as diagnostic text.
+
 ## Hook Mode
 
 `core-lint run --hook` is the installed pre-commit path.
@@ -612,7 +622,7 @@ The planted bug fixture is `tests/cli/lint/check/fixtures/input.go`.
 Current expectations from the test suite:
 
 - `lint check --format=json` finds `go-cor-003` in `input.go`
-- `run --output json --fail-on warning` returns one finding and exits non-zero
+- `run --output json --fail-on warning` writes one report document to `stdout`, emits failure diagnostics on `stderr`, and exits non-zero
 - `detect --output json` returns `["go"]` for the shipped fixture
 - `tools --output json --lang go` includes `golangci-lint` and `govulncheck`
 - `init` writes `.core/lint.yaml`
@@ -672,3 +682,4 @@ Future work that adds scheduler support, runtime registration, entitlement enfor
 
 - 2026-03-30: Rewrote the RFC to match the implemented standalone CLI, adapter registry, fallback catalog adapter, hook mode, and CLI test paths
 - 2026-03-30: Clarified the implemented report boundary, category filtering semantics, ignored config fields, and AX-style motivation/compatibility/adoption sections
+- 2026-03-30: Documented the `stdout` versus `stderr` contract for failing `run` commands and the non-strict `tools --lang` matching rules
