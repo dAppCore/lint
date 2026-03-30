@@ -1,39 +1,147 @@
-# core/lint RFC — Linter Orchestration & QA Gate
+# RFC-LINT: core/lint Agent-Native CLI and Adapter Contract
 
-> Pure linter orchestration — no AI. Runs tools, outputs structured JSON.
-> Usable in dispatch QA, GitHub CI, and local dev. Zero API keys required.
-> An agent should be able to implement any component from this document alone.
+- Status: Implemented
+- Date: 2026-03-30
+- Applies to: `forge.lthn.ai/core/lint`
+- Standard: [`docs/RFC-CORE-008-AGENT-EXPERIENCE.md`](./RFC-CORE-008-AGENT-EXPERIENCE.md)
 
-**Module:** `dappco.re/go/lint`
-**Repository:** `dappco.re/go/lint`
-**Binary:** `core-lint`
-**Config:** `.core/lint.yaml` (per-repo) or `agents.yaml` (fleet-wide defaults)
+## Abstract
 
----
+`core/lint` is a standalone Go CLI and library that detects project languages, runs matching lint adapters, merges their findings into one report, and writes machine-readable output for local development, CI, and agent QA.
 
-## 1. Overview
+The binary does not bundle external linters. It orchestrates tools already present in `PATH`, treats missing tools as `skipped`, and always returns a structured report.
 
-core/lint detects languages in a project, runs every matching linter, and aggregates results into a single structured JSON report. No AI, no network calls, no API keys — pure static analysis.
+This RFC describes the implementation that exists in this repository. It replaces the earlier draft that described a future Core service with Tasks, IPC actions, MCP wrapping, build stages, artifact stages, entitlement gates, and scheduled runs. Those designs are not the current contract.
 
-Three consumers:
+## AX Decisions
 
-| Consumer | How it runs | Purpose |
-|----------|------------|---------|
-| core/agent dispatch | `core lint run` in QA step | Gate agent output before PR |
-| GitHub Actions CI | `core lint run --ci` | PR check gate on public repos |
-| Developer local | `core lint run` | Pre-commit validation |
+This RFC follows the Agent Experience standard directly:
 
-Same binary, same config, same output format everywhere.
+1. Predictable names: `RunInput`, `Report`, `ToolRun`, `ToolInfo`, `Service`, `Adapter`.
+2. Comments as usage examples: command examples use real flags and real paths.
+3. Path is documentation: the implementation map is the contract.
+4. One input shape for orchestration: `pkg/lint/service.go` owns `RunInput`.
+5. One output shape for orchestration: `pkg/lint/service.go` owns `Report`.
+6. Stable sequencing over hidden magic: adapters run in deterministic order and reports are sorted before output.
 
----
+## Path Map
 
-## 2. Configuration
+An agent should be able to navigate the module from the path alone:
 
-### 2.1 Per-Repo Config (`.core/lint.yaml`)
+| Path | Meaning |
+|------|---------|
+| `cmd/core-lint/main.go` | CLI surface for `run`, `detect`, `tools`, `init`, language shortcuts, `hook`, and the legacy `lint` namespace |
+| `pkg/lint/service.go` | Orchestrator for config loading, language selection, adapter selection, hook mode, and report assembly |
+| `pkg/lint/adapter.go` | Adapter interface, built-in registry, external command execution, and output parsers |
+| `pkg/lint/config.go` | Repo-local config contract and defaults for `core-lint init` |
+| `pkg/lint/detect_project.go` | Project language detection from markers and file names |
+| `pkg/lint/report.go` | `Summary` aggregation and JSON/text/GitHub/SARIF writers |
+| `lint.go` | Embedded catalog loader for `lint check` and `lint catalog` |
+| `catalog/*.yaml` | Embedded pattern catalog files used by the legacy catalog commands |
+| `tests/cli/lint/...` | CLI artifact tests; the path is the command |
+
+## Scope
+
+In scope:
+
+- Project language detection
+- Config-driven lint tool selection
+- Embedded catalog scanning
+- External linter orchestration
+- Structured report generation
+- Git pre-commit hook installation and removal
+- CLI artifact tests in `tests/cli/lint/...`
+
+Out of scope:
+
+- Core service registration
+- IPC or MCP exposure
+- Build-stage compilation checks
+- Artifact-stage scans against compiled binaries or images
+- Scheduler integration
+- Sidecar SBOM file writing
+- Automatic tool installation
+- Entitlement enforcement
+
+## Command Surface
+
+The repository ships two CLI surfaces:
+
+- The root AX surface: `core-lint run`, `core-lint detect`, `core-lint tools`, and friends
+- The legacy catalog surface: `core-lint lint check` and `core-lint lint catalog ...`
+
+The RFC commands are mounted twice: once at the root and once under `core-lint lint ...`. Both surfaces are real. The root surface is shorter. The namespaced surface keeps the path semantic.
+
+| Capability | Root path | Namespaced alias | Example |
+|------------|-----------|------------------|---------|
+| Full orchestration | `core-lint run [path]` | `core-lint lint run [path]` | `core-lint run --output json .` |
+| Go only | `core-lint go [path]` | `core-lint lint go [path]` | `core-lint go .` |
+| PHP only | `core-lint php [path]` | `core-lint lint php [path]` | `core-lint php .` |
+| JS and TS | `core-lint js [path]` | `core-lint lint js [path]` | `core-lint js .` |
+| Python only | `core-lint python [path]` | `core-lint lint python [path]` | `core-lint python .` |
+| Security tools only | `core-lint security [path]` | `core-lint lint security [path]` | `core-lint security --ci .` |
+| Compliance tools only | `core-lint compliance [path]` | `core-lint lint compliance [path]` | `core-lint compliance --output json .` |
+| Language detection | `core-lint detect [path]` | `core-lint lint detect [path]` | `core-lint detect --output json .` |
+| Tool inventory | `core-lint tools` | `core-lint lint tools` | `core-lint tools --output json --lang go` |
+| Default config | `core-lint init [path]` | `core-lint lint init [path]` | `core-lint init /tmp/project` |
+| Pre-commit hook install | `core-lint hook install [path]` | `core-lint lint hook install [path]` | `core-lint hook install .` |
+| Pre-commit hook remove | `core-lint hook remove [path]` | `core-lint lint hook remove [path]` | `core-lint hook remove .` |
+| Embedded catalog scan | none | `core-lint lint check [path...]` | `core-lint lint check --format json tests/cli/lint/check/fixtures` |
+| Embedded catalog list | none | `core-lint lint catalog list` | `core-lint lint catalog list --lang go` |
+| Embedded catalog show | none | `core-lint lint catalog show RULE_ID` | `core-lint lint catalog show go-sec-001` |
+
+## RunInput Contract
+
+All orchestration commands resolve into one DTO:
+
+```go
+type RunInput struct {
+    Path     string   `json:"path"`
+    Output   string   `json:"output,omitempty"`
+    Config   string   `json:"config,omitempty"`
+    FailOn   string   `json:"fail_on,omitempty"`
+    Category string   `json:"category,omitempty"`
+    Lang     string   `json:"lang,omitempty"`
+    Hook     bool     `json:"hook,omitempty"`
+    CI       bool     `json:"ci,omitempty"`
+    Files    []string `json:"files,omitempty"`
+    SBOM     bool     `json:"sbom,omitempty"`
+}
+```
+
+### Input Resolution Rules
+
+`Service.Run()` resolves input in this order:
+
+1. Empty `Path` becomes `.`
+2. `CI=true` sets `Output=github` only when `Output` was not provided explicitly
+3. Config is loaded from `--config` or `.core/lint.yaml`
+4. Empty `FailOn` falls back to the loaded config
+5. `Hook=true` with no explicit `Files` reads staged files from `git diff --cached --name-only`
+6. `Lang` overrides auto-detection
+7. `Files` override directory detection for language inference
+
+### Category and Language Precedence
+
+Tool group selection is intentionally simple and deterministic:
+
+1. `Category=security` means only `lint.security`
+2. `Category=compliance` means only `lint.compliance`
+3. `Lang=go|php|js|ts|python|...` means only that language group
+4. Plain `run` uses all detected language groups plus `infra`
+5. Plain `run --ci` adds the `security` group
+6. Plain `run --sbom` adds the `compliance` group
+
+`Lang` is stronger than `CI` and `SBOM`. If `Lang` is set, the language group wins and the extra groups are not appended.
+
+## Config Contract
+
+Repo-local config lives at `.core/lint.yaml`.
+
+`core-lint init /path/to/project` writes the default file from `pkg/lint/config.go`.
 
 ```yaml
 lint:
-  # Language-specific linters
   go:
     - golangci-lint
     - gosec
@@ -61,1020 +169,413 @@ lint:
     - mypy
     - bandit
     - pylint
-
-  # Infrastructure linters (language-independent)
   infra:
     - shellcheck
     - hadolint
     - yamllint
     - jsonlint
     - markdownlint
-
-  # Security scanners
   security:
     - gitleaks
     - trivy
     - gosec
     - bandit
     - semgrep
-
-  # Compliance
   compliance:
     - syft
     - grype
     - scancode
 
-# Output format
-output: json          # json, text, github (annotations)
-
-# Fail threshold
-fail_on: error        # error, warning, info
-
-# Paths to scan (default: .)
+output: json
+fail_on: error
 paths:
   - .
-
-# Paths to exclude
 exclude:
   - vendor/
   - node_modules/
   - .core/
 ```
 
-### 2.2 Language Detection
+### Config Rules
 
-If no `.core/lint.yaml` exists, detect languages from files present and run all available linters for those languages:
+- If `.core/lint.yaml` does not exist, `DefaultConfig()` is used in memory
+- Relative `--config` paths resolve relative to `Path`
+- Unknown tool names in config are inert; the adapter registry is authoritative
+- The current default config includes `prettier`, but the adapter registry does not yet provide a `prettier` adapter
 
-```go
-// Detect project languages from file extensions and markers
-//
-//   langs := lint.Detect(".")  // ["go", "php", "yaml", "dockerfile"]
-func Detect(path string) []string { }
-```
+## Detection Contract
+
+`pkg/lint/detect_project.go` is the only project-language detector used by orchestration commands.
+
+### Marker Files
 
 | Marker | Language |
 |--------|----------|
-| `go.mod` | go |
-| `composer.json` | php |
-| `package.json` | js/ts |
-| `tsconfig.json` | ts |
-| `requirements.txt`, `pyproject.toml` | python |
-| `Cargo.toml` | rust |
-| `Dockerfile*` | dockerfile |
-| `*.sh` | shell |
-| `*.yaml`, `*.yml` | yaml |
+| `go.mod` | `go` |
+| `composer.json` | `php` |
+| `package.json` | `js` |
+| `tsconfig.json` | `ts` |
+| `requirements.txt` | `python` |
+| `pyproject.toml` | `python` |
+| `Cargo.toml` | `rust` |
+| `Dockerfile*` | `dockerfile` |
 
-### 2.3 Tool Discovery
+### File Extensions
 
-If a tool is not installed, skip it gracefully. Never fail because a linter is missing — report it as skipped in the output. Each adapter implements `Available() bool` on the Adapter interface — typically checks if the binary is in PATH via `c.Process()`.
+| Extension | Language |
+|-----------|----------|
+| `.go` | `go` |
+| `.php` | `php` |
+| `.js`, `.jsx` | `js` |
+| `.ts`, `.tsx` | `ts` |
+| `.py` | `python` |
+| `.rs` | `rust` |
+| `.sh` | `shell` |
+| `.yaml`, `.yml` | `yaml` |
+| `.json` | `json` |
+| `.md` | `markdown` |
 
----
+### Detection Rules
 
-## 3. Execution Pipeline
+- Directory traversal skips `vendor`, `node_modules`, `.git`, `testdata`, `.core`, and any hidden directory
+- Results are de-duplicated and returned in sorted order
+- `core-lint detect --output json tests/cli/lint/check/fixtures` currently returns `["go"]`
 
-### 3.1 Three Stages
+## Execution Model
 
-```
-Stage 1: Static — lint source files
-  → run language linters + infra linters on source
-  → structured findings per file
+`Service.Run()` is the orchestrator. The current implementation is sequential, not parallel.
 
-Stage 2: Build — compile and capture errors
-  → go build, composer install, npm run build, tsc
-  → build errors with file:line:column
+### Step 1: Load Config
 
-Stage 3: Artifact — scan compiled output
-  → security scanners on binaries, images, bundles
-  → SBOM generation, vulnerability matching
-```
+`LoadProjectConfig()` returns the repo-local config or the in-memory default.
 
-Each stage produces findings in the same format. Stages are independent — a build failure in Stage 2 does not prevent Stage 3 from running on whatever artifacts exist.
+### Step 2: Resolve File Scope
 
-### 3.2 Execution Model
+- If `Files` was provided, only those files are considered for language detection and adapter arguments
+- If `Hook=true` and `Files` is empty, staged files are read from Git
+- Otherwise the whole project path is scanned
 
-The three-stage pipeline is a Core Task — declarative orchestration:
+### Step 3: Resolve Languages
 
-```go
-func (s *Service) OnStartup(ctx context.Context) core.Result {
-    c := s.Core()
+- `Lang` wins first
+- `Files` are used next
+- `Detect(Path)` is the fallback
 
-    // Pipeline as a Task — stages are Steps
-    c.Task("lint/pipeline", core.Task{
-        Steps: []core.Step{
-            {Action: "lint.static"},
-            {Action: "lint.build"},
-            {Action: "lint.artifact"},
-        },
-    })
+### Step 4: Select Adapters
 
-    return core.Result{OK: true}
-}
-```
+`pkg/lint/service.go` builds a set of enabled tool names from config, then filters the registry from `pkg/lint/adapter.go`.
 
-### 3.3 Core Accessor Usage
+Special case:
 
-Every Core accessor is used — lint is a full Core citizen:
+- If `go` is present in the final language set and `Category != "compliance"`, a built-in `catalog` adapter is prepended automatically
 
-```go
-// handleRun is the action handler for lint.run
-// Actions accept core.Options per the ActionHandler contract. The handler unmarshals to a typed DTO.
-//
-//   result := c.Action("lint.run").Run(ctx, c, core.Options{"path": ".", "output": "json"})
-func (s *Service) handleRun(ctx context.Context, opts core.Options) core.Result {
-    input := RunInput{
-        Path:     opts.String("path"),
-        Output:   opts.String("output"),
-        FailOn:   opts.String("fail_on"),
-        Category: opts.String("category"),
-        Lang:     opts.String("lang"),
-        Hook:     opts.Bool("hook"),
-        SBOM:     opts.Bool("sbom"),
-    }
-    c := s.Core()
-    fs := c.Fs()                         // filesystem — read configs, scan files
-    proc := c.Process()                  // run external linters as managed processes
-    cfg := c.Config()                    // load .core/lint.yaml
-    log := c.Log()                       // structured logging per linter run
+### Step 5: Run Adapters
 
-    if input.Path == "" {
-        return core.Result{OK: false, Error: core.E("lint.Run", "path is required", nil)}
-    }
-
-    // Load config from .core/lint.yaml — determines which linters to run and paths to scan
-    var lintConfig LintConfig
-    cfg.Get("lint", &lintConfig)
-
-    // Detect languages — config overrides auto-detection if languages are specified
-    langs := s.detect(fs, input.Path)
-    if input.Lang != "" {
-        langs = []string{input.Lang}
-    }
-    log.Info("lint.run", "languages", langs, "path", input.Path)
-
-    // Broadcast start via IPC
-    c.ACTION(LintStarted{
-        Path:      input.Path,
-        Languages: langs,
-        Tools:     len(s.adaptersFor(langs)),
-    })
-
-    // Run adapters — each adapter handles its own process execution via c.Process()
-    var findings []Finding
-    for _, adapter := range s.adaptersFor(langs) {
-        if !adapter.Available() {
-            log.Warn("lint.skip", "tool", adapter.Name(), "reason", "not installed")
-            continue
-        }
-
-        result := adapter.Run(ctx, input)
-        if result.OK {
-            if parsed, ok := result.Value.([]Finding); ok {
-                findings = append(findings, parsed...)
-            }
-        }
-    }
-
-    // Broadcast completion via IPC
-    report := s.buildReport(input.Path, langs, findings)
-    c.ACTION(LintCompleted{
-        Path:     input.Path,
-        Findings: report.Summary.Total,
-        Errors:   report.Summary.Errors,
-        Passed:   report.Summary.Passed,
-        Duration: report.Duration,
-    })
-
-    return core.Result{Value: report, OK: report.Summary.Passed}
-}
-```
-
-### 3.4 Embedded Defaults
-
-Default rule configs and ignore patterns are embedded via `c.Data()`:
-
-Default configs are loaded via `c.Data()` which reads from the service's embedded assets. The embed directive is on the Data subsystem, not in lint source directly.
+Every selected adapter runs with the same contract:
 
 ```go
-// defaultConfigFor returns the default rule config for a linter tool.
-// Returns empty string if no default is bundled.
-//
-//   cfg := s.defaultConfigFor("golangci")  // returns golangci.yml content
-func (s *Service) defaultConfigFor(tool string) string {
-    r := s.Core().Data().ReadString(core.Sprintf("defaults/%s", tool))
-    if r.OK {
-        if s, ok := r.Value.(string); ok {
-            return s
-        }
-    }
-    return ""
-}
-```
-
-### 3.5 Entitlements
-
-Premium linters (security scanners, SBOM generators) can be gated behind entitlements:
-
-```go
-func (s *Service) adaptersFor(langs []string) []Adapter {
-    c := s.Core()
-    var adapters []Adapter
-
-    for _, a := range s.registry {
-        if a.RequiresEntitlement() && !c.Entitled(a.Entitlement()).Allowed {
-            continue
-        }
-        if a.MatchesLanguage(langs) {
-            adapters = append(adapters, a)
-        }
-    }
-    return adapters
-}
-```
-
-| Tier | Linters | Entitlement |
-|------|---------|-------------|
-| Free | golangci-lint, staticcheck, revive, errcheck, govulncheck, phpstan, psalm, phpcs, phpmd, pint, biome, oxlint, eslint, ruff, mypy, pylint, shellcheck, hadolint, yamllint, markdownlint, jsonlint | none |
-| Pro | gosec, semgrep, bandit, trivy, gitleaks | `lint.security` |
-| Enterprise | syft, grype, scancode | `lint.compliance` |
-
-### 3.6 IPC Messages
-
-```go
-// Broadcast during lint operations
-type LintStarted struct {
-    Path      string
-    Languages []string
-    Tools     int
-}
-
-type LintCompleted struct {
-    Path     string
-    Findings int
-    Errors   int
-    Passed   bool
-    Duration string
-}
-
-type FindingsReported struct {
-    Tool     string
-    Findings int
-    Severity string // highest severity found
-}
-```
-
-Linters run in parallel where possible. Each linter runs via `c.Process()` with a timeout (default 5 minutes per linter). Results are merged into a single report.
-
----
-
-## 4. Output Format
-
-### 4.1 Report
-
-```go
-type Report struct {
-    Project    string     `json:"project"`
-    Timestamp  time.Time  `json:"timestamp"`
-    Duration   string     `json:"duration"`
-    Languages  []string   `json:"languages"`
-    Tools      []ToolRun  `json:"tools"`
-    Findings   []Finding  `json:"findings"`
-    Summary    Summary    `json:"summary"`
-}
-
-type ToolRun struct {
-    Name     string `json:"name"`
-    Version  string `json:"version"`
-    Status   string `json:"status"`    // passed, failed, skipped, timeout
-    Duration string `json:"duration"`
-    Findings int    `json:"findings"`
-}
-
-type Summary struct {
-    Total    int `json:"total"`
-    Errors   int `json:"errors"`
-    Warnings int `json:"warnings"`
-    Info     int `json:"info"`
-    Passed   bool `json:"passed"`
-}
-```
-
-### 4.2 Finding
-
-```go
-type Finding struct {
-    Tool     string `json:"tool"`      // which linter found this
-    File     string `json:"file"`      // relative path
-    Line     int    `json:"line"`      // line number (0 if unknown)
-    Column   int    `json:"column"`    // column number (0 if unknown)
-    Severity string `json:"severity"`  // error, warning, info
-    Code     string `json:"code"`      // linter-specific rule code
-    Message  string `json:"message"`   // human-readable description
-    Category string `json:"category"`  // security, style, correctness, performance
-    Fix      string `json:"fix"`       // suggested fix (if linter provides one)
-}
-```
-
-### 4.3 Output Modes
-
-| Mode | Flag | Use case |
-|------|------|----------|
-| JSON | `--output json` | Machine consumption, dispatch pipeline, training data |
-| Text | `--output text` | Developer terminal |
-| GitHub | `--output github` | GitHub Actions annotations (`::error file=...`) |
-| SARIF | `--output sarif` | GitHub Code Scanning, IDE integration |
-
----
-
-## 5. Linter Adapters
-
-Each linter is an adapter implementing a common interface:
-
-```go
-// Adapter wraps a linter tool and normalises its output.
-// Adapters receive the Core reference at construction — all I/O goes through Core primitives.
-//
-//   adapter := lint.NewGolangciLint(c)
-//   result := adapter.Run(ctx, lint.RunInput{Path: "."})
 type Adapter interface {
     Name() string
     Available() bool
     Languages() []string
     Command() string
-    Args() []string
     Entitlement() string
     RequiresEntitlement() bool
-    MatchesLanguage(langs []string) bool
+    MatchesLanguage(languages []string) bool
+    Category() string
     Fast() bool
-    Run(ctx context.Context, input RunInput) core.Result
-    RunFiles(ctx context.Context, files []string) []Finding  // returns nil for whole-project adapters (Fast()=false)
-    Parse(output string) []Finding
+    Run(ctx context.Context, input RunInput, files []string) AdapterResult
 }
 ```
 
-### 5.1 Adapter Registry
+Execution rules:
 
-Adapters are registered in `registerAdapters()` during service startup. Adding a new linter is one file — implement `Adapter`, add the constructor call to `registerAdapters()`, done. No global registry, no init() magic.
+- Missing binaries become `ToolRun{Status: "skipped"}`
+- External commands run with a 5 minute timeout
+- Hook mode marks non-fast adapters as `skipped`
+- Parsed findings are normalised, sorted, and merged into one report
+- Adapter order becomes deterministic after `sortToolRuns()` and `sortFindings()`
 
-### 5.2 Adapter Responsibilities
+### Step 6: Compute Pass or Fail
 
-Each adapter:
-1. Checks if the tool binary exists (`Available()`)
-2. Runs the tool via `c.Process()` — never `os/exec` directly
-3. Reads output via `c.Fs()` — never `os.ReadFile` or `io.ReadAll`
-4. Parses the tool-specific JSON into normalised `Finding` structs
-5. Maps tool-specific severity levels to `error/warning/info`
-6. Maps tool-specific rule codes to categories
-7. Uses `core.E()` for errors — never `fmt.Errorf` or `errors.New`
-8. Uses `core.Split`, `core.Trim`, `core.JoinPath` — never raw `strings.*` or `path/filepath.*`
+`passesThreshold()` applies the configured threshold:
 
-### 5.3 Banned Imports
+| `fail_on` | Passes when |
+|-----------|-------------|
+| `error` or empty | `summary.errors == 0` |
+| `warning` | `summary.errors == 0 && summary.warnings == 0` |
+| `info` | `summary.total == 0` |
 
-The following stdlib imports are banned in core/lint source code. Core provides wrappers for all of them:
+## Catalog Surfaces
 
-| Banned | Use instead |
-|--------|------------|
-| `os` | `c.Fs()` |
-| `os/exec` | `c.Process()` |
-| `fmt` | `core.Sprintf`, `core.Print` |
-| `log` | `c.Log()` |
-| `errors` | `core.E()` |
-| `strings` | `core.Split`, `core.Trim`, `core.Contains`, `core.HasPrefix` |
-| `path/filepath` | `core.JoinPath`, `core.PathDir`, `core.PathBase` |
-| `encoding/json` | `core.JSON` |
-| `io` | `c.Fs()` for file I/O, `c.Process()` for command output |
+The repository has two catalog paths. They are related, but they are not the same implementation.
 
-All replacement primitives (`core.Split`, `core.Trim`, `core.Contains`, `core.HasPrefix`, `core.JoinPath`, `core.PathDir`, `core.PathBase`, `core.Sprintf`, `core.Print`, `core.JSON`) are defined in `code/core/go/RFC.md` § "String Helpers" and "Path Helpers".
+### Legacy Embedded Catalog
 
-### 5.4 Built-in Adapters
+These commands load the embedded YAML catalog via `lint.go`:
 
-| Adapter | Tool | JSON Flag | Categories |
-|---------|------|-----------|------------|
-| `golangci-lint` | golangci-lint | `--out-format json` | style, correctness, performance |
-| `gosec` | gosec | `-fmt json` | security |
-| `govulncheck` | govulncheck | `-json` | security |
-| `staticcheck` | staticcheck | `-f json` | correctness, performance |
-| `revive` | revive | `-formatter json` | style |
-| `errcheck` | errcheck | `-` (parse stderr) | correctness |
-| `phpstan` | phpstan | `--format json` | correctness |
-| `psalm` | psalm | `--output-format json` | correctness |
-| `phpcs` | phpcs | `--report=json` | style |
-| `phpmd` | phpmd | `json` | style, correctness |
-| `biome` | biome | `--reporter json` | style, correctness |
-| `oxlint` | oxlint | `--format json` | style, correctness |
-| `eslint` | eslint | `--format json` | style, correctness |
-| `ruff` | ruff | `--output-format json` | style, correctness |
-| `mypy` | mypy | `--output json` | correctness |
-| `bandit` | bandit | `-f json` | security |
-| `pylint` | pylint | `--output-format json` | style, correctness |
-| `shellcheck` | shellcheck | `-f json` | correctness |
-| `hadolint` | hadolint | `-f json` | correctness, security |
-| `yamllint` | yamllint | `-f parsable` (line-based, parsed by adapter) | style |
-| `gitleaks` | gitleaks | `--report-format json` | security |
-| `trivy` | trivy | `--format json` | security |
-| `semgrep` | semgrep | `--json` | security, correctness |
-| `syft` | syft | `-o json` | compliance |
-| `grype` | grype | `-o json` | security |
-| `scancode` | scancode-toolkit | `--json` | compliance |
-| `markdownlint` | markdownlint-cli | `--json` | style |
-| `jsonlint` | jsonlint | (exit code + stderr, parsed by adapter) | style |
-| `pint` | pint | `--format json` | style |
+- `core-lint lint check`
+- `core-lint lint catalog list`
+- `core-lint lint catalog show`
 
----
+The source of truth is `catalog/*.yaml`.
 
-## 6. CLI
+### Orchestration Catalog Adapter
 
-```bash
-# Run all linters (auto-detect languages)
-core lint run
+`core-lint run`, `core-lint go`, and the other orchestration commands prepend a smaller built-in `catalog` adapter from `pkg/lint/adapter.go`.
 
-# Run with specific config
-core lint run --config .core/lint.yaml
+That adapter reads the hard-coded `defaultCatalogRulesYAML` constant, not `catalog/*.yaml`.
 
-# Run only security linters
-core lint run --category security
+Today the fallback adapter contains these Go rules:
 
-# Run only for Go
-core lint run --lang go
+- `go-cor-003`
+- `go-cor-004`
+- `go-sec-001`
+- `go-sec-002`
+- `go-sec-004`
 
-# CI mode (GitHub annotations output, exit 1 on failure)
-core lint run --ci
+The overlap is intentional, but the surfaces are different:
 
-# Pre-commit hook (only changed files, fast, exit 1 on errors)
-core lint run --hook
+- `lint check` returns raw catalog findings with catalog severities such as `medium` or `high`
+- `run` normalises those findings into report severities `warning`, `error`, or `info`
 
-# JSON output to file
-core lint run --output json > report.json
+An agent must not assume that `core-lint lint check` and `core-lint run` execute the same rule set.
 
-# List available linters
-core lint tools
+## Adapter Inventory
 
-# List detected languages
-core lint detect
+The registry in `pkg/lint/adapter.go` is the implementation contract.
 
-# Generate default config
-core lint init
+### Built-in
 
-# Install as git pre-commit hook
-core lint hook install
+| Adapter | Languages | Category | Fast | Notes |
+|---------|-----------|----------|------|-------|
+| `catalog` | `go` | `correctness` | yes | Built-in regex fallback rules |
 
-# Remove git pre-commit hook
-core lint hook remove
-```
+### Go
 
-### 6.1 Pre-Commit Hook Mode
+| Adapter | Category | Fast |
+|---------|----------|------|
+| `golangci-lint` | `correctness` | yes |
+| `gosec` | `security` | no |
+| `govulncheck` | `security` | no |
+| `staticcheck` | `correctness` | yes |
+| `revive` | `style` | yes |
+| `errcheck` | `correctness` | yes |
 
-`--hook` mode is optimised for speed in the commit workflow:
+### PHP
 
-1. Only scans files staged for commit (`git diff --cached --name-only`)
-2. Skips slow linters (trivy, grype, SBOM — those belong in CI)
-3. Runs only Stage 1 (static) — no build or artifact scanning
-4. Exits non-zero on errors, zero on warnings-only
-5. Text output by default (developer terminal), respects `--output` override
+| Adapter | Category | Fast |
+|---------|----------|------|
+| `phpstan` | `correctness` | yes |
+| `psalm` | `correctness` | yes |
+| `phpcs` | `style` | yes |
+| `phpmd` | `correctness` | yes |
+| `pint` | `style` | yes |
+
+### JS and TS
+
+| Adapter | Category | Fast |
+|---------|----------|------|
+| `biome` | `style` | yes |
+| `oxlint` | `style` | yes |
+| `eslint` | `style` | yes |
+| `typescript` | `correctness` | yes |
+
+### Python
+
+| Adapter | Category | Fast |
+|---------|----------|------|
+| `ruff` | `style` | yes |
+| `mypy` | `correctness` | yes |
+| `bandit` | `security` | no |
+| `pylint` | `style` | yes |
+
+### Infra and Cross-Project
+
+| Adapter | Category | Fast |
+|---------|----------|------|
+| `shellcheck` | `correctness` | yes |
+| `hadolint` | `security` | yes |
+| `yamllint` | `style` | yes |
+| `jsonlint` | `style` | yes |
+| `markdownlint` | `style` | yes |
+| `gitleaks` | `security` | no |
+| `trivy` | `security` | no |
+| `semgrep` | `security` | no |
+| `syft` | `compliance` | no |
+| `grype` | `security` | no |
+| `scancode` | `compliance` | no |
+
+### Adapter Parsing Rules
+
+- JSON tools are parsed recursively and schema-tolerantly by searching for common keys such as `file`, `line`, `column`, `code`, `message`, and `severity`
+- Text tools are parsed from `file:line[:column]: message`
+- Unparseable command failures become one synthetic finding with `code: command-failed`
+- Duplicate findings are collapsed on `tool|file|line|column|code|message`
+- `ToolRun.Version` exists in the report schema but is not populated yet
+
+### Entitlement Metadata
+
+Adapters still expose `Entitlement()` and `RequiresEntitlement()`, but `Service.Run()` does not enforce them today. The metadata is present; the gate is not.
+
+## Output Contract
+
+Orchestration commands return one report document:
 
 ```go
-// Hook mode — lint only staged files
-//
-//   core lint run --hook
-func (s *Service) hookMode(ctx context.Context) core.Result {
-    c := s.Core()
-    proc := c.Process()
+type Report struct {
+    Project   string    `json:"project"`
+    Timestamp time.Time `json:"timestamp"`
+    Duration  string    `json:"duration"`
+    Languages []string  `json:"languages"`
+    Tools     []ToolRun `json:"tools"`
+    Findings  []Finding `json:"findings"`
+    Summary   Summary   `json:"summary"`
+}
 
-    // Get staged files
-    result := proc.RunIn(ctx, ".", "git", "diff", "--cached", "--name-only")
-    if !result.OK {
-        return result
-    }
-    output, _ := result.Value.(string)
-    staged := core.Split(core.Trim(output), "\n")
+type ToolRun struct {
+    Name     string `json:"name"`
+    Version  string `json:"version,omitempty"`
+    Status   string `json:"status"`
+    Duration string `json:"duration"`
+    Findings int    `json:"findings"`
+}
 
-    // Detect languages from staged files only
-    langs := s.detectFromFiles(staged)
-
-    // Run fast linters only (skip security/compliance tier)
-    adapters := s.adaptersFor(langs)
-    adapters = filterFast(adapters) // exclude slow scanners
-
-    // Lint only staged files
-    var findings []Finding
-    for _, a := range adapters {
-        findings = append(findings, a.RunFiles(ctx, staged)...)
-    }
-
-    report := s.buildReport(".", langs, findings)
-    return core.Result{Value: report, OK: report.Summary.Errors == 0}
+type Summary struct {
+    Total      int            `json:"total"`
+    Errors     int            `json:"errors"`
+    Warnings   int            `json:"warnings"`
+    Info       int            `json:"info"`
+    Passed     bool           `json:"passed"`
+    BySeverity map[string]int `json:"by_severity,omitempty"`
 }
 ```
 
-### 6.2 Scheduled Runs
-
-Lint runs can be registered as scheduled Tasks. The scheduler invokes the same actions — no special scheduling code in lint:
-
-Scheduled lint runs are configured in `.core/lint.yaml`, not in code:
-
-```yaml
-# .core/lint.yaml
-schedules:
-  nightly-security:
-    cron: "0 0 * * *"
-    categories: [security, compliance]
-    output: json
-
-  hourly-quick:
-    cron: "0 * * * *"
-    categories: [static]
-    paths: [.]
-    fail_on: error
-```
-
-Lint registers Tasks for each schedule entry during startup:
+`Finding` is shared with the legacy catalog scanner:
 
 ```go
-// Register scheduled tasks from config
-for name, sched := range lintConfig.Schedules {
-    c.Task(core.Sprintf("lint/schedule/%s", name), core.Task{
-        Steps: []core.Step{
-            {Action: "lint.run"},
-        },
-    })
+type Finding struct {
+    Tool     string `json:"tool,omitempty"`
+    File     string `json:"file"`
+    Line     int    `json:"line"`
+    Column   int    `json:"column,omitempty"`
+    Severity string `json:"severity"`
+    Code     string `json:"code,omitempty"`
+    Message  string `json:"message,omitempty"`
+    Category string `json:"category,omitempty"`
+    Fix      string `json:"fix,omitempty"`
+    RuleID   string `json:"rule_id,omitempty"`
+    Title    string `json:"title,omitempty"`
+    Match    string `json:"match,omitempty"`
+    Repo     string `json:"repo,omitempty"`
 }
 ```
 
-The scheduler subsystem reads cron expressions from config and fires the matching Tasks. Lint doesn't implement scheduling — it registers Tasks that CAN be scheduled. Until the scheduler lands, these Tasks are callable manually via `core lint/run --category security`.
+### Finding Normalisation
 
-### 6.3 Hook Installation
+During orchestration:
 
-```bash
-# Install — creates .git/hooks/pre-commit
-core lint hook install
-```
+- `Code` falls back to `RuleID`
+- `Message` falls back to `Title`
+- empty `Tool` becomes `catalog`
+- file paths are made relative to `Path` when possible
+- severities are collapsed to report levels:
 
-Creates a pre-commit hook that runs `core lint run --hook`:
+| Raw severity | Report severity |
+|--------------|-----------------|
+| `critical`, `high`, `error`, `errors` | `error` |
+| `medium`, `low`, `warning`, `warn` | `warning` |
+| `info`, `note` | `info` |
 
-```bash
-#!/bin/sh
+### Output Modes
+
+| Mode | How to request it | Writer |
+|------|-------------------|--------|
+| JSON | `--output json` | `WriteReportJSON` |
+| Text | `--output text` | `WriteReportText` |
+| GitHub annotations | `--output github` or `--ci` | `WriteReportGitHub` |
+| SARIF | `--output sarif` | `WriteReportSARIF` |
+
+## Hook Mode
+
+`core-lint run --hook` is the installed pre-commit path.
+
+Implementation details:
+
+- staged files come from `git diff --cached --name-only`
+- language detection runs only on those staged files
+- adapters with `Fast() == false` are marked `skipped`
+- output format still follows normal resolution rules; hook mode does not force text output
+- `core-lint hook install` writes a managed block into `.git/hooks/pre-commit`
+- `core-lint hook remove` removes only the managed block
+
+Installed hook block:
+
+```sh
+# core-lint hook start
 # Installed by core-lint
 exec core-lint run --hook
+# core-lint hook end
 ```
 
-If a hook already exists, appends to it rather than overwriting. `core lint hook remove` reverses the installation.
-
----
-
-## 7. Integration Points
-
-### 7.1 core/agent QA Gate
-
-The dispatch pipeline calls `core lint run --output json` as part of the QA step. Findings are parsed and used to determine pass/fail:
-
-```
-AgentCompleted
-  → core lint run --output json > /tmp/lint-report.json
-  → parse report.Summary.Passed
-  → if passed: continue to PR
-  → if failed: mark workspace as failed, include findings in status
-```
-
-### 7.2 GitHub Actions
-
-```yaml
-# .github/workflows/lint.yml
-name: Lint
-on: [pull_request]
-jobs:
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install core-lint
-        run: go install dappco.re/go/lint/cmd/core-lint@latest
-      - name: Run linters
-        run: core-lint run --ci
-```
-
-No AI, no API keys, no secrets. Pure static analysis on the public CI runner.
-
-### 7.3 Training Data Pipeline
-
-Every finding that gets fixed by a Codex dispatch produces a training pair:
-
-```
-Input:  finding JSON (tool, file, line, message, code)
-Output: git diff that fixed it
-```
-
-These pairs are structured for downstream training pipelines. The output format is consistent regardless of consumer.
-
----
-
-## 8. SBOM Integration
-
-When compliance linters run, SBOM artifacts are generated alongside the lint report:
-
-```bash
-# Generate SBOM during lint
-core lint compliance
-
-# Output: report.json + sbom.cdx.json (CycloneDX) + sbom.spdx.json (SPDX)
-```
-
-SBOM generation uses:
-- `syft` for multi-language SBOM
-- `cyclonedx-gomod` for Go-specific
-- `cdxgen` for JS/TS projects
-
-Vulnerability scanning uses the SBOM:
-```
-syft → sbom.cdx.json → grype → vulnerability findings
-```
-
----
-
-## 9. Build & Binary
-
-### 9.1 Binary
-
-core-lint builds as a standalone binary. All linter adapters are compiled in — the binary orchestrates external tools, it does not bundle them.
-
-```bash
-# Build
-go build -o bin/core-lint ./cmd/core-lint/
-
-# Install
-go install dappco.re/go/lint/cmd/core-lint@latest
-```
-
-The binary expects linter tools to be in PATH. In the core-dev Docker image, all tools are pre-installed. On a developer machine, missing tools are skipped gracefully.
-
-### 9.2 CLI Test Suite (Taskfile)
-
-Tests use Taskfile.yaml as test harnesses. Directory structure maps to CLI commands — the path IS the test:
-
-```
-tests/cli/
-├── core/
-│   └── lint/
-│       ├── Taskfile.yaml          ← test `core-lint` (root command)
-│       ├── go/
-│       │   ├── Taskfile.yaml      ← test `core-lint go`
-│       │   └── fixtures/          ← sample Go files with known issues
-│       ├── php/
-│       │   ├── Taskfile.yaml      ← test `core-lint php`
-│       │   └── fixtures/
-│       ├── js/
-│       │   ├── Taskfile.yaml      ← test `core-lint js`
-│       │   └── fixtures/
-│       ├── python/
-│       │   ├── Taskfile.yaml      ← test `core-lint python`
-│       │   └── fixtures/
-│       ├── security/
-│       │   ├── Taskfile.yaml      ← test `core-lint security`
-│       │   └── fixtures/          ← files with known secrets, vulns
-│       ├── compliance/
-│       │   ├── Taskfile.yaml      ← test `core-lint compliance`
-│       │   └── fixtures/
-│       ├── detect/
-│       │   ├── Taskfile.yaml      ← test `core-lint detect`
-│       │   └── fixtures/          ← mixed-language projects
-│       ├── tools/
-│       │   └── Taskfile.yaml      ← test `core-lint tools`
-│       ├── init/
-│       │   └── Taskfile.yaml      ← test `core-lint init`
-│       └── run/
-│           ├── Taskfile.yaml      ← test `core-lint run` (full pipeline)
-│           └── fixtures/
-```
-
-### 9.3 Test Pattern
-
-Each Taskfile runs core-lint against fixtures with known issues, captures JSON output, and validates the report:
-
-```yaml
-# tests/cli/core/lint/go/Taskfile.yaml
-version: '3'
-
-tasks:
-  test:
-    desc: Test core-lint go command
-    cmds:
-      - core-lint go --output json fixtures/ > /tmp/lint-go-report.json
-      - |
-        # Verify expected findings exist
-        jq -e '.findings | length > 0' /tmp/lint-go-report.json
-        jq -e '.findings[] | select(.tool == "golangci-lint")' /tmp/lint-go-report.json
-        jq -e '.summary.errors > 0' /tmp/lint-go-report.json
-
-  test-clean:
-    desc: Test core-lint go on clean code (should pass)
-    cmds:
-      - core-lint go --output json fixtures/clean/ > /tmp/lint-go-clean.json
-      - jq -e '.summary.passed == true' /tmp/lint-go-clean.json
-
-  test-missing-tool:
-    desc: Test graceful skip when linter not installed
-    cmds:
-      - PATH=/usr/bin core-lint go --output json fixtures/ > /tmp/lint-go-skip.json
-      - jq -e '.tools[] | select(.status == "skipped")' /tmp/lint-go-skip.json
-```
-
-### 9.4 Fixtures
-
-Each language directory has fixtures with known issues for deterministic testing:
-
-```
-fixtures/
-├── bad_imports.go          ← imports "fmt" (banned)
-├── missing_error_check.go  ← unchecked error return
-├── insecure_random.go      ← math/rand instead of crypto/rand
-└── clean/
-    └── good.go             ← passes all linters
-```
-
-Security fixtures contain planted secrets and known-vulnerable dependencies:
-
-```
-fixtures/
-├── leaked_key.go           ← contains AWS_SECRET_ACCESS_KEY pattern
-├── go.mod                  ← depends on package with known CVE
-└── Dockerfile              ← runs as root, no healthcheck
-```
-
-### 9.5 CI Integration Test
-
-The top-level Taskfile runs all sub-tests:
-
-```yaml
-# tests/cli/core/lint/Taskfile.yaml
-version: '3'
-
-tasks:
-  test:
-    desc: Run all core-lint CLI tests
-    cmds:
-      - task -d detect test
-      - task -d tools test
-      - task -d go test
-      - task -d php test
-      - task -d js test
-      - task -d python test
-      - task -d security test
-      - task -d compliance test
-      - task -d run test
-
-  test-report:
-    desc: Run full pipeline and validate report structure
-    cmds:
-      - core-lint run --output json fixtures/mixed/ > /tmp/lint-full-report.json
-      - |
-        # Validate report structure
-        jq -e '.project' /tmp/lint-full-report.json
-        jq -e '.timestamp' /tmp/lint-full-report.json
-        jq -e '.languages | length > 0' /tmp/lint-full-report.json
-        jq -e '.tools | length > 0' /tmp/lint-full-report.json
-        jq -e '.findings | length > 0' /tmp/lint-full-report.json
-        jq -e '.summary.total > 0' /tmp/lint-full-report.json
-```
-
----
-
-## 10. Core Service Registration
-
-### 10.1 Service
-
-core/lint registers as a Core service exposing linter orchestration via IPC actions:
-
-```go
-// Service is the lint orchestrator. It holds the adapter registry and runs linters via Core primitives.
-type Service struct {
-    *core.ServiceRuntime[Options]
-    registry []Adapter   // registered linter adapters
-}
-
-// Register the lint service with Core
-//
-//   c := core.New(
-//       core.WithService(lint.Register),
-//   )
-func Register(c *core.Core) core.Result {
-    svc := &Service{
-        ServiceRuntime: core.NewServiceRuntime(c, Options{}),
-    }
-    svc.registerAdapters(c)
-    return core.Result{Value: svc, OK: true}
-}
-
-// registerAdapters populates the adapter registry with all built-in linters.
-// Each adapter receives the Core reference for process execution and filesystem access.
-func (s *Service) registerAdapters(c *core.Core) {
-    s.registry = []Adapter{
-        NewGolangciLint(c), NewGosec(c), NewGovulncheck(c), NewStaticcheck(c),
-        NewRevive(c), NewErrcheck(c),
-        NewPHPStan(c), NewPsalm(c), NewPHPCS(c), NewPHPMD(c), NewPint(c),
-        NewBiome(c), NewOxlint(c), NewESLint(c),
-        NewRuff(c), NewMypy(c), NewBandit(c), NewPylint(c),
-        NewShellcheck(c), NewHadolint(c), NewYamllint(c),
-        NewGitleaks(c), NewTrivy(c), NewSemgrep(c),
-        NewSyft(c), NewGrype(c), NewScancode(c),
-        NewMarkdownlint(c), NewJsonlint(c),
-    }
-}
-
-// Helper functions used by the orchestrator:
-
-// adaptersFor returns adapters matching the detected languages, filtered by entitlements.
-func (s *Service) adaptersFor(langs []string) []Adapter { }
-
-// detect returns languages found in the project at the given path.
-func (s *Service) detect(fs core.Fs, path string) []string { }
-
-// detectFromFiles returns languages based on a list of file paths (used in hook mode).
-func (s *Service) detectFromFiles(files []string) []string { }
-
-// buildReport assembles a Report from path, languages, and collected findings.
-func (s *Service) buildReport(path string, langs []string, findings []Finding) Report { }
-
-// filterFast removes slow adapters for hook mode.
-// Uses Adapter.Fast() — adapters self-declare whether they are suitable for pre-commit.
-// Fast = Stage 1 only linters that operate on individual files (not whole-project scanners).
-// govulncheck, trivy, syft, grype, scancode, semgrep return Fast()=false.
-func filterFast(adapters []Adapter) []Adapter { }
-
-
-func (s *Service) OnStartup(ctx context.Context) core.Result {
-    c := s.Core()
-
-    // Pipeline stage actions (used by lint.pipeline Task)
-    c.Action("lint.static", s.handleStatic)
-    c.Action("lint.build", s.handleBuild)
-    c.Action("lint.artifact", s.handleArtifact)
-
-    // Orchestration actions
-    c.Action("lint.run", s.handleRun)
-    c.Action("lint.detect", s.handleDetect)
-    c.Action("lint.tools", s.handleTools)
-
-    // Per-language actions
-    c.Action("lint.go", s.handleGo)
-    c.Action("lint.php", s.handlePHP)
-    c.Action("lint.js", s.handleJS)
-    c.Action("lint.python", s.handlePython)
-    c.Action("lint.security", s.handleSecurity)
-    c.Action("lint.compliance", s.handleCompliance)
-
-    // CLI commands — each calls the matching action with DTO constructed from flags
-    c.Command("lint", core.Command{Description: "Run linters on project code"})
-    c.Command("lint/run", core.Command{Description: "Run all configured linters", Action: s.cmdRun})
-    c.Command("lint/detect", core.Command{Description: "Detect project languages", Action: s.cmdDetect})
-    c.Command("lint/tools", core.Command{Description: "List available linters", Action: s.cmdTools})
-    c.Command("lint/init", core.Command{Description: "Generate default .core/lint.yaml", Action: s.cmdInit})
-    c.Command("lint/go", core.Command{Description: "Run Go linters", Action: s.cmdGo})
-    c.Command("lint/php", core.Command{Description: "Run PHP linters", Action: s.cmdPHP})
-    c.Command("lint/js", core.Command{Description: "Run JS/TS linters", Action: s.cmdJS})
-    c.Command("lint/python", core.Command{Description: "Run Python linters", Action: s.cmdPython})
-    c.Command("lint/security", core.Command{Description: "Run security scanners", Action: s.cmdSecurity})
-    c.Command("lint/compliance", core.Command{Description: "Run compliance scanners", Action: s.cmdCompliance})
-    c.Command("lint/hook/install", core.Command{Description: "Install git pre-commit hook", Action: s.cmdHookInstall})
-    c.Command("lint/hook/remove", core.Command{Description: "Remove git pre-commit hook", Action: s.cmdHookRemove})
-
-    // Pipeline task — three stages, orchestrated declaratively
-    c.Task("lint/pipeline", core.Task{
-        Steps: []core.Step{
-            {Action: "lint.static"},
-            {Action: "lint.build"},
-            {Action: "lint.artifact"},
-        },
-    })
-
-    return core.Result{OK: true}
-}
-```
-
-### 10.2 Input DTOs
-
-Actions accept typed DTOs, not named props:
-
-```go
-// RunInput is the DTO for lint.run, lint.go, lint.php, etc.
-//
-//   lint.RunInput{Path: ".", Output: "json", FailOn: "error"}
-type RunInput struct {
-    Path     string   `json:"path"`               // project path to scan
-    Output   string   `json:"output,omitempty"`    // json, text, github, sarif
-    Config   string   `json:"config,omitempty"`    // path to .core/lint.yaml
-    FailOn   string   `json:"fail_on,omitempty"`   // error, warning, info
-    Category string   `json:"category,omitempty"`  // security, compliance, static
-    Lang     string   `json:"lang,omitempty"`      // go, php, js, python
-    Hook     bool     `json:"hook,omitempty"`       // pre-commit mode
-    Files    []string `json:"files,omitempty"`      // specific files to lint
-    SBOM     bool     `json:"sbom,omitempty"`       // generate SBOM alongside report
-}
-
-// ToolInfo describes an available linter
-//
-//   info := lint.ToolInfo{Name: "golangci-lint", Available: true, Languages: []string{"go"}}
-type ToolInfo struct {
-    Name        string   `json:"name"`
-    Available   bool     `json:"available"`
-    Languages   []string `json:"languages"`
-    Category    string   `json:"category"`    // style, correctness, security, compliance
-    Entitlement string   `json:"entitlement"` // empty if free tier
-}
-
-// DetectInput is the DTO for lint.detect
-//
-//   lint.DetectInput{Path: "."}
-type DetectInput struct {
-    Path string `json:"path"`
-}
-```
-
-### 10.3 IPC Actions
-
-Actions are the public interface. CLI, MCP, and API are surfaces that construct the DTO and call the action:
-
-```go
-// Any Core service can request linting via IPC
-//
-//   result := c.Action("lint.run").Run(ctx, c, core.Options{"path": repoDir, "output": "json"})
-//   report, _ := result.Value.(lint.Report)
-```
-
-| Action | Input DTO | Returns |
-|--------|-----------|---------|
-| `lint.run` | RunInput | Report (full pipeline) |
-| `lint.detect` | DetectInput | []string (languages) |
-| `lint.tools` | (none) | []ToolInfo (available linters) |
-| `lint.go` | RunInput | Report (Go linters only) |
-| `lint.php` | RunInput | Report (PHP linters only) |
-| `lint.js` | RunInput | Report (JS/TS linters only) |
-| `lint.python` | RunInput | Report (Python linters only) |
-| `lint.security` | RunInput | Report (security scanners only) |
-| `lint.compliance` | RunInput | Report (SBOM + compliance only) |
-
-CLI commands construct the DTO from flags:
-
-```go
-func (s *Service) cmdRun(ctx context.Context, opts core.Options) core.Result {
-    // CLI commands call the action handler directly — same signature
-    return s.handleRun(ctx, opts)
-}
-```
-
-MCP tools construct the DTO from tool parameters. Same action, same DTO, different surface.
-
-### 10.4 MCP Tool Exposure (core-agent plugin)
-
-When loaded into core-agent, lint actions become MCP tools. Claude and Codex can lint code from within a session:
-
-```
-claude/lint/
-├── SKILL.md            ← "Run linters on the current workspace"
-└── commands/
-    ├── run.md          ← /lint:run
-    ├── go.md           ← /lint:go
-    ├── security.md     ← /lint:security
-    └── compliance.md   ← /lint:compliance
-```
-
-MCP tool registration is handled by core-agent (see `code/core/agent/RFC.md`), not by core/lint. core/lint exposes named Actions — the agent MCP subsystem wraps those Actions as MCP tools. core/lint does not know about MCP.
-```
-
-This means:
-- **I** (Claude) can run `lint_run` on any workspace via MCP to check code quality
-- **Codex** agents inside Docker get `core-lint` binary for QA gates
-- **Developers** get the same `core lint` CLI locally
-- **GitHub Actions** get `core-lint run --ci` for PR checks
-
-Same adapters, same output format, four surfaces.
-
-### 10.5 core/agent QA Integration
-
-The agent dispatch pipeline loads lint as a service and calls it during QA:
-
-The agent QA handler calls `lint.run` via action and uses the returned `lint.Report` to determine pass/fail:
-
-```go
-result := c.Action("lint.run").Run(ctx, c, core.Options{
-    "path":    repoDir,
-    "output":  "json",
-    "fail_on": "error",
-})
-report, _ := result.Value.(lint.Report)
-```
-
-See `code/core/agent/RFC.md` § "Completion Pipeline" for the QA handler. core/lint returns `core.Result{Value: lint.Report{...}}` — the consumer decides what to do with it.
-
----
-
-## 11. Reference Material
-
-| Resource | Location |
-|----------|----------|
-| Core framework | `code/core/go/RFC.md` |
-| Agent pipeline | `code/core/agent/RFC.md` § "Completion Pipeline" |
-| Build system | `code/core/go/build/RFC.md` |
-
----
+If the hook file already exists, install appends a guarded block instead of overwriting the file.
+
+## Test Contract
+
+The CLI artifact tests are the runnable contract for this RFC:
+
+| Path | Command under test |
+|------|--------------------|
+| `tests/cli/lint/check/Taskfile.yaml` | `core-lint lint check` |
+| `tests/cli/lint/catalog/list/Taskfile.yaml` | `core-lint lint catalog list` |
+| `tests/cli/lint/catalog/show/Taskfile.yaml` | `core-lint lint catalog show` |
+| `tests/cli/lint/detect/Taskfile.yaml` | `core-lint detect` |
+| `tests/cli/lint/tools/Taskfile.yaml` | `core-lint tools` |
+| `tests/cli/lint/init/Taskfile.yaml` | `core-lint init` |
+| `tests/cli/lint/run/Taskfile.yaml` | `core-lint run` |
+| `tests/cli/lint/Taskfile.yaml` | aggregate CLI suite |
+
+The planted bug fixture is `tests/cli/lint/check/fixtures/input.go`.
+
+Current expectations from the test suite:
+
+- `lint check --format=json` finds `go-cor-003` in `input.go`
+- `run --output json --fail-on warning` returns one finding and exits non-zero
+- `detect --output json` returns `["go"]` for the shipped fixture
+- `tools --output json --lang go` includes `golangci-lint` and `govulncheck`
+- `init` writes `.core/lint.yaml`
+
+Unit-level confirmation also exists in:
+
+- `cmd/core-lint/main_test.go`
+- `pkg/lint/service_test.go`
+- `pkg/lint/detect_project_test.go`
+
+## Explicit Non-Goals
+
+These items are intentionally not part of the current contract:
+
+- no Core runtime integration
+- no `core.Task` pipeline
+- no `lint.static`, `lint.build`, or `lint.artifact` action graph
+- no scheduled cron registration
+- no sidecar `sbom.cdx.json` or `sbom.spdx.json` output
+- no parallel adapter execution
+- no adapter entitlement enforcement
+- no guarantee that every config tool name has a matching adapter
+
+Any future RFC that adds those capabilities must describe the code that implements them, not just the aspiration.
+
+## References
+
+- `docs/RFC-CORE-008-AGENT-EXPERIENCE.md`
+- `docs/index.md`
+- `docs/development.md`
+- `cmd/core-lint/main.go`
+- `pkg/lint/service.go`
+- `pkg/lint/adapter.go`
+- `tests/cli/lint/Taskfile.yaml`
 
 ## Changelog
 
-- 2026-03-30: Initial RFC — linter orchestration, adapter pattern, three-stage pipeline, SBOM, CI integration, training data pipeline, Taskfile CLI test suite, fixtures, Core service registration, IPC actions, MCP tool exposure, agent QA integration
+- 2026-03-30: Rewrote the RFC to match the implemented standalone CLI, adapter registry, fallback catalog adapter, hook mode, and CLI test paths
