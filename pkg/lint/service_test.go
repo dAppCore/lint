@@ -269,6 +269,33 @@ func TestServiceRun_Good_LanguageShortcutIgnoresCiAndSbomGroups(t *testing.T) {
 	assert.Equal(t, []string{"catalog", "go-tool"}, []string{report.Tools[0].Name, report.Tools[1].Name})
 }
 
+func TestServiceRun_Good_LanguageShortcutExcludesInfraGroup(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "composer.json"), []byte("{\n  \"name\": \"example/test\"\n}\n"), 0o644))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".core"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".core", "lint.yaml"), []byte(`lint:
+  php:
+    - php-tool
+  infra:
+    - shell-tool
+`), 0o644))
+
+	svc := &Service{adapters: []Adapter{
+		shortcutAdapter{name: "php-tool", category: "correctness"},
+		shortcutAdapter{name: "shell-tool", category: "correctness"},
+	}}
+
+	report, err := svc.Run(context.Background(), RunInput{
+		Path:   dir,
+		Lang:   "php",
+		FailOn: "warning",
+	})
+	require.NoError(t, err)
+
+	require.Len(t, report.Tools, 1)
+	assert.Equal(t, "php-tool", report.Tools[0].Name)
+}
+
 func TestServiceRun_Good_HookModeUsesStagedFiles(t *testing.T) {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git not available")

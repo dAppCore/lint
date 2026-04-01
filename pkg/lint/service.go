@@ -511,7 +511,7 @@ func enabledToolNames(config LintConfig, languages []string, input RunInput, cat
 		}
 	}
 
-	if shouldIncludeInfraGroups(categories) {
+	if input.Lang == "" && shouldIncludeInfraGroups(categories) {
 		names = append(names, config.Lint.Infra...)
 	}
 	if input.Lang == "" {
