@@ -118,6 +118,7 @@ func (s *Service) Run(ctx context.Context, input RunInput) (Report, error) {
 		findings = append(findings, normaliseReportFindings(result.Findings, input.Path)...)
 	}
 
+	findings = dedupeFindings(findings)
 	sortToolRuns(toolRuns)
 	sortFindings(findings)
 

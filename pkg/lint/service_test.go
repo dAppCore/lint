@@ -118,6 +118,80 @@ func TestServiceRun_JS_PrettierFindings(t *testing.T) {
 	assert.Equal(t, 1, report.Tools[0].Findings)
 }
 
+func TestServiceRun_Good_DeduplicatesMergedFindings(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/test\n"), 0o644))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".core"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".core", "lint.yaml"), []byte("lint:\n  go:\n    - dup\n"), 0o644))
+
+	finding := Finding{
+		Tool:     "dup",
+		File:     filepath.Join(dir, "input.go"),
+		Line:     12,
+		Column:   3,
+		Severity: "warning",
+		Code:     "duplicate-finding",
+		Message:  "same finding",
+	}
+
+	svc := &Service{adapters: []Adapter{
+		duplicateAdapter{name: "dup", finding: finding},
+		duplicateAdapter{name: "dup", finding: finding},
+	}}
+
+	report, err := svc.Run(context.Background(), RunInput{
+		Path:   dir,
+		FailOn: "warning",
+	})
+	require.NoError(t, err)
+
+	require.Len(t, report.Tools, 3)
+	require.Len(t, report.Findings, 1)
+	assert.Equal(t, "duplicate-finding", report.Findings[0].Code)
+	assert.Equal(t, 1, report.Summary.Total)
+}
+
+type duplicateAdapter struct {
+	name    string
+	finding Finding
+}
+
+func (adapter duplicateAdapter) Name() string { return adapter.name }
+
+func (adapter duplicateAdapter) Available() bool { return true }
+
+func (adapter duplicateAdapter) Languages() []string { return []string{"go"} }
+
+func (adapter duplicateAdapter) Command() string { return adapter.name }
+
+func (adapter duplicateAdapter) Entitlement() string { return "" }
+
+func (adapter duplicateAdapter) RequiresEntitlement() bool { return false }
+
+func (adapter duplicateAdapter) MatchesLanguage(languages []string) bool {
+	for _, language := range languages {
+		if language == "go" {
+			return true
+		}
+	}
+	return false
+}
+
+func (adapter duplicateAdapter) Category() string { return "correctness" }
+
+func (adapter duplicateAdapter) Fast() bool { return true }
+
+func (adapter duplicateAdapter) Run(_ context.Context, _ RunInput, _ []string) AdapterResult {
+	return AdapterResult{
+		Tool: ToolRun{
+			Name:     adapter.name,
+			Status:   "passed",
+			Duration: "0s",
+		},
+		Findings: []Finding{adapter.finding},
+	}
+}
+
 func runTestCommand(t *testing.T, dir string, name string, args ...string) {
 	t.Helper()
 
