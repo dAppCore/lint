@@ -96,7 +96,17 @@ func newRunCommand(commandName string, summary string, defaults lintpkg.RunInput
 			return err
 		}
 		if !report.Summary.Passed {
-			return coreerr.E("cmd."+commandName, "lint failed", nil)
+			return coreerr.E(
+				"cmd."+commandName,
+				fmt.Sprintf(
+					"lint failed (fail-on=%s): %d error(s), %d warning(s), %d info finding(s)",
+					input.FailOn,
+					report.Summary.Errors,
+					report.Summary.Warnings,
+					report.Summary.Info,
+				),
+				nil,
+			)
 		}
 		return nil
 	})

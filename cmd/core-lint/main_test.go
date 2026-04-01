@@ -40,6 +40,7 @@ func Run() {
 
 	stdout, stderr, exitCode := runCLI(t, dir, "run", "--output", "json", "--fail-on", "warning", dir)
 	assert.Equal(t, 1, exitCode, stderr)
+	assert.Contains(t, stderr, "lint failed (fail-on=warning)")
 
 	var report lintpkg.Report
 	require.NoError(t, json.Unmarshal([]byte(stdout), &report))
