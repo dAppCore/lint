@@ -35,8 +35,8 @@ type AdapterResult struct {
 	Findings []Finding
 }
 
-type parseFunc func(tool string, category string, output string) []Finding
-type argsBuilder func(projectPath string, files []string) []string
+type findingParser func(tool string, category string, output string) []Finding
+type commandArgumentsBuilder func(projectPath string, files []string) []string
 
 // CommandAdapter runs an external binary and parses its stdout/stderr.
 type CommandAdapter struct {
@@ -47,8 +47,8 @@ type CommandAdapter struct {
 	entitlement         string
 	requiresEntitlement bool
 	fast                bool
-	buildArgs           argsBuilder
-	parseOutput         parseFunc
+	buildArgs           commandArgumentsBuilder
+	parseOutput         findingParser
 }
 
 // CatalogAdapter wraps the embedded regex rule catalog as a built-in linter.
@@ -56,37 +56,37 @@ type CatalogAdapter struct{}
 
 func defaultAdapters() []Adapter {
 	return []Adapter{
-		newCommandAdapter("golangci-lint", []string{"golangci-lint"}, []string{"go"}, "correctness", "", false, true, goPackageArgs("run", "--out-format", "json"), parseJSONDiagnostics),
-		newCommandAdapter("gosec", []string{"gosec"}, []string{"go"}, "security", "lint.security", true, false, goPackageArgs("-fmt", "json"), parseJSONDiagnostics),
-		newCommandAdapter("govulncheck", []string{"govulncheck"}, []string{"go"}, "security", "", false, false, goPackageArgs("-json"), parseGovulncheckDiagnostics),
-		newCommandAdapter("staticcheck", []string{"staticcheck"}, []string{"go"}, "correctness", "", false, true, goPackageArgs("-f", "json"), parseJSONDiagnostics),
-		newCommandAdapter("revive", []string{"revive"}, []string{"go"}, "style", "", false, true, goPackageArgs("-formatter", "json"), parseJSONDiagnostics),
-		newCommandAdapter("errcheck", []string{"errcheck"}, []string{"go"}, "correctness", "", false, true, goPackageArgs(), parseTextDiagnostics),
-		newCommandAdapter("phpstan", []string{"phpstan"}, []string{"php"}, "correctness", "", false, true, pathArgs("analyse", "--error-format", "json"), parseJSONDiagnostics),
-		newCommandAdapter("psalm", []string{"psalm"}, []string{"php"}, "correctness", "", false, true, pathArgs("--output-format", "json"), parseJSONDiagnostics),
-		newCommandAdapter("phpcs", []string{"phpcs"}, []string{"php"}, "style", "", false, true, pathArgs("--report=json"), parseJSONDiagnostics),
-		newCommandAdapter("phpmd", []string{"phpmd"}, []string{"php"}, "correctness", "", false, true, phpmdArgs(), parseJSONDiagnostics),
-		newCommandAdapter("pint", []string{"pint"}, []string{"php"}, "style", "", false, true, pathArgs("--format", "json"), parseJSONDiagnostics),
-		newCommandAdapter("biome", []string{"biome"}, []string{"js", "ts"}, "style", "", false, true, pathArgs("check", "--reporter", "json"), parseJSONDiagnostics),
-		newCommandAdapter("oxlint", []string{"oxlint"}, []string{"js", "ts"}, "style", "", false, true, pathArgs("--format", "json"), parseJSONDiagnostics),
-		newCommandAdapter("eslint", []string{"eslint"}, []string{"js"}, "style", "", false, true, pathArgs("--format", "json"), parseJSONDiagnostics),
-		newCommandAdapter("typescript", []string{"tsc", "typescript"}, []string{"ts"}, "correctness", "", false, true, pathArgs("--pretty", "false"), parseTextDiagnostics),
-		newCommandAdapter("ruff", []string{"ruff"}, []string{"python"}, "style", "", false, true, pathArgs("check", "--output-format", "json"), parseJSONDiagnostics),
-		newCommandAdapter("mypy", []string{"mypy"}, []string{"python"}, "correctness", "", false, true, pathArgs("--output", "json"), parseJSONDiagnostics),
-		newCommandAdapter("bandit", []string{"bandit"}, []string{"python"}, "security", "lint.security", true, false, recursivePathArgs("-f", "json", "-r"), parseJSONDiagnostics),
-		newCommandAdapter("pylint", []string{"pylint"}, []string{"python"}, "style", "", false, true, pathArgs("--output-format", "json"), parseJSONDiagnostics),
-		newCommandAdapter("shellcheck", []string{"shellcheck"}, []string{"shell"}, "correctness", "", false, true, fileArgs("-f", "json"), parseJSONDiagnostics),
-		newCommandAdapter("hadolint", []string{"hadolint"}, []string{"dockerfile"}, "security", "", false, true, fileArgs("-f", "json"), parseJSONDiagnostics),
-		newCommandAdapter("yamllint", []string{"yamllint"}, []string{"yaml"}, "style", "", false, true, pathArgs("-f", "parsable"), parseTextDiagnostics),
-		newCommandAdapter("jsonlint", []string{"jsonlint"}, []string{"json"}, "style", "", false, true, fileArgs(), parseTextDiagnostics),
-		newCommandAdapter("markdownlint", []string{"markdownlint", "markdownlint-cli"}, []string{"markdown"}, "style", "", false, true, pathArgs("--json"), parseJSONDiagnostics),
-		newCommandAdapter("prettier", []string{"prettier"}, []string{"js"}, "style", "", false, true, pathArgs("--list-different"), parsePrettierDiagnostics),
-		newCommandAdapter("gitleaks", []string{"gitleaks"}, []string{"*"}, "security", "lint.security", true, false, recursivePathArgs("detect", "--no-git", "--report-format", "json", "--source"), parseJSONDiagnostics),
-		newCommandAdapter("trivy", []string{"trivy"}, []string{"*"}, "security", "lint.security", true, false, pathArgs("fs", "--format", "json"), parseJSONDiagnostics),
-		newCommandAdapter("semgrep", []string{"semgrep"}, []string{"*"}, "security", "lint.security", true, false, pathArgs("--json"), parseJSONDiagnostics),
-		newCommandAdapter("syft", []string{"syft"}, []string{"*"}, "compliance", "lint.compliance", true, false, pathArgs("scan", "-o", "json"), parseJSONDiagnostics),
-		newCommandAdapter("grype", []string{"grype"}, []string{"*"}, "security", "lint.compliance", true, false, pathArgs("-o", "json"), parseJSONDiagnostics),
-		newCommandAdapter("scancode", []string{"scancode-toolkit", "scancode"}, []string{"*"}, "compliance", "lint.compliance", true, false, pathArgs("--json"), parseJSONDiagnostics),
+		newCommandAdapter("golangci-lint", []string{"golangci-lint"}, []string{"go"}, "correctness", "", false, true, goProjectArguments("run", "--out-format", "json"), parseJSONDiagnostics),
+		newCommandAdapter("gosec", []string{"gosec"}, []string{"go"}, "security", "lint.security", true, false, goProjectArguments("-fmt", "json"), parseJSONDiagnostics),
+		newCommandAdapter("govulncheck", []string{"govulncheck"}, []string{"go"}, "security", "", false, false, goProjectArguments("-json"), parseGovulncheckDiagnostics),
+		newCommandAdapter("staticcheck", []string{"staticcheck"}, []string{"go"}, "correctness", "", false, true, goProjectArguments("-f", "json"), parseJSONDiagnostics),
+		newCommandAdapter("revive", []string{"revive"}, []string{"go"}, "style", "", false, true, goProjectArguments("-formatter", "json"), parseJSONDiagnostics),
+		newCommandAdapter("errcheck", []string{"errcheck"}, []string{"go"}, "correctness", "", false, true, goProjectArguments(), parseTextDiagnostics),
+		newCommandAdapter("phpstan", []string{"phpstan"}, []string{"php"}, "correctness", "", false, true, projectPathArguments("analyse", "--error-format", "json"), parseJSONDiagnostics),
+		newCommandAdapter("psalm", []string{"psalm"}, []string{"php"}, "correctness", "", false, true, projectPathArguments("--output-format", "json"), parseJSONDiagnostics),
+		newCommandAdapter("phpcs", []string{"phpcs"}, []string{"php"}, "style", "", false, true, projectPathArguments("--report=json"), parseJSONDiagnostics),
+		newCommandAdapter("phpmd", []string{"phpmd"}, []string{"php"}, "correctness", "", false, true, phpmdArguments(), parseJSONDiagnostics),
+		newCommandAdapter("pint", []string{"pint"}, []string{"php"}, "style", "", false, true, projectPathArguments("--format", "json"), parseJSONDiagnostics),
+		newCommandAdapter("biome", []string{"biome"}, []string{"js", "ts"}, "style", "", false, true, projectPathArguments("check", "--reporter", "json"), parseJSONDiagnostics),
+		newCommandAdapter("oxlint", []string{"oxlint"}, []string{"js", "ts"}, "style", "", false, true, projectPathArguments("--format", "json"), parseJSONDiagnostics),
+		newCommandAdapter("eslint", []string{"eslint"}, []string{"js"}, "style", "", false, true, projectPathArguments("--format", "json"), parseJSONDiagnostics),
+		newCommandAdapter("typescript", []string{"tsc", "typescript"}, []string{"ts"}, "correctness", "", false, true, projectPathArguments("--pretty", "false"), parseTextDiagnostics),
+		newCommandAdapter("ruff", []string{"ruff"}, []string{"python"}, "style", "", false, true, projectPathArguments("check", "--output-format", "json"), parseJSONDiagnostics),
+		newCommandAdapter("mypy", []string{"mypy"}, []string{"python"}, "correctness", "", false, true, projectPathArguments("--output", "json"), parseJSONDiagnostics),
+		newCommandAdapter("bandit", []string{"bandit"}, []string{"python"}, "security", "lint.security", true, false, recursiveProjectPathArguments("-f", "json", "-r"), parseJSONDiagnostics),
+		newCommandAdapter("pylint", []string{"pylint"}, []string{"python"}, "style", "", false, true, projectPathArguments("--output-format", "json"), parseJSONDiagnostics),
+		newCommandAdapter("shellcheck", []string{"shellcheck"}, []string{"shell"}, "correctness", "", false, true, filePathArguments("-f", "json"), parseJSONDiagnostics),
+		newCommandAdapter("hadolint", []string{"hadolint"}, []string{"dockerfile"}, "security", "", false, true, filePathArguments("-f", "json"), parseJSONDiagnostics),
+		newCommandAdapter("yamllint", []string{"yamllint"}, []string{"yaml"}, "style", "", false, true, projectPathArguments("-f", "parsable"), parseTextDiagnostics),
+		newCommandAdapter("jsonlint", []string{"jsonlint"}, []string{"json"}, "style", "", false, true, filePathArguments(), parseTextDiagnostics),
+		newCommandAdapter("markdownlint", []string{"markdownlint", "markdownlint-cli"}, []string{"markdown"}, "style", "", false, true, projectPathArguments("--json"), parseJSONDiagnostics),
+		newCommandAdapter("prettier", []string{"prettier"}, []string{"js"}, "style", "", false, true, projectPathArguments("--list-different"), parsePrettierDiagnostics),
+		newCommandAdapter("gitleaks", []string{"gitleaks"}, []string{"*"}, "security", "lint.security", true, false, recursiveProjectPathArguments("detect", "--no-git", "--report-format", "json", "--source"), parseJSONDiagnostics),
+		newCommandAdapter("trivy", []string{"trivy"}, []string{"*"}, "security", "lint.security", true, false, projectPathArguments("fs", "--format", "json"), parseJSONDiagnostics),
+		newCommandAdapter("semgrep", []string{"semgrep"}, []string{"*"}, "security", "lint.security", true, false, projectPathArguments("--json"), parseJSONDiagnostics),
+		newCommandAdapter("syft", []string{"syft"}, []string{"*"}, "compliance", "lint.compliance", true, false, projectPathArguments("scan", "-o", "json"), parseJSONDiagnostics),
+		newCommandAdapter("grype", []string{"grype"}, []string{"*"}, "security", "lint.compliance", true, false, projectPathArguments("-o", "json"), parseJSONDiagnostics),
+		newCommandAdapter("scancode", []string{"scancode-toolkit", "scancode"}, []string{"*"}, "compliance", "lint.compliance", true, false, projectPathArguments("--json"), parseJSONDiagnostics),
 	}
 }
 
@@ -94,7 +94,7 @@ func newCatalogAdapter() Adapter {
 	return CatalogAdapter{}
 }
 
-func newCommandAdapter(name string, binaries []string, languages []string, category string, entitlement string, requiresEntitlement bool, fast bool, builder argsBuilder, parser parseFunc) Adapter {
+func newCommandAdapter(name string, binaries []string, languages []string, category string, entitlement string, requiresEntitlement bool, fast bool, builder commandArgumentsBuilder, parser findingParser) Adapter {
 	return CommandAdapter{
 		name:                name,
 		binaries:            binaries,
@@ -378,7 +378,7 @@ func loadBuiltinCatalog() (*Catalog, error) {
 	return &Catalog{Rules: rules}, nil
 }
 
-func goPackageArgs(prefix ...string) argsBuilder {
+func goProjectArguments(prefix ...string) commandArgumentsBuilder {
 	return func(_ string, files []string) []string {
 		args := append([]string(nil), prefix...)
 		if len(files) > 0 {
@@ -388,7 +388,7 @@ func goPackageArgs(prefix ...string) argsBuilder {
 	}
 }
 
-func pathArgs(prefix ...string) argsBuilder {
+func projectPathArguments(prefix ...string) commandArgumentsBuilder {
 	return func(_ string, files []string) []string {
 		args := append([]string(nil), prefix...)
 		if len(files) > 0 {
@@ -398,7 +398,7 @@ func pathArgs(prefix ...string) argsBuilder {
 	}
 }
 
-func recursivePathArgs(prefix ...string) argsBuilder {
+func recursiveProjectPathArguments(prefix ...string) commandArgumentsBuilder {
 	return func(_ string, files []string) []string {
 		args := append([]string(nil), prefix...)
 		if len(files) > 0 {
@@ -408,7 +408,7 @@ func recursivePathArgs(prefix ...string) argsBuilder {
 	}
 }
 
-func fileArgs(prefix ...string) argsBuilder {
+func filePathArguments(prefix ...string) commandArgumentsBuilder {
 	return func(_ string, files []string) []string {
 		args := append([]string(nil), prefix...)
 		if len(files) > 0 {
@@ -418,7 +418,7 @@ func fileArgs(prefix ...string) argsBuilder {
 	}
 }
 
-func phpmdArgs() argsBuilder {
+func phpmdArguments() commandArgumentsBuilder {
 	return func(_ string, files []string) []string {
 		target := "."
 		if len(files) > 0 {

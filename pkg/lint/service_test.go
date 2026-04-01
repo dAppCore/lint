@@ -401,7 +401,7 @@ func TestServiceRun_JS_PrettierFindings(t *testing.T) {
 	setupMockCmdExit(t, "prettier", "index.js\n", "", 1)
 
 	svc := &Service{adapters: []Adapter{
-		newCommandAdapter("prettier", []string{"prettier"}, []string{"js"}, "style", "", false, true, pathArgs("--list-different"), parsePrettierDiagnostics),
+		newCommandAdapter("prettier", []string{"prettier"}, []string{"js"}, "style", "", false, true, projectPathArguments("--list-different"), parsePrettierDiagnostics),
 	}}
 	report, err := svc.Run(context.Background(), RunInput{
 		Path:   dir,
@@ -446,7 +446,7 @@ exit 0
 	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 
 	svc := &Service{adapters: []Adapter{
-		newCommandAdapter("prettier", []string{"prettier"}, []string{"js"}, "style", "", false, true, pathArgs("--list-different"), parsePrettierDiagnostics),
+		newCommandAdapter("prettier", []string{"prettier"}, []string{"js"}, "style", "", false, true, projectPathArguments("--list-different"), parsePrettierDiagnostics),
 	}}
 	report, err := svc.Run(context.Background(), RunInput{
 		Path:   dir,
