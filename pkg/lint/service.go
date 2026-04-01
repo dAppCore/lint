@@ -20,7 +20,8 @@ const (
 
 // RunInput is the DTO for `core-lint run` and the language/category shortcuts.
 //
-//	input := lint.RunInput{Path: ".", Output: "json", FailOn: "warning"}
+//	input := lint.RunInput{Path: ".", Schedule: "nightly", Output: "json"}
+//	report, err := lint.NewService().Run(ctx, input)
 type RunInput struct {
 	Path     string   `json:"path"`
 	Output   string   `json:"output,omitempty"`

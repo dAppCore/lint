@@ -80,11 +80,11 @@ func newRunCommand(commandName string, summary string, defaults lintpkg.RunInput
 			input.Path = "."
 		}
 
-		output, err := resolvedOutput(input)
+		resolvedOutputFormat, err := resolveRunOutputFormat(input)
 		if err != nil {
 			return err
 		}
-		input.Output = output
+		input.Output = resolvedOutputFormat
 
 		service := lintpkg.NewService()
 		report, err := service.Run(context.Background(), input)
@@ -132,7 +132,7 @@ func newDetectCommand(commandName string, summary string) *cli.Command {
 			}
 			return nil
 		case "json":
-			return writeJSON(command.OutOrStdout(), languages)
+			return writeIndentedJSON(command.OutOrStdout(), languages)
 		default:
 			return coreerr.E("cmd.detect", "unsupported output format "+output, nil)
 		}
@@ -170,7 +170,7 @@ func newToolsCommand(commandName string, summary string) *cli.Command {
 			}
 			return nil
 		case "json":
-			return writeJSON(command.OutOrStdout(), tools)
+			return writeIndentedJSON(command.OutOrStdout(), tools)
 		default:
 			return coreerr.E("cmd.tools", "unsupported output format "+output, nil)
 		}
@@ -309,7 +309,7 @@ func newCheckCommand() *cli.Command {
 		default:
 			lintpkg.WriteText(command.OutOrStdout(), findings)
 			if format == "text" && len(findings) > 0 {
-				writeLegacySummary(command.OutOrStdout(), findings)
+				writeCatalogSummary(command.OutOrStdout(), findings)
 			}
 			return nil
 		}
@@ -384,7 +384,7 @@ func newCatalogCommand() *cli.Command {
 	return catalogCmd
 }
 
-func resolvedOutput(input lintpkg.RunInput) (string, error) {
+func resolveRunOutputFormat(input lintpkg.RunInput) (string, error) {
 	if input.Output != "" {
 		return input.Output, nil
 	}
@@ -426,13 +426,13 @@ func writeReport(writer io.Writer, output string, report lintpkg.Report) error {
 	}
 }
 
-func writeJSON(writer io.Writer, value any) error {
+func writeIndentedJSON(writer io.Writer, value any) error {
 	encoder := json.NewEncoder(writer)
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(value)
 }
 
-func writeLegacySummary(writer io.Writer, findings []lintpkg.Finding) {
+func writeCatalogSummary(writer io.Writer, findings []lintpkg.Finding) {
 	summary := lintpkg.Summarise(findings)
 	fmt.Fprintf(writer, "\n%d finding(s)", summary.Total)
 
