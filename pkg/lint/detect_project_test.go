@@ -13,6 +13,7 @@ func TestDetect_Good_ProjectMarkersAndFiles(t *testing.T) {
 	dir := t.TempDir()
 
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/test\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.cpp"), []byte("int main() { return 0; }\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "package.json"), []byte("{}\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "tsconfig.json"), []byte("{}\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "requirements.txt"), []byte("ruff\n"), 0o644))
@@ -23,7 +24,7 @@ func TestDetect_Good_ProjectMarkersAndFiles(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "vendor", "ignored.go"), []byte("package ignored\n"), 0o644))
 
 	assert.Equal(t,
-		[]string{"dockerfile", "go", "js", "markdown", "python", "shell", "ts"},
+		[]string{"cpp", "dockerfile", "go", "js", "markdown", "python", "shell", "ts"},
 		Detect(dir),
 	)
 }
@@ -31,6 +32,7 @@ func TestDetect_Good_ProjectMarkersAndFiles(t *testing.T) {
 func TestDetectFromFiles_Good(t *testing.T) {
 	files := []string{
 		"main.go",
+		"src/lib.cc",
 		"web/app.ts",
 		"Dockerfile",
 		"scripts/run.sh",
@@ -38,7 +40,7 @@ func TestDetectFromFiles_Good(t *testing.T) {
 	}
 
 	assert.Equal(t,
-		[]string{"dockerfile", "go", "markdown", "shell", "ts"},
+		[]string{"cpp", "dockerfile", "go", "markdown", "shell", "ts"},
 		detectFromFiles(files),
 	)
 }

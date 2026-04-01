@@ -11,6 +11,10 @@ import (
 var projectLanguageByExtension = map[string]string{
 	".go":   "go",
 	".php":  "php",
+	".cpp":  "cpp",
+	".cc":   "cpp",
+	".c":    "cpp",
+	".h":    "cpp",
 	".js":   "js",
 	".jsx":  "js",
 	".ts":   "ts",
