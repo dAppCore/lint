@@ -26,7 +26,7 @@ func Run() {
 }
 `), 0o644))
 
-	svc := NewService()
+	svc := &Service{adapters: []Adapter{newCatalogAdapter()}}
 	report, err := svc.Run(context.Background(), RunInput{
 		Path:   dir,
 		FailOn: "warning",
@@ -76,7 +76,7 @@ func run2() {
 
 	runTestCommand(t, dir, "git", "add", "go.mod", "staged.go")
 
-	svc := NewService()
+	svc := &Service{adapters: []Adapter{newCatalogAdapter()}}
 	report, err := svc.Run(context.Background(), RunInput{
 		Path:   dir,
 		Hook:   true,
@@ -116,6 +116,44 @@ func TestServiceRun_JS_PrettierFindings(t *testing.T) {
 	assert.Equal(t, "prettier", report.Tools[0].Name)
 	assert.Equal(t, "failed", report.Tools[0].Status)
 	assert.Equal(t, 1, report.Tools[0].Findings)
+}
+
+func TestServiceRun_CapturesToolVersion(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "package.json"), []byte("{\n  \"name\": \"example\"\n}\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "index.js"), []byte("const value = 1;\n"), 0o644))
+
+	binDir := t.TempDir()
+	scriptPath := filepath.Join(binDir, "prettier")
+	script := `#!/bin/sh
+case "$1" in
+  --version)
+    echo "prettier 3.2.1"
+    exit 0
+    ;;
+  --list-different)
+    echo "index.js"
+    exit 1
+    ;;
+esac
+echo "unexpected args: $*" >&2
+exit 0
+`
+	require.NoError(t, os.WriteFile(scriptPath, []byte(script), 0o755))
+	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	svc := &Service{adapters: []Adapter{
+		newCommandAdapter("prettier", []string{"prettier"}, []string{"js"}, "style", "", false, true, pathArgs("--list-different"), parsePrettierDiagnostics),
+	}}
+	report, err := svc.Run(context.Background(), RunInput{
+		Path:   dir,
+		FailOn: "warning",
+	})
+	require.NoError(t, err)
+
+	require.Len(t, report.Tools, 1)
+	assert.Equal(t, "prettier", report.Tools[0].Name)
+	assert.Equal(t, "prettier 3.2.1", report.Tools[0].Version)
 }
 
 func TestServiceRun_Good_DeduplicatesMergedFindings(t *testing.T) {

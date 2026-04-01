@@ -23,6 +23,8 @@ var (
 
 func TestCLI_Run_JSON(t *testing.T) {
 	dir := t.TempDir()
+	buildCLI(t)
+	t.Setenv("PATH", t.TempDir())
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/test\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "input.go"), []byte(`package sample
 

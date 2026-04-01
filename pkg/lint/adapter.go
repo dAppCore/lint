@@ -169,13 +169,14 @@ func (adapter CommandAdapter) Run(ctx context.Context, input RunInput, files []s
 		return result
 	}
 
+	result.Tool.Version = probeCommandVersion(binary, input.Path)
+
 	runContext, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
 	args := adapter.buildArgs(input.Path, files)
 	stdout, stderr, exitCode, runErr := runCommand(runContext, input.Path, binary, args)
 
-	result.Tool.Version = ""
 	result.Tool.Duration = time.Since(startedAt).Round(time.Millisecond).String()
 
 	if errors.Is(runContext.Err(), context.DeadlineExceeded) {
@@ -231,6 +232,29 @@ func (adapter CommandAdapter) Run(ctx context.Context, input RunInput, files []s
 	}
 
 	return result
+}
+
+func probeCommandVersion(binary string, workingDir string) string {
+	for _, args := range [][]string{{"--version"}, {"-version"}, {"version"}} {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		stdout, stderr, exitCode, err := runCommand(ctx, workingDir, binary, args)
+		cancel()
+
+		if err != nil && exitCode != 0 {
+			continue
+		}
+
+		version := firstNonEmpty(stdout, stderr)
+		if version == "" {
+			continue
+		}
+
+		if line := firstVersionLine(version); line != "" {
+			return line
+		}
+	}
+
+	return ""
 }
 
 func (adapter CommandAdapter) availableBinary() (string, bool) {
@@ -807,6 +831,16 @@ func firstNonEmpty(values ...string) string {
 	for _, value := range values {
 		if strings.TrimSpace(value) != "" {
 			return strings.TrimSpace(value)
+		}
+	}
+	return ""
+}
+
+func firstVersionLine(output string) string {
+	for line := range strings.SplitSeq(strings.TrimSpace(output), "\n") {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			return line
 		}
 	}
 	return ""
