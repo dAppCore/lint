@@ -57,6 +57,20 @@ func DetectLanguage(filename string) string {
 	return ""
 }
 
+func shouldSkipTraversalRoot(path string) bool {
+	cleanedPath := filepath.Clean(path)
+	if cleanedPath == "." {
+		return false
+	}
+
+	base := filepath.Base(cleanedPath)
+	if base == "." || base == string(filepath.Separator) {
+		return false
+	}
+
+	return IsExcludedDir(base)
+}
+
 // Scanner walks directory trees and matches files against lint rules.
 type Scanner struct {
 	matcher  *Matcher
@@ -81,6 +95,10 @@ func NewScanner(rules []Rule) (*Scanner, error) {
 // Directories in the exclude list are skipped entirely.
 func (s *Scanner) ScanDir(root string) ([]Finding, error) {
 	var findings []Finding
+
+	if shouldSkipTraversalRoot(root) {
+		return findings, nil
+	}
 
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {

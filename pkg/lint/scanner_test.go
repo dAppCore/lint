@@ -238,6 +238,32 @@ func TestScanDir_Good_Subdirectories(t *testing.T) {
 	require.Len(t, findings, 1)
 }
 
+func TestScanDir_Good_SkipsHiddenRootDirectory(t *testing.T) {
+	dir := t.TempDir()
+	hiddenDir := filepath.Join(dir, ".git")
+	require.NoError(t, os.MkdirAll(hiddenDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(hiddenDir, "main.go"), []byte("// TODO: hidden\n"), 0o644))
+
+	rules := []Rule{
+		{
+			ID:        "test-001",
+			Title:     "Found a TODO",
+			Severity:  "low",
+			Languages: []string{"go"},
+			Pattern:   `TODO`,
+			Fix:       "Remove TODO",
+			Detection: "regex",
+		},
+	}
+
+	s, err := NewScanner(rules)
+	require.NoError(t, err)
+
+	findings, err := s.ScanDir(hiddenDir)
+	require.NoError(t, err)
+	assert.Empty(t, findings)
+}
+
 func TestScanDir_Bad_NonexistentDir(t *testing.T) {
 	rules := []Rule{
 		{

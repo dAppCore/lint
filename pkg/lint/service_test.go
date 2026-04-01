@@ -130,6 +130,36 @@ func Run() {
 	assert.False(t, report.Summary.Passed)
 }
 
+func TestServiceRun_Good_SkipsHiddenConfiguredRootDirectory(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/test\n"), 0o644))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".hidden"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".hidden", "scoped.go"), []byte(`package sample
+
+type service struct{}
+
+func (service) Process(string) error { return nil }
+
+func Run() {
+	svc := service{}
+	_ = svc.Process("scoped")
+}
+`), 0o644))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".core"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".core", "lint.yaml"), []byte("paths:\n  - .hidden\n"), 0o644))
+
+	svc := &Service{adapters: []Adapter{newCatalogAdapter()}}
+	report, err := svc.Run(context.Background(), RunInput{
+		Path:   dir,
+		FailOn: "warning",
+	})
+	require.NoError(t, err)
+
+	assert.Empty(t, report.Findings)
+	assert.Empty(t, report.Tools)
+	assert.True(t, report.Summary.Passed)
+}
+
 func TestServiceRun_Good_UsesNamedSchedule(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/test\n"), 0o644))

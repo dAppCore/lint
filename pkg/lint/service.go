@@ -102,7 +102,7 @@ func (s *Service) Run(ctx context.Context, input RunInput) (Report, error) {
 		input.FailOn = config.FailOn
 	}
 
-	files, err := s.scopeFiles(input.Path, config, input, schedule)
+	files, scoped, err := s.scopeFiles(input.Path, config, input, schedule)
 	if err != nil {
 		return Report{}, err
 	}
@@ -119,8 +119,21 @@ func (s *Service) Run(ctx context.Context, input RunInput) (Report, error) {
 		report.Summary.Passed = passesThreshold(report.Summary, input.FailOn)
 		return report, nil
 	}
+	if scoped && len(files) == 0 {
+		report := Report{
+			Project:   projectName(input.Path),
+			Timestamp: startedAt,
+			Duration:  time.Since(startedAt).Round(time.Millisecond).String(),
+			Languages: []string{},
+			Tools:     []ToolRun{},
+			Findings:  []Finding{},
+			Summary:   Summarise(nil),
+		}
+		report.Summary.Passed = passesThreshold(report.Summary, input.FailOn)
+		return report, nil
+	}
 
-	languages := s.languagesForInput(input, files)
+	languages := s.languagesForInput(input, files, scoped)
 	selectedAdapters := s.selectAdapters(config, languages, input, schedule)
 
 	var findings []Finding
@@ -302,30 +315,33 @@ func (s *Service) RemoveHook(projectPath string) error {
 	return nil
 }
 
-func (s *Service) languagesForInput(input RunInput, files []string) []string {
+func (s *Service) languagesForInput(input RunInput, files []string, scoped bool) []string {
 	if input.Lang != "" {
 		return []string{input.Lang}
 	}
-	if len(files) > 0 {
+	if scoped {
 		return detectFromFiles(files)
 	}
 	return Detect(input.Path)
 }
 
-func (s *Service) scopeFiles(projectPath string, config LintConfig, input RunInput, schedule *Schedule) ([]string, error) {
+func (s *Service) scopeFiles(projectPath string, config LintConfig, input RunInput, schedule *Schedule) ([]string, bool, error) {
 	if len(input.Files) > 0 {
-		return slices.Clone(input.Files), nil
+		return slices.Clone(input.Files), true, nil
 	}
 	if input.Hook {
-		return s.stagedFiles(projectPath)
+		files, err := s.stagedFiles(projectPath)
+		return files, true, err
 	}
 	if schedule != nil && len(schedule.Paths) > 0 {
-		return collectConfiguredFiles(projectPath, schedule.Paths, config.Exclude)
+		files, err := collectConfiguredFiles(projectPath, schedule.Paths, config.Exclude)
+		return files, true, err
 	}
 	if !slices.Equal(config.Paths, DefaultConfig().Paths) || !slices.Equal(config.Exclude, DefaultConfig().Exclude) {
-		return collectConfiguredFiles(projectPath, config.Paths, config.Exclude)
+		files, err := collectConfiguredFiles(projectPath, config.Paths, config.Exclude)
+		return files, true, err
 	}
-	return nil, nil
+	return nil, false, nil
 }
 
 func (s *Service) selectAdapters(config LintConfig, languages []string, input RunInput, schedule *Schedule) []Adapter {
@@ -393,6 +409,9 @@ func collectConfiguredFiles(projectPath string, paths []string, excludes []strin
 		info, err := os.Stat(absolutePath)
 		if err != nil {
 			return nil, coreerr.E("collectConfiguredFiles", "stat "+absolutePath, err)
+		}
+		if info.IsDir() && shouldSkipTraversalRoot(absolutePath) {
+			continue
 		}
 
 		addFile := func(candidate string) {

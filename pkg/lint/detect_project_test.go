@@ -48,3 +48,12 @@ func TestDetectFromFiles_Good(t *testing.T) {
 func TestDetect_MissingPathReturnsEmptySlice(t *testing.T) {
 	assert.Equal(t, []string{}, Detect(filepath.Join(t.TempDir(), "missing")))
 }
+
+func TestDetect_Good_SkipsHiddenRootDirectory(t *testing.T) {
+	dir := t.TempDir()
+	hiddenDir := filepath.Join(dir, ".core")
+	require.NoError(t, os.MkdirAll(hiddenDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(hiddenDir, "main.go"), []byte("package main\n"), 0o644))
+
+	assert.Equal(t, []string{}, Detect(hiddenDir))
+}

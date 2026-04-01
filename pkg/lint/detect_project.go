@@ -47,6 +47,10 @@ func Detect(path string) []string {
 		return sortedDetectedLanguages(seen)
 	}
 
+	if shouldSkipTraversalRoot(path) {
+		return []string{}
+	}
+
 	_ = filepath.WalkDir(path, func(currentPath string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return nil
