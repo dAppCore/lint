@@ -37,6 +37,8 @@ type RunInput struct {
 }
 
 // ToolInfo describes a supported linter tool and whether it is available in PATH.
+//
+//	tools := lint.NewService().Tools([]string{"go"})
 type ToolInfo struct {
 	Name        string   `json:"name"`
 	Available   bool     `json:"available"`
@@ -46,6 +48,8 @@ type ToolInfo struct {
 }
 
 // Report aggregates every tool run into a single output document.
+//
+//	report, err := lint.NewService().Run(context.Background(), lint.RunInput{Path: ".", Output: "json"})
 type Report struct {
 	Project   string    `json:"project"`
 	Timestamp time.Time `json:"timestamp"`
