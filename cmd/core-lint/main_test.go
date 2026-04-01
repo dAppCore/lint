@@ -167,6 +167,34 @@ func TestCLI_Tools_TextIncludesMetadata(t *testing.T) {
 	assert.Contains(t, text, "entitlement=lint.security")
 }
 
+func TestCLI_LintCheck_SARIF(t *testing.T) {
+	buildCLI(t)
+
+	repoRoot := repoRoot(t)
+	stdout, stderr, exitCode := runCLI(t, repoRoot, "lint", "check", "--format", "sarif", "tests/cli/lint/check/fixtures")
+	assert.Equal(t, 0, exitCode, stderr)
+
+	var sarif struct {
+		Version string `json:"version"`
+		Runs    []struct {
+			Tool struct {
+				Driver struct {
+					Name string `json:"name"`
+				} `json:"driver"`
+			} `json:"tool"`
+			Results []struct {
+				RuleID string `json:"ruleId"`
+			} `json:"results"`
+		} `json:"runs"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(stdout), &sarif))
+	require.Equal(t, "2.1.0", sarif.Version)
+	require.Len(t, sarif.Runs, 1)
+	assert.Equal(t, "core-lint", sarif.Runs[0].Tool.Driver.Name)
+	require.Len(t, sarif.Runs[0].Results, 1)
+	assert.Equal(t, "go-cor-003", sarif.Runs[0].Results[0].RuleID)
+}
+
 func TestCLI_HookInstallRemove(t *testing.T) {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git not available")

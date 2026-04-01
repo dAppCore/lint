@@ -306,6 +306,12 @@ func newCheckCommand() *cli.Command {
 			return lintpkg.WriteJSON(command.OutOrStdout(), findings)
 		case "jsonl":
 			return lintpkg.WriteJSONL(command.OutOrStdout(), findings)
+		case "sarif":
+			report := lintpkg.Report{
+				Findings: findings,
+				Summary:  lintpkg.Summarise(findings),
+			}
+			return lintpkg.WriteReportSARIF(command.OutOrStdout(), report)
 		default:
 			lintpkg.WriteText(command.OutOrStdout(), findings)
 			if format == "text" && len(findings) > 0 {
@@ -315,7 +321,7 @@ func newCheckCommand() *cli.Command {
 		}
 	})
 
-	cli.StringFlag(command, &format, "format", "f", "text", "Output format: text, json, jsonl")
+	cli.StringFlag(command, &format, "format", "f", "text", "Output format: text, json, jsonl, sarif")
 	cli.StringFlag(command, &language, "lang", "l", "", "Filter rules by language")
 	cli.StringFlag(command, &severity, "severity", "s", "", "Minimum severity threshold (info, low, medium, high, critical)")
 
