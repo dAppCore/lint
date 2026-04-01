@@ -50,6 +50,7 @@ func newRunCommand(commandName string, summary string, defaults lintpkg.RunInput
 	var (
 		output   string
 		config   string
+		schedule string
 		failOn   string
 		category string
 		lang     string
@@ -63,6 +64,7 @@ func newRunCommand(commandName string, summary string, defaults lintpkg.RunInput
 		input := defaults
 		input.Output = output
 		input.Config = config
+		input.Schedule = schedule
 		input.FailOn = failOn
 		input.Category = category
 		input.Lang = lang
@@ -101,6 +103,7 @@ func newRunCommand(commandName string, summary string, defaults lintpkg.RunInput
 
 	cli.StringFlag(command, &output, "output", "o", defaults.Output, "Output format: json, text, github, sarif")
 	cli.StringFlag(command, &config, "config", "c", defaults.Config, "Config path (default: .core/lint.yaml)")
+	cli.StringFlag(command, &schedule, "schedule", "", "", "Run a named schedule from the config")
 	cli.StringFlag(command, &failOn, "fail-on", "", defaults.FailOn, "Fail threshold: error, warning, info")
 	cli.StringFlag(command, &category, "category", "", defaults.Category, "Restrict to one category")
 	cli.StringFlag(command, &lang, "lang", "l", defaults.Lang, "Restrict to one language")
@@ -385,13 +388,20 @@ func resolvedOutput(input lintpkg.RunInput) (string, error) {
 	if input.Output != "" {
 		return input.Output, nil
 	}
-	if input.CI {
-		return "github", nil
-	}
 
 	config, _, err := lintpkg.LoadProjectConfig(input.Path, input.Config)
 	if err != nil {
 		return "", err
+	}
+	schedule, err := lintpkg.ResolveSchedule(config, input.Schedule)
+	if err != nil {
+		return "", err
+	}
+	if input.CI {
+		return "github", nil
+	}
+	if schedule != nil && schedule.Output != "" {
+		return schedule.Output, nil
 	}
 	if config.Output != "" {
 		return config.Output, nil

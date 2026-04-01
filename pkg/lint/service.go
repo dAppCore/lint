@@ -25,6 +25,7 @@ type RunInput struct {
 	Path     string   `json:"path"`
 	Output   string   `json:"output,omitempty"`
 	Config   string   `json:"config,omitempty"`
+	Schedule string   `json:"schedule,omitempty"`
 	FailOn   string   `json:"fail_on,omitempty"`
 	Category string   `json:"category,omitempty"`
 	Lang     string   `json:"lang,omitempty"`
@@ -89,11 +90,18 @@ func (s *Service) Run(ctx context.Context, input RunInput) (Report, error) {
 	if err != nil {
 		return Report{}, err
 	}
+	schedule, err := ResolveSchedule(config, input.Schedule)
+	if err != nil {
+		return Report{}, err
+	}
+	if input.FailOn == "" && schedule != nil && schedule.FailOn != "" {
+		input.FailOn = schedule.FailOn
+	}
 	if input.FailOn == "" {
 		input.FailOn = config.FailOn
 	}
 
-	files, err := s.scopeFiles(input.Path, config, input)
+	files, err := s.scopeFiles(input.Path, config, input, schedule)
 	if err != nil {
 		return Report{}, err
 	}
@@ -112,7 +120,7 @@ func (s *Service) Run(ctx context.Context, input RunInput) (Report, error) {
 	}
 
 	languages := s.languagesForInput(input, files)
-	selectedAdapters := s.selectAdapters(config, languages, input)
+	selectedAdapters := s.selectAdapters(config, languages, input, schedule)
 
 	var findings []Finding
 	var toolRuns []ToolRun
@@ -291,12 +299,15 @@ func (s *Service) languagesForInput(input RunInput, files []string) []string {
 	return Detect(input.Path)
 }
 
-func (s *Service) scopeFiles(projectPath string, config LintConfig, input RunInput) ([]string, error) {
+func (s *Service) scopeFiles(projectPath string, config LintConfig, input RunInput, schedule *Schedule) ([]string, error) {
 	if len(input.Files) > 0 {
 		return slices.Clone(input.Files), nil
 	}
 	if input.Hook {
 		return s.stagedFiles(projectPath)
+	}
+	if schedule != nil && len(schedule.Paths) > 0 {
+		return collectConfiguredFiles(projectPath, schedule.Paths, config.Exclude)
 	}
 	if !slices.Equal(config.Paths, DefaultConfig().Paths) || !slices.Equal(config.Exclude, DefaultConfig().Exclude) {
 		return collectConfiguredFiles(projectPath, config.Paths, config.Exclude)
@@ -304,9 +315,10 @@ func (s *Service) scopeFiles(projectPath string, config LintConfig, input RunInp
 	return nil, nil
 }
 
-func (s *Service) selectAdapters(config LintConfig, languages []string, input RunInput) []Adapter {
+func (s *Service) selectAdapters(config LintConfig, languages []string, input RunInput, schedule *Schedule) []Adapter {
+	categories := selectedCategories(input, schedule)
 	enabled := make(map[string]bool)
-	for _, name := range enabledToolNames(config, languages, input) {
+	for _, name := range enabledToolNames(config, languages, input, categories) {
 		enabled[name] = true
 	}
 
@@ -315,7 +327,7 @@ func (s *Service) selectAdapters(config LintConfig, languages []string, input Ru
 		if len(enabled) > 0 && !enabled[adapter.Name()] {
 			continue
 		}
-		if input.Category != "" && adapter.Category() != input.Category {
+		if len(categories) > 0 && !slices.Contains(categories, adapter.Category()) {
 			continue
 		}
 		if !adapter.MatchesLanguage(languages) {
@@ -324,7 +336,7 @@ func (s *Service) selectAdapters(config LintConfig, languages []string, input Ru
 		selected = append(selected, adapter)
 	}
 
-	if slices.Contains(languages, "go") && input.Category != "compliance" {
+	if slices.Contains(languages, "go") && !slices.Contains(categories, "compliance") {
 		if !hasAdapter(selected, "catalog") {
 			selected = append([]Adapter{newCatalogAdapter()}, selected...)
 		}
@@ -445,28 +457,28 @@ func matchesConfiguredExclude(candidate string, excludes []string) bool {
 	return false
 }
 
-func enabledToolNames(config LintConfig, languages []string, input RunInput) []string {
+func enabledToolNames(config LintConfig, languages []string, input RunInput, categories []string) []string {
 	var names []string
 
-	if input.Category == "security" {
+	if slices.Contains(categories, "security") {
 		names = append(names, config.Lint.Security...)
-		return dedupeStrings(names)
 	}
-	if input.Category == "compliance" {
+	if slices.Contains(categories, "compliance") {
 		names = append(names, config.Lint.Compliance...)
-		return dedupeStrings(names)
 	}
 
 	if input.Lang != "" {
 		names = append(names, groupForLanguage(config.Lint, input.Lang)...)
-		return dedupeStrings(names)
+	} else if shouldIncludeLanguageGroups(categories) {
+		for _, language := range languages {
+			names = append(names, groupForLanguage(config.Lint, language)...)
+		}
 	}
 
-	for _, language := range languages {
-		names = append(names, groupForLanguage(config.Lint, language)...)
+	if shouldIncludeInfraGroups(categories) {
+		names = append(names, config.Lint.Infra...)
 	}
-	names = append(names, config.Lint.Infra...)
-	if input.CI || input.Category == "security" {
+	if input.CI {
 		names = append(names, config.Lint.Security...)
 	}
 	if input.SBOM {
@@ -474,6 +486,46 @@ func enabledToolNames(config LintConfig, languages []string, input RunInput) []s
 	}
 
 	return dedupeStrings(names)
+}
+
+func selectedCategories(input RunInput, schedule *Schedule) []string {
+	if input.Category != "" {
+		return []string{input.Category}
+	}
+	if schedule == nil {
+		return nil
+	}
+	return slices.Clone(schedule.Categories)
+}
+
+func shouldIncludeLanguageGroups(categories []string) bool {
+	if len(categories) == 0 {
+		return true
+	}
+	for _, category := range categories {
+		switch category {
+		case "security", "compliance":
+			continue
+		default:
+			return true
+		}
+	}
+	return false
+}
+
+func shouldIncludeInfraGroups(categories []string) bool {
+	if len(categories) == 0 {
+		return true
+	}
+	for _, category := range categories {
+		switch category {
+		case "security", "compliance":
+			continue
+		default:
+			return true
+		}
+	}
+	return false
 }
 
 func groupForLanguage(groups ToolGroups, language string) []string {

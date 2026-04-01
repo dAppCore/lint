@@ -161,3 +161,17 @@ func LoadProjectConfig(projectPath string, override string) (LintConfig, string,
 
 	return config, path, nil
 }
+
+// ResolveSchedule returns a named schedule from the config.
+func ResolveSchedule(config LintConfig, name string) (*Schedule, error) {
+	if name == "" {
+		return nil, nil
+	}
+
+	schedule, ok := config.Schedules[name]
+	if !ok {
+		return nil, coreerr.E("ResolveSchedule", "schedule "+name+" not found", nil)
+	}
+
+	return &schedule, nil
+}
