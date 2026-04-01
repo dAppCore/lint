@@ -18,6 +18,8 @@ type Summary struct {
 }
 
 // Summarise counts findings by severity.
+//
+//	summary := lint.Summarise(findings)
 func Summarise(findings []Finding) Summary {
 	s := Summary{
 		Total:      len(findings),
@@ -70,9 +72,9 @@ func WriteJSONL(w io.Writer, findings []Finding) error {
 	return nil
 }
 
-// WriteText writes findings in a human-readable format:
+// WriteText writes findings in a human-readable format.
 //
-//	file:line [severity] title (rule-id)
+//	lint.WriteText(os.Stdout, findings)
 func WriteText(w io.Writer, findings []Finding) {
 	for _, f := range findings {
 		message := f.Message

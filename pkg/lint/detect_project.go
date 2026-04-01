@@ -30,7 +30,8 @@ var projectLanguageByExtension = map[string]string{
 
 // Detect returns the project languages inferred from markers and file names.
 //
-//	langs := lint.Detect(".")
+//	lint.Detect(".")
+//	lint.Detect("/path/to/project")
 func Detect(path string) []string {
 	if path == "" {
 		path = "."

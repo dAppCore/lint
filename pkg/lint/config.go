@@ -47,6 +47,9 @@ type Schedule struct {
 }
 
 // DefaultConfig returns the RFC baseline config used when a repo has no local file yet.
+//
+//	cfg := lint.DefaultConfig()
+//	cfg.Output = "sarif"
 func DefaultConfig() LintConfig {
 	return LintConfig{
 		Lint: ToolGroups{
@@ -163,6 +166,8 @@ func LoadProjectConfig(projectPath string, override string) (LintConfig, string,
 }
 
 // ResolveSchedule returns a named schedule from the config.
+//
+//	schedule, err := lint.ResolveSchedule(cfg, "nightly")
 func ResolveSchedule(config LintConfig, name string) (*Schedule, error) {
 	if name == "" {
 		return nil, nil
