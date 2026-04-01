@@ -2,6 +2,7 @@ package lint
 
 import (
 	"context"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
@@ -92,25 +93,22 @@ func (s *Service) Run(ctx context.Context, input RunInput) (Report, error) {
 		input.FailOn = config.FailOn
 	}
 
-	files := slices.Clone(input.Files)
+	files, err := s.scopeFiles(input.Path, config, input)
+	if err != nil {
+		return Report{}, err
+	}
 	if input.Hook && len(files) == 0 {
-		files, err = s.stagedFiles(input.Path)
-		if err != nil {
-			return Report{}, err
+		report := Report{
+			Project:   projectName(input.Path),
+			Timestamp: startedAt,
+			Duration:  time.Since(startedAt).Round(time.Millisecond).String(),
+			Languages: []string{},
+			Tools:     []ToolRun{},
+			Findings:  []Finding{},
+			Summary:   Summarise(nil),
 		}
-		if len(files) == 0 {
-			report := Report{
-				Project:   projectName(input.Path),
-				Timestamp: startedAt,
-				Duration:  time.Since(startedAt).Round(time.Millisecond).String(),
-				Languages: []string{},
-				Tools:     []ToolRun{},
-				Findings:  []Finding{},
-				Summary:   Summarise(nil),
-			}
-			report.Summary.Passed = passesThreshold(report.Summary, input.FailOn)
-			return report, nil
-		}
+		report.Summary.Passed = passesThreshold(report.Summary, input.FailOn)
+		return report, nil
 	}
 
 	languages := s.languagesForInput(input, files)
@@ -293,6 +291,19 @@ func (s *Service) languagesForInput(input RunInput, files []string) []string {
 	return Detect(input.Path)
 }
 
+func (s *Service) scopeFiles(projectPath string, config LintConfig, input RunInput) ([]string, error) {
+	if len(input.Files) > 0 {
+		return slices.Clone(input.Files), nil
+	}
+	if input.Hook {
+		return s.stagedFiles(projectPath)
+	}
+	if !slices.Equal(config.Paths, DefaultConfig().Paths) {
+		return collectConfiguredFiles(projectPath, config.Paths)
+	}
+	return nil, nil
+}
+
 func (s *Service) selectAdapters(config LintConfig, languages []string, input RunInput) []Adapter {
 	enabled := make(map[string]bool)
 	for _, name := range enabledToolNames(config, languages, input) {
@@ -337,6 +348,67 @@ func (s *Service) stagedFiles(projectPath string) ([]string, error) {
 		}
 		files = append(files, line)
 	}
+	return files, nil
+}
+
+func collectConfiguredFiles(projectPath string, paths []string) ([]string, error) {
+	seen := make(map[string]bool)
+	var files []string
+
+	for _, path := range paths {
+		if path == "" {
+			continue
+		}
+
+		absolutePath := path
+		if !filepath.IsAbs(absolutePath) {
+			absolutePath = filepath.Join(projectPath, path)
+		}
+
+		info, err := os.Stat(absolutePath)
+		if err != nil {
+			return nil, coreerr.E("collectConfiguredFiles", "stat "+absolutePath, err)
+		}
+
+		addFile := func(candidate string) {
+			relativePath := candidate
+			if projectPath != "" {
+				if rel, relErr := filepath.Rel(projectPath, candidate); relErr == nil && rel != "" && !strings.HasPrefix(rel, "..") {
+					relativePath = rel
+				}
+			}
+			relativePath = filepath.ToSlash(relativePath)
+			if seen[relativePath] {
+				return
+			}
+			seen[relativePath] = true
+			files = append(files, relativePath)
+		}
+
+		if !info.IsDir() {
+			addFile(absolutePath)
+			continue
+		}
+
+		walkErr := filepath.WalkDir(absolutePath, func(currentPath string, entry fs.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+			if entry.IsDir() {
+				if currentPath != absolutePath && IsExcludedDir(entry.Name()) {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+			addFile(currentPath)
+			return nil
+		})
+		if walkErr != nil {
+			return nil, coreerr.E("collectConfiguredFiles", "walk "+absolutePath, walkErr)
+		}
+	}
+
+	slices.Sort(files)
 	return files, nil
 }
 
