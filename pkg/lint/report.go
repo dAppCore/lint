@@ -109,10 +109,7 @@ func WriteReportText(w io.Writer, report Report) {
 //	lint.WriteReportGitHub(os.Stdout, report)
 func WriteReportGitHub(w io.Writer, report Report) {
 	for _, finding := range report.Findings {
-		level := finding.Severity
-		if level == "" {
-			level = "warning"
-		}
+		level := githubAnnotationLevel(finding.Severity)
 
 		location := ""
 		if finding.File != "" {
@@ -193,7 +190,7 @@ func WriteReportSARIF(w io.Writer, report Report) error {
 
 		result := sarifResult{
 			RuleID:  ruleID,
-			Level:   finding.Severity,
+			Level:   sarifLevel(finding.Severity),
 			Message: sarifMessage{Text: message},
 		}
 		if finding.File != "" {
@@ -215,4 +212,30 @@ func WriteReportSARIF(w io.Writer, report Report) error {
 		Schema:  "https://json.schemastore.org/sarif-2.1.0.json",
 		Runs:    []sarifRun{sarifRunValue},
 	})
+}
+
+func githubAnnotationLevel(severity string) string {
+	switch strings.ToLower(strings.TrimSpace(severity)) {
+	case "error":
+		return "error"
+	case "info":
+		return "notice"
+	case "warning", "":
+		return "warning"
+	default:
+		return "warning"
+	}
+}
+
+func sarifLevel(severity string) string {
+	switch strings.ToLower(strings.TrimSpace(severity)) {
+	case "error":
+		return "error"
+	case "warning":
+		return "warning"
+	case "info":
+		return "note"
+	default:
+		return "warning"
+	}
 }

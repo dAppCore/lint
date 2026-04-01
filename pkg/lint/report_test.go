@@ -134,3 +134,45 @@ func TestWriteText_Good_Empty(t *testing.T) {
 	WriteText(&buf, nil)
 	assert.Empty(t, buf.String())
 }
+
+func TestWriteReportGitHub_Good_MapsInfoToNotice(t *testing.T) {
+	var buf bytes.Buffer
+
+	WriteReportGitHub(&buf, Report{
+		Findings: []Finding{{
+			Tool:     "demo",
+			File:     "example.go",
+			Line:     7,
+			Column:   3,
+			Severity: "info",
+			Code:     "demo-rule",
+			Message:  "explanation",
+		}},
+	})
+
+	assert.Contains(t, buf.String(), "::notice file=example.go,line=7,col=3::[demo] explanation (demo-rule)")
+}
+
+func TestWriteReportSARIF_Good_MapsInfoToNote(t *testing.T) {
+	var buf bytes.Buffer
+
+	err := WriteReportSARIF(&buf, Report{
+		Findings: []Finding{{
+			Tool:     "demo",
+			File:     "example.go",
+			Line:     7,
+			Column:   3,
+			Severity: "info",
+			Code:     "demo-rule",
+			Message:  "explanation",
+		}},
+	})
+	require.NoError(t, err)
+
+	var decoded map[string]any
+	require.NoError(t, json.Unmarshal(buf.Bytes(), &decoded))
+
+	runs := decoded["runs"].([]any)
+	results := runs[0].(map[string]any)["results"].([]any)
+	assert.Equal(t, "note", results[0].(map[string]any)["level"])
+}
