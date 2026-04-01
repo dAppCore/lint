@@ -53,6 +53,7 @@ func newRunCommand(commandName string, summary string, defaults lintpkg.RunInput
 		failOn   string
 		category string
 		lang     string
+		files    []string
 		hook     bool
 		ci       bool
 		sbom     bool
@@ -65,6 +66,7 @@ func newRunCommand(commandName string, summary string, defaults lintpkg.RunInput
 		input.FailOn = failOn
 		input.Category = category
 		input.Lang = lang
+		input.Files = files
 		input.Hook = hook
 		input.CI = ci
 		input.SBOM = sbom
@@ -102,6 +104,7 @@ func newRunCommand(commandName string, summary string, defaults lintpkg.RunInput
 	cli.StringFlag(command, &failOn, "fail-on", "", defaults.FailOn, "Fail threshold: error, warning, info")
 	cli.StringFlag(command, &category, "category", "", defaults.Category, "Restrict to one category")
 	cli.StringFlag(command, &lang, "lang", "l", defaults.Lang, "Restrict to one language")
+	cli.StringSliceFlag(command, &files, "files", "", defaults.Files, "Restrict scanning to specific files")
 	cli.BoolFlag(command, &hook, "hook", "", defaults.Hook, "Run in pre-commit mode against staged files")
 	cli.BoolFlag(command, &ci, "ci", "", defaults.CI, "GitHub Actions mode (github annotations)")
 	cli.BoolFlag(command, &sbom, "sbom", "", defaults.SBOM, "Enable compliance/SBOM tools")

@@ -49,6 +49,35 @@ func Run() {
 	assert.False(t, report.Summary.Passed)
 }
 
+func TestCLI_Run_FilesFlagLimitsScanning(t *testing.T) {
+	dir := t.TempDir()
+	buildCLI(t)
+	t.Setenv("PATH", t.TempDir())
+
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/test\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "clean.go"), []byte(`package sample
+
+func Clean() {}
+`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "ignored.go"), []byte(`package sample
+
+func Run() {
+	_ = helper()
+}
+
+func helper() error { return nil }
+`), 0o644))
+
+	stdout, stderr, exitCode := runCLI(t, dir, "run", "--output", "json", "--files", "clean.go", dir)
+	assert.Equal(t, 0, exitCode, stderr)
+
+	var report lintpkg.Report
+	require.NoError(t, json.Unmarshal([]byte(stdout), &report))
+	assert.Empty(t, report.Findings)
+	assert.Equal(t, 0, report.Summary.Total)
+	assert.True(t, report.Summary.Passed)
+}
+
 func TestCLI_Detect_JSON(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/test\n"), 0o644))
