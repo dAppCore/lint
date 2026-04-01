@@ -88,6 +88,35 @@ func Run() {
 	assert.False(t, report.Summary.Passed)
 }
 
+func TestServiceRun_Good_ExplicitEmptyFilesSkipsScanning(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/test\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "root.go"), []byte(`package sample
+
+type service struct{}
+
+func (service) Process(string) error { return nil }
+
+func Run() {
+	svc := service{}
+	_ = svc.Process("root")
+}
+`), 0o644))
+
+	svc := &Service{adapters: []Adapter{newCatalogAdapter()}}
+	report, err := svc.Run(context.Background(), RunInput{
+		Path:   dir,
+		Files:  []string{},
+		FailOn: "warning",
+	})
+	require.NoError(t, err)
+
+	assert.Empty(t, report.Languages)
+	assert.Empty(t, report.Tools)
+	assert.Empty(t, report.Findings)
+	assert.True(t, report.Summary.Passed)
+}
+
 func TestServiceRun_Good_UsesConfiguredExclude(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/test\n"), 0o644))

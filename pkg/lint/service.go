@@ -326,7 +326,7 @@ func (s *Service) languagesForInput(input RunInput, files []string, scoped bool)
 }
 
 func (s *Service) scopeFiles(projectPath string, config LintConfig, input RunInput, schedule *Schedule) ([]string, bool, error) {
-	if len(input.Files) > 0 {
+	if input.Files != nil {
 		return slices.Clone(input.Files), true, nil
 	}
 	if input.Hook {
