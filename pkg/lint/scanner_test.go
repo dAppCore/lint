@@ -25,9 +25,10 @@ func TestDetectLanguage_Good(t *testing.T) {
 		{"core.c", "cpp"},
 		{"app.js", "js"},
 		{"component.jsx", "js"},
-		{"unknown.rs", ""},
+		{"unknown.rs", "rust"},
 		{"noextension", ""},
-		{"file.py", "py"},
+		{"file.py", "python"},
+		{"Dockerfile", "dockerfile"},
 	}
 
 	for _, tt := range tests {
@@ -178,6 +179,34 @@ func TestScanFile_Good(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, findings, 1)
 	assert.Equal(t, "test-panic", findings[0].RuleID)
+}
+
+func TestScanFile_Good_Python(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "app.py")
+	err := os.WriteFile(file, []byte("print('hello')\n# TODO: fix\n"), 0o644)
+	require.NoError(t, err)
+
+	rules := []Rule{
+		{
+			ID:        "python-todo",
+			Title:     "Python TODO",
+			Severity:  "low",
+			Languages: []string{"python"},
+			Pattern:   `TODO`,
+			Fix:       "Remove TODO",
+			Detection: "regex",
+		},
+	}
+
+	s, err := NewScanner(rules)
+	require.NoError(t, err)
+
+	findings, err := s.ScanFile(file)
+	require.NoError(t, err)
+	require.Len(t, findings, 1)
+	assert.Equal(t, "python-todo", findings[0].RuleID)
+	assert.Equal(t, "python", DetectLanguage(file))
 }
 
 func TestScanDir_Good_Subdirectories(t *testing.T) {

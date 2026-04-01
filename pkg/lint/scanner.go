@@ -12,17 +12,23 @@ import (
 
 // extensionMap maps file extensions to language identifiers.
 var extensionMap = map[string]string{
-	".go":  "go",
-	".php": "php",
-	".ts":  "ts",
-	".tsx": "ts",
-	".js":  "js",
-	".jsx": "js",
-	".cpp": "cpp",
-	".cc":  "cpp",
-	".c":   "cpp",
-	".h":   "cpp",
-	".py":  "py",
+	".go":   "go",
+	".php":  "php",
+	".ts":   "ts",
+	".tsx":  "ts",
+	".js":   "js",
+	".jsx":  "js",
+	".cpp":  "cpp",
+	".cc":   "cpp",
+	".c":    "cpp",
+	".h":    "cpp",
+	".py":   "python",
+	".rs":   "rust",
+	".sh":   "shell",
+	".yaml": "yaml",
+	".yml":  "yaml",
+	".json": "json",
+	".md":   "markdown",
 }
 
 // defaultExcludes lists directory names that are always skipped during scanning.
@@ -37,7 +43,12 @@ var defaultExcludes = []string{
 // DetectLanguage returns the language identifier for a filename based on its extension.
 // Returns an empty string for unrecognised extensions.
 func DetectLanguage(filename string) string {
-	ext := filepath.Ext(filename)
+	base := filepath.Base(filename)
+	if strings.HasPrefix(base, "Dockerfile") {
+		return "dockerfile"
+	}
+
+	ext := filepath.Ext(base)
 	if lang, ok := extensionMap[ext]; ok {
 		return lang
 	}
