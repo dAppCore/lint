@@ -420,6 +420,9 @@ func collectConfiguredFiles(projectPath string, paths []string, excludes []strin
 
 		addFile := func(candidate string) {
 			relativePath := relativeConfiguredPath(projectPath, candidate)
+			if hasHiddenDirectory(relativePath) || hasHiddenDirectory(filepath.ToSlash(filepath.Clean(candidate))) {
+				return
+			}
 			if matchesConfiguredExclude(relativePath, excludes) || matchesConfiguredExclude(filepath.ToSlash(filepath.Clean(candidate)), excludes) {
 				return
 			}
@@ -487,6 +490,22 @@ func matchesConfiguredExclude(candidate string, excludes []string) bool {
 			return true
 		}
 		if strings.HasPrefix(normalisedCandidate, normalisedExclude+"/") {
+			return true
+		}
+	}
+	return false
+}
+
+func hasHiddenDirectory(candidate string) bool {
+	if candidate == "" {
+		return false
+	}
+
+	for _, segment := range strings.Split(filepath.ToSlash(filepath.Clean(candidate)), "/") {
+		if segment == "" || segment == "." || segment == ".." {
+			continue
+		}
+		if strings.HasPrefix(segment, ".") {
 			return true
 		}
 	}

@@ -189,6 +189,48 @@ func Run() {
 	assert.True(t, report.Summary.Passed)
 }
 
+func TestServiceRun_Good_SkipsHiddenConfiguredFilePath(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/test\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "root.go"), []byte(`package sample
+
+type service struct{}
+
+func (service) Process(string) error { return nil }
+
+func Run() {
+	svc := service{}
+	_ = svc.Process("root")
+}
+`), 0o644))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".hidden"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".hidden", "scoped.go"), []byte(`package sample
+
+type service struct{}
+
+func (service) Process(string) error { return nil }
+
+func Run() {
+	svc := service{}
+	_ = svc.Process("hidden")
+}
+`), 0o644))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".core"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".core", "lint.yaml"), []byte("paths:\n  - root.go\n  - .hidden/scoped.go\n"), 0o644))
+
+	svc := &Service{adapters: []Adapter{newCatalogAdapter()}}
+	report, err := svc.Run(context.Background(), RunInput{
+		Path:   dir,
+		FailOn: "warning",
+	})
+	require.NoError(t, err)
+
+	require.Len(t, report.Findings, 1)
+	assert.Equal(t, "root.go", report.Findings[0].File)
+	assert.Equal(t, 1, report.Summary.Total)
+	assert.False(t, report.Summary.Passed)
+}
+
 func TestServiceRun_Good_UsesNamedSchedule(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/test\n"), 0o644))
