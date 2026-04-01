@@ -88,6 +88,48 @@ func Run() {
 	assert.False(t, report.Summary.Passed)
 }
 
+func TestServiceRun_Good_UsesConfiguredExclude(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/test\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "root.go"), []byte(`package sample
+
+type service struct{}
+
+func (service) Process(string) error { return nil }
+
+func Run() {
+	svc := service{}
+	_ = svc.Process("root")
+}
+`), 0o644))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "services"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "services", "scoped.go"), []byte(`package sample
+
+type service struct{}
+
+func (service) Process(string) error { return nil }
+
+func Run() {
+	svc := service{}
+	_ = svc.Process("scoped")
+}
+`), 0o644))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".core"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".core", "lint.yaml"), []byte("exclude:\n  - services\n"), 0o644))
+
+	svc := &Service{adapters: []Adapter{newCatalogAdapter()}}
+	report, err := svc.Run(context.Background(), RunInput{
+		Path:   dir,
+		FailOn: "warning",
+	})
+	require.NoError(t, err)
+
+	require.Len(t, report.Findings, 1)
+	assert.Equal(t, "root.go", report.Findings[0].File)
+	assert.Equal(t, 1, report.Summary.Total)
+	assert.False(t, report.Summary.Passed)
+}
+
 func TestServiceRun_Good_HookModeUsesStagedFiles(t *testing.T) {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git not available")

@@ -298,8 +298,8 @@ func (s *Service) scopeFiles(projectPath string, config LintConfig, input RunInp
 	if input.Hook {
 		return s.stagedFiles(projectPath)
 	}
-	if !slices.Equal(config.Paths, DefaultConfig().Paths) {
-		return collectConfiguredFiles(projectPath, config.Paths)
+	if !slices.Equal(config.Paths, DefaultConfig().Paths) || !slices.Equal(config.Exclude, DefaultConfig().Exclude) {
+		return collectConfiguredFiles(projectPath, config.Paths, config.Exclude)
 	}
 	return nil, nil
 }
@@ -351,7 +351,7 @@ func (s *Service) stagedFiles(projectPath string) ([]string, error) {
 	return files, nil
 }
 
-func collectConfiguredFiles(projectPath string, paths []string) ([]string, error) {
+func collectConfiguredFiles(projectPath string, paths []string, excludes []string) ([]string, error) {
 	seen := make(map[string]bool)
 	var files []string
 
@@ -371,13 +371,10 @@ func collectConfiguredFiles(projectPath string, paths []string) ([]string, error
 		}
 
 		addFile := func(candidate string) {
-			relativePath := candidate
-			if projectPath != "" {
-				if rel, relErr := filepath.Rel(projectPath, candidate); relErr == nil && rel != "" && !strings.HasPrefix(rel, "..") {
-					relativePath = rel
-				}
+			relativePath := relativeConfiguredPath(projectPath, candidate)
+			if matchesConfiguredExclude(relativePath, excludes) || matchesConfiguredExclude(filepath.ToSlash(filepath.Clean(candidate)), excludes) {
+				return
 			}
-			relativePath = filepath.ToSlash(relativePath)
 			if seen[relativePath] {
 				return
 			}
@@ -395,6 +392,10 @@ func collectConfiguredFiles(projectPath string, paths []string) ([]string, error
 				return walkErr
 			}
 			if entry.IsDir() {
+				relativeDir := relativeConfiguredPath(projectPath, currentPath)
+				if matchesConfiguredExclude(relativeDir, excludes) || matchesConfiguredExclude(filepath.ToSlash(filepath.Clean(currentPath)), excludes) {
+					return filepath.SkipDir
+				}
 				if currentPath != absolutePath && IsExcludedDir(entry.Name()) {
 					return filepath.SkipDir
 				}
@@ -410,6 +411,38 @@ func collectConfiguredFiles(projectPath string, paths []string) ([]string, error
 
 	slices.Sort(files)
 	return files, nil
+}
+
+func relativeConfiguredPath(projectPath string, candidate string) string {
+	relativePath := candidate
+	if projectPath != "" {
+		if rel, relErr := filepath.Rel(projectPath, candidate); relErr == nil && rel != "" && !strings.HasPrefix(rel, "..") {
+			relativePath = rel
+		}
+	}
+	return filepath.ToSlash(filepath.Clean(relativePath))
+}
+
+func matchesConfiguredExclude(candidate string, excludes []string) bool {
+	if candidate == "" || len(excludes) == 0 {
+		return false
+	}
+
+	normalisedCandidate := filepath.ToSlash(filepath.Clean(candidate))
+	for _, exclude := range excludes {
+		normalisedExclude := filepath.ToSlash(filepath.Clean(strings.TrimSpace(exclude)))
+		if normalisedExclude == "." || normalisedExclude == "" {
+			continue
+		}
+		normalisedExclude = strings.TrimSuffix(normalisedExclude, "/")
+		if normalisedCandidate == normalisedExclude {
+			return true
+		}
+		if strings.HasPrefix(normalisedCandidate, normalisedExclude+"/") {
+			return true
+		}
+	}
+	return false
 }
 
 func enabledToolNames(config LintConfig, languages []string, input RunInput) []string {
