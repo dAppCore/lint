@@ -47,9 +47,28 @@ func addRFCCommands(parent *cli.Command) {
 }
 
 func newRunCommand(use string, short string, defaults lintpkg.RunInput) *cli.Command {
-	input := defaults
+	var (
+		output   string
+		config   string
+		failOn   string
+		category string
+		lang     string
+		hook     bool
+		ci       bool
+		sbom     bool
+	)
 
 	cmd := cli.NewCommand(use, short, "", func(cmd *cli.Command, args []string) error {
+		input := defaults
+		input.Output = output
+		input.Config = config
+		input.FailOn = failOn
+		input.Category = category
+		input.Lang = lang
+		input.Hook = hook
+		input.CI = ci
+		input.SBOM = sbom
+
 		if len(args) > 0 {
 			input.Path = args[0]
 		}
@@ -78,14 +97,14 @@ func newRunCommand(use string, short string, defaults lintpkg.RunInput) *cli.Com
 		return nil
 	})
 
-	cli.StringFlag(cmd, &input.Output, "output", "o", defaults.Output, "Output format: json, text, github, sarif")
-	cli.StringFlag(cmd, &input.Config, "config", "c", defaults.Config, "Config path (default: .core/lint.yaml)")
-	cli.StringFlag(cmd, &input.FailOn, "fail-on", "", defaults.FailOn, "Fail threshold: error, warning, info")
-	cli.StringFlag(cmd, &input.Category, "category", "", defaults.Category, "Restrict to one category")
-	cli.StringFlag(cmd, &input.Lang, "lang", "l", defaults.Lang, "Restrict to one language")
-	cli.BoolFlag(cmd, &input.Hook, "hook", "", defaults.Hook, "Run in pre-commit mode against staged files")
-	cli.BoolFlag(cmd, &input.CI, "ci", "", defaults.CI, "GitHub Actions mode (github annotations)")
-	cli.BoolFlag(cmd, &input.SBOM, "sbom", "", defaults.SBOM, "Enable compliance/SBOM tools")
+	cli.StringFlag(cmd, &output, "output", "o", defaults.Output, "Output format: json, text, github, sarif")
+	cli.StringFlag(cmd, &config, "config", "c", defaults.Config, "Config path (default: .core/lint.yaml)")
+	cli.StringFlag(cmd, &failOn, "fail-on", "", defaults.FailOn, "Fail threshold: error, warning, info")
+	cli.StringFlag(cmd, &category, "category", "", defaults.Category, "Restrict to one category")
+	cli.StringFlag(cmd, &lang, "lang", "l", defaults.Lang, "Restrict to one language")
+	cli.BoolFlag(cmd, &hook, "hook", "", defaults.Hook, "Run in pre-commit mode against staged files")
+	cli.BoolFlag(cmd, &ci, "ci", "", defaults.CI, "GitHub Actions mode (github annotations)")
+	cli.BoolFlag(cmd, &sbom, "sbom", "", defaults.SBOM, "Enable compliance/SBOM tools")
 
 	return cmd
 }

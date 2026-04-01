@@ -71,11 +71,15 @@ type Service struct {
 }
 
 // NewService constructs a lint orchestrator with the built-in adapter registry.
+//
+//	svc := lint.NewService()
 func NewService() *Service {
 	return &Service{adapters: defaultAdapters()}
 }
 
 // Run executes the selected adapters and returns the merged report.
+//
+//	report, err := lint.NewService().Run(ctx, lint.RunInput{Path: ".", Output: "json"})
 func (s *Service) Run(ctx context.Context, input RunInput) (Report, error) {
 	startedAt := time.Now().UTC()
 	input = normaliseRunInput(input)
@@ -137,6 +141,8 @@ func (s *Service) Run(ctx context.Context, input RunInput) (Report, error) {
 }
 
 // Tools returns the current adapter inventory for display in the CLI.
+//
+//	tools := lint.NewService().Tools([]string{"go"})
 func (s *Service) Tools(languages []string) []ToolInfo {
 	var tools []ToolInfo
 	for _, adapter := range s.adapters {
@@ -188,6 +194,8 @@ func (s *Service) WriteDefaultConfig(projectPath string, force bool) (string, er
 }
 
 // InstallHook adds a git pre-commit hook that runs `core-lint run --hook`.
+//
+//	_ = lint.NewService().InstallHook(".")
 func (s *Service) InstallHook(projectPath string) error {
 	hookPath, err := hookFilePath(projectPath)
 	if err != nil {
@@ -225,6 +233,8 @@ func (s *Service) InstallHook(projectPath string) error {
 }
 
 // RemoveHook removes the block previously installed by InstallHook.
+//
+//	_ = lint.NewService().RemoveHook(".")
 func (s *Service) RemoveHook(projectPath string) error {
 	hookPath, err := hookFilePath(projectPath)
 	if err != nil {
