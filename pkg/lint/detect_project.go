@@ -35,7 +35,7 @@ func Detect(path string) []string {
 	seen := make(map[string]bool)
 	info, err := os.Stat(path)
 	if err != nil {
-		return nil
+		return []string{}
 	}
 
 	if !info.IsDir() {
@@ -113,5 +113,8 @@ func sortedDetectedLanguages(seen map[string]bool) []string {
 		languages = append(languages, language)
 	}
 	slices.Sort(languages)
+	if languages == nil {
+		return []string{}
+	}
 	return languages
 }

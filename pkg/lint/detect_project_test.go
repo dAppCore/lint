@@ -42,3 +42,7 @@ func TestDetectFromFiles_Good(t *testing.T) {
 		detectFromFiles(files),
 	)
 }
+
+func TestDetect_MissingPathReturnsEmptySlice(t *testing.T) {
+	assert.Equal(t, []string{}, Detect(filepath.Join(t.TempDir(), "missing")))
+}

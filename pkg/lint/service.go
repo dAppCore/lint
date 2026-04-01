@@ -144,6 +144,15 @@ func (s *Service) Run(ctx context.Context, input RunInput) (Report, error) {
 	findings = dedupeFindings(findings)
 	sortToolRuns(toolRuns)
 	sortFindings(findings)
+	if languages == nil {
+		languages = []string{}
+	}
+	if toolRuns == nil {
+		toolRuns = []ToolRun{}
+	}
+	if findings == nil {
+		findings = []Finding{}
+	}
 
 	report := Report{
 		Project:   projectName(input.Path),
@@ -179,6 +188,9 @@ func (s *Service) Tools(languages []string) []ToolInfo {
 	slices.SortFunc(tools, func(left ToolInfo, right ToolInfo) int {
 		return strings.Compare(left.Name, right.Name)
 	})
+	if tools == nil {
+		return []ToolInfo{}
+	}
 	return tools
 }
 

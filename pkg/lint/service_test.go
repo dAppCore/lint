@@ -373,6 +373,12 @@ func TestServiceRun_Good_DeduplicatesMergedFindings(t *testing.T) {
 	assert.Equal(t, 1, report.Summary.Total)
 }
 
+func TestServiceTools_EmptyInventoryReturnsEmptySlice(t *testing.T) {
+	tools := (&Service{}).Tools(nil)
+	require.NotNil(t, tools)
+	assert.Empty(t, tools)
+}
+
 type duplicateAdapter struct {
 	name    string
 	finding Finding
