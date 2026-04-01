@@ -47,3 +47,18 @@ schedules:
 	require.NoError(t, err)
 	assert.Equal(t, "text", format)
 }
+
+func TestResolveRunOutputFormat_Good_ExplicitOutputBypassesConfigLoading(t *testing.T) {
+	dir := t.TempDir()
+	projectPath := filepath.Join(dir, "project-file")
+	require.NoError(t, os.WriteFile(projectPath, []byte("not a directory"), 0o644))
+
+	format, err := ResolveRunOutputFormat(RunInput{
+		Path:     projectPath,
+		Output:   "sarif",
+		Config:   "broken/config.yaml",
+		Schedule: "nightly",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "sarif", format)
+}

@@ -7,7 +7,9 @@ func ResolveRunOutputFormat(input RunInput) (string, error) {
 	if input.Output != "" {
 		return input.Output, nil
 	}
-
+	if input.CI {
+		return "github", nil
+	}
 	config, _, err := LoadProjectConfig(input.Path, input.Config)
 	if err != nil {
 		return "", err
@@ -15,9 +17,6 @@ func ResolveRunOutputFormat(input RunInput) (string, error) {
 	schedule, err := ResolveSchedule(config, input.Schedule)
 	if err != nil {
 		return "", err
-	}
-	if input.CI {
-		return "github", nil
 	}
 	if schedule != nil && schedule.Output != "" {
 		return schedule.Output, nil
