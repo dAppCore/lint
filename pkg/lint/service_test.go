@@ -177,6 +177,39 @@ func Run() {
 	assert.False(t, report.Summary.Passed)
 }
 
+func TestServiceRun_Good_LanguageShortcutIgnoresCiAndSbomGroups(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/test\n"), 0o644))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".core"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".core", "lint.yaml"), []byte(`lint:
+  go:
+    - catalog
+    - go-tool
+  security:
+    - security-tool
+  compliance:
+    - compliance-tool
+`), 0o644))
+
+	svc := &Service{adapters: []Adapter{
+		shortcutAdapter{name: "go-tool", category: "correctness"},
+		shortcutAdapter{name: "security-tool", category: "security"},
+		shortcutAdapter{name: "compliance-tool", category: "compliance"},
+	}}
+
+	report, err := svc.Run(context.Background(), RunInput{
+		Path:   dir,
+		Lang:   "go",
+		CI:     true,
+		SBOM:   true,
+		FailOn: "warning",
+	})
+	require.NoError(t, err)
+
+	require.Len(t, report.Tools, 2)
+	assert.Equal(t, []string{"catalog", "go-tool"}, []string{report.Tools[0].Name, report.Tools[1].Name})
+}
+
 func TestServiceRun_Good_HookModeUsesStagedFiles(t *testing.T) {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git not available")
@@ -377,6 +410,39 @@ func TestServiceTools_EmptyInventoryReturnsEmptySlice(t *testing.T) {
 	tools := (&Service{}).Tools(nil)
 	require.NotNil(t, tools)
 	assert.Empty(t, tools)
+}
+
+type shortcutAdapter struct {
+	name     string
+	category string
+}
+
+func (adapter shortcutAdapter) Name() string { return adapter.name }
+
+func (adapter shortcutAdapter) Available() bool { return true }
+
+func (adapter shortcutAdapter) Languages() []string { return []string{"*"} }
+
+func (adapter shortcutAdapter) Command() string { return adapter.name }
+
+func (adapter shortcutAdapter) Entitlement() string { return "" }
+
+func (adapter shortcutAdapter) RequiresEntitlement() bool { return false }
+
+func (adapter shortcutAdapter) MatchesLanguage(languages []string) bool { return true }
+
+func (adapter shortcutAdapter) Category() string { return adapter.category }
+
+func (adapter shortcutAdapter) Fast() bool { return true }
+
+func (adapter shortcutAdapter) Run(_ context.Context, _ RunInput, _ []string) AdapterResult {
+	return AdapterResult{
+		Tool: ToolRun{
+			Name:     adapter.name,
+			Status:   "passed",
+			Duration: "0s",
+		},
+	}
 }
 
 type duplicateAdapter struct {

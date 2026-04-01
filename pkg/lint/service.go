@@ -490,11 +490,13 @@ func enabledToolNames(config LintConfig, languages []string, input RunInput, cat
 	if shouldIncludeInfraGroups(categories) {
 		names = append(names, config.Lint.Infra...)
 	}
-	if input.CI {
-		names = append(names, config.Lint.Security...)
-	}
-	if input.SBOM {
-		names = append(names, config.Lint.Compliance...)
+	if input.Lang == "" {
+		if input.CI {
+			names = append(names, config.Lint.Security...)
+		}
+		if input.SBOM {
+			names = append(names, config.Lint.Compliance...)
+		}
 	}
 
 	return dedupeStrings(names)
