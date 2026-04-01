@@ -98,6 +98,19 @@ func (s *Service) Run(ctx context.Context, input RunInput) (Report, error) {
 		if err != nil {
 			return Report{}, err
 		}
+		if len(files) == 0 {
+			report := Report{
+				Project:   projectName(input.Path),
+				Timestamp: startedAt,
+				Duration:  time.Since(startedAt).Round(time.Millisecond).String(),
+				Languages: []string{},
+				Tools:     []ToolRun{},
+				Findings:  []Finding{},
+				Summary:   Summarise(nil),
+			}
+			report.Summary.Passed = passesThreshold(report.Summary, input.FailOn)
+			return report, nil
+		}
 	}
 
 	languages := s.languagesForInput(input, files)

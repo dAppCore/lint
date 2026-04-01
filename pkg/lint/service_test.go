@@ -90,6 +90,37 @@ func run2() {
 	assert.False(t, report.Summary.Passed)
 }
 
+func TestServiceRun_Good_HookModeWithNoStagedFilesSkipsScanning(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+
+	dir := t.TempDir()
+	runTestCommand(t, dir, "git", "init")
+	runTestCommand(t, dir, "git", "config", "user.email", "test@example.com")
+	runTestCommand(t, dir, "git", "config", "user.name", "Test User")
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/test\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "unstaged.go"), []byte(`package sample
+
+func run() {
+	panic("boom")
+}
+`), 0o644))
+
+	svc := &Service{adapters: []Adapter{newCatalogAdapter()}}
+	report, err := svc.Run(context.Background(), RunInput{
+		Path:   dir,
+		Hook:   true,
+		FailOn: "warning",
+	})
+	require.NoError(t, err)
+
+	assert.Empty(t, report.Languages)
+	assert.Empty(t, report.Tools)
+	assert.Empty(t, report.Findings)
+	assert.True(t, report.Summary.Passed)
+}
+
 func TestServiceRemoveHook_PreservesExistingHookContent(t *testing.T) {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git not available")
