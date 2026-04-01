@@ -105,6 +105,27 @@ func TestCLI_Init_WritesConfig(t *testing.T) {
 	assert.Contains(t, string(content), "fail_on: error")
 }
 
+func TestCLI_Tools_TextIncludesMetadata(t *testing.T) {
+	buildCLI(t)
+
+	binDir := t.TempDir()
+	fakeToolPath := filepath.Join(binDir, "gosec")
+	require.NoError(t, os.WriteFile(fakeToolPath, []byte("#!/bin/sh\nexit 0\n"), 0o755))
+	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	command := exec.Command(buildCLI(t), "tools", "--lang", "go")
+	command.Dir = t.TempDir()
+	command.Env = os.Environ()
+
+	output, err := command.CombinedOutput()
+	require.NoError(t, err, string(output))
+
+	text := string(output)
+	assert.Contains(t, text, "gosec")
+	assert.Contains(t, text, "langs=go")
+	assert.Contains(t, text, "entitlement=lint.security")
+}
+
 func TestCLI_HookInstallRemove(t *testing.T) {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git not available")

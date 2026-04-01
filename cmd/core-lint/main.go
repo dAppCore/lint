@@ -159,7 +159,11 @@ func newToolsCommand(commandName string, summary string) *cli.Command {
 				if tool.Available {
 					status = "available"
 				}
-				fmt.Fprintf(command.OutOrStdout(), "%-14s [%-11s] %s\n", tool.Name, tool.Category, status)
+				line := fmt.Sprintf("%-14s [%-11s] %s langs=%s", tool.Name, tool.Category, status, strings.Join(tool.Languages, ","))
+				if tool.Entitlement != "" {
+					line += " entitlement=" + tool.Entitlement
+				}
+				fmt.Fprintln(command.OutOrStdout(), line)
 			}
 			return nil
 		case "json":
