@@ -48,30 +48,30 @@ func addRFCCommands(parent *cli.Command) {
 
 func newRunCommand(commandName string, summary string, defaults lintpkg.RunInput) *cli.Command {
 	var (
-		output   string
-		config   string
-		schedule string
-		failOn   string
-		category string
-		lang     string
-		files    []string
-		hook     bool
-		ci       bool
-		sbom     bool
+		outputFormat string
+		configPath   string
+		scheduleName string
+		failOnLevel  string
+		categoryName string
+		languageName string
+		filePaths    []string
+		hookMode     bool
+		ciMode       bool
+		sbomMode     bool
 	)
 
 	command := cli.NewCommand(commandName, summary, "", func(command *cli.Command, args []string) error {
 		input := defaults
-		input.Output = output
-		input.Config = config
-		input.Schedule = schedule
-		input.FailOn = failOn
-		input.Category = category
-		input.Lang = lang
-		input.Files = files
-		input.Hook = hook
-		input.CI = ci
-		input.SBOM = sbom
+		input.Output = outputFormat
+		input.Config = configPath
+		input.Schedule = scheduleName
+		input.FailOn = failOnLevel
+		input.Category = categoryName
+		input.Lang = languageName
+		input.Files = filePaths
+		input.Hook = hookMode
+		input.CI = ciMode
+		input.SBOM = sbomMode
 
 		if len(args) > 0 {
 			input.Path = args[0]
@@ -101,16 +101,16 @@ func newRunCommand(commandName string, summary string, defaults lintpkg.RunInput
 		return nil
 	})
 
-	cli.StringFlag(command, &output, "output", "o", defaults.Output, "Output format: json, text, github, sarif")
-	cli.StringFlag(command, &config, "config", "c", defaults.Config, "Config path (default: .core/lint.yaml)")
-	cli.StringFlag(command, &schedule, "schedule", "", "", "Run a named schedule from the config")
-	cli.StringFlag(command, &failOn, "fail-on", "", defaults.FailOn, "Fail threshold: error, warning, info")
-	cli.StringFlag(command, &category, "category", "", defaults.Category, "Restrict to one category")
-	cli.StringFlag(command, &lang, "lang", "l", defaults.Lang, "Restrict to one language")
-	cli.StringSliceFlag(command, &files, "files", "", defaults.Files, "Restrict scanning to specific files")
-	cli.BoolFlag(command, &hook, "hook", "", defaults.Hook, "Run in pre-commit mode against staged files")
-	cli.BoolFlag(command, &ci, "ci", "", defaults.CI, "GitHub Actions mode (github annotations)")
-	cli.BoolFlag(command, &sbom, "sbom", "", defaults.SBOM, "Enable compliance/SBOM tools")
+	cli.StringFlag(command, &outputFormat, "output", "o", defaults.Output, "Output format: json, text, github, sarif")
+	cli.StringFlag(command, &configPath, "config", "c", defaults.Config, "Config path (default: .core/lint.yaml)")
+	cli.StringFlag(command, &scheduleName, "schedule", "", "", "Run a named schedule from the config")
+	cli.StringFlag(command, &failOnLevel, "fail-on", "", defaults.FailOn, "Fail threshold: error, warning, info")
+	cli.StringFlag(command, &categoryName, "category", "", defaults.Category, "Restrict to one category")
+	cli.StringFlag(command, &languageName, "lang", "l", defaults.Lang, "Restrict to one language")
+	cli.StringSliceFlag(command, &filePaths, "files", "", defaults.Files, "Restrict scanning to specific files")
+	cli.BoolFlag(command, &hookMode, "hook", "", defaults.Hook, "Run in pre-commit mode against staged files")
+	cli.BoolFlag(command, &ciMode, "ci", "", defaults.CI, "GitHub Actions mode (github annotations)")
+	cli.BoolFlag(command, &sbomMode, "sbom", "", defaults.SBOM, "Enable compliance/SBOM tools")
 
 	return command
 }
@@ -119,12 +119,12 @@ func newDetectCommand(commandName string, summary string) *cli.Command {
 	var output string
 
 	command := cli.NewCommand(commandName, summary, "", func(command *cli.Command, args []string) error {
-		path := "."
+		projectPath := "."
 		if len(args) > 0 {
-			path = args[0]
+			projectPath = args[0]
 		}
 
-		languages := lintpkg.Detect(path)
+		languages := lintpkg.Detect(projectPath)
 		switch output {
 		case "", "text":
 			for _, language := range languages {
@@ -144,14 +144,14 @@ func newDetectCommand(commandName string, summary string) *cli.Command {
 
 func newToolsCommand(commandName string, summary string) *cli.Command {
 	var output string
-	var language string
+	var languageFilter string
 
 	command := cli.NewCommand(commandName, summary, "", func(command *cli.Command, args []string) error {
 		service := lintpkg.NewService()
 
 		var languages []string
-		if language != "" {
-			languages = []string{language}
+		if languageFilter != "" {
+			languages = []string{languageFilter}
 		}
 
 		tools := service.Tools(languages)
@@ -177,7 +177,7 @@ func newToolsCommand(commandName string, summary string) *cli.Command {
 	})
 
 	cli.StringFlag(command, &output, "output", "o", "text", "Output format: text, json")
-	cli.StringFlag(command, &language, "lang", "l", "", "Filter by language")
+	cli.StringFlag(command, &languageFilter, "lang", "l", "", "Filter by language")
 	return command
 }
 
@@ -185,13 +185,13 @@ func newInitCommand(commandName string, summary string) *cli.Command {
 	var force bool
 
 	command := cli.NewCommand(commandName, summary, "", func(command *cli.Command, args []string) error {
-		path := "."
+		projectPath := "."
 		if len(args) > 0 {
-			path = args[0]
+			projectPath = args[0]
 		}
 
 		service := lintpkg.NewService()
-		writtenPath, err := service.WriteDefaultConfig(path, force)
+		writtenPath, err := service.WriteDefaultConfig(projectPath, force)
 		if err != nil {
 			return err
 		}
@@ -207,13 +207,13 @@ func newHookCommand() *cli.Command {
 	hookCmd := cli.NewGroup("hook", "Install or remove the git pre-commit hook", "")
 
 	installCmd := cli.NewCommand("install", "Install the pre-commit hook", "", func(command *cli.Command, args []string) error {
-		path := "."
+		projectPath := "."
 		if len(args) > 0 {
-			path = args[0]
+			projectPath = args[0]
 		}
 
 		service := lintpkg.NewService()
-		if err := service.InstallHook(path); err != nil {
+		if err := service.InstallHook(projectPath); err != nil {
 			return err
 		}
 		fmt.Fprintln(command.OutOrStdout(), "installed")
@@ -221,13 +221,13 @@ func newHookCommand() *cli.Command {
 	})
 
 	removeCmd := cli.NewCommand("remove", "Remove the pre-commit hook", "", func(command *cli.Command, args []string) error {
-		path := "."
+		projectPath := "."
 		if len(args) > 0 {
-			path = args[0]
+			projectPath = args[0]
 		}
 
 		service := lintpkg.NewService()
-		if err := service.RemoveHook(path); err != nil {
+		if err := service.RemoveHook(projectPath); err != nil {
 			return err
 		}
 		fmt.Fprintln(command.OutOrStdout(), "removed")
