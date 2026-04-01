@@ -90,6 +90,28 @@ func run2() {
 	assert.False(t, report.Summary.Passed)
 }
 
+func TestServiceRemoveHook_PreservesExistingHookContent(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+
+	dir := t.TempDir()
+	runTestCommand(t, dir, "git", "init")
+
+	original := "\n# custom hook\nprintf 'keep'"
+	hookDir := filepath.Join(dir, ".git", "hooks")
+	require.NoError(t, os.MkdirAll(hookDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(hookDir, "pre-commit"), []byte(original), 0o755))
+
+	svc := NewService()
+	require.NoError(t, svc.InstallHook(dir))
+	require.NoError(t, svc.RemoveHook(dir))
+
+	restored, err := os.ReadFile(filepath.Join(hookDir, "pre-commit"))
+	require.NoError(t, err)
+	assert.Equal(t, original, string(restored))
+}
+
 func TestServiceRun_JS_PrettierFindings(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "package.json"), []byte("{\n  \"name\": \"example\"\n}\n"), 0o644))

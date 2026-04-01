@@ -246,15 +246,14 @@ func (s *Service) RemoveHook(projectPath string) error {
 	}
 
 	endIndex += len(hookEndMarker)
-	content := strings.TrimSpace(raw[:startIndex] + raw[endIndex:])
-	if content == "" {
+	content := strings.TrimRight(raw[:startIndex]+raw[endIndex:], "\n")
+	if strings.TrimSpace(content) == "" {
 		if err := os.Remove(hookPath); err != nil && !os.IsNotExist(err) {
 			return coreerr.E("Service.RemoveHook", "remove "+hookPath, err)
 		}
 		return nil
 	}
 
-	content += "\n"
 	if err := coreio.Local.Write(hookPath, content); err != nil {
 		return coreerr.E("Service.RemoveHook", "write "+hookPath, err)
 	}
