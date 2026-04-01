@@ -43,6 +43,8 @@ func Summarise(findings []Finding) Summary {
 }
 
 // WriteJSON writes findings as a pretty-printed JSON array.
+//
+//	_ = lint.WriteJSON(os.Stdout, findings)
 func WriteJSON(w io.Writer, findings []Finding) error {
 	if findings == nil {
 		findings = []Finding{}
@@ -53,6 +55,8 @@ func WriteJSON(w io.Writer, findings []Finding) error {
 }
 
 // WriteJSONL writes findings as newline-delimited JSON (one object per line).
+//
+//	_ = lint.WriteJSONL(os.Stdout, findings)
 func WriteJSONL(w io.Writer, findings []Finding) error {
 	for _, f := range findings {
 		data, err := json.Marshal(f)
@@ -84,6 +88,8 @@ func WriteText(w io.Writer, findings []Finding) {
 }
 
 // WriteReportJSON writes the RFC report document as pretty-printed JSON.
+//
+//	_ = lint.WriteReportJSON(os.Stdout, report)
 func WriteReportJSON(w io.Writer, report Report) error {
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
@@ -91,12 +97,16 @@ func WriteReportJSON(w io.Writer, report Report) error {
 }
 
 // WriteReportText writes report findings followed by a short summary.
+//
+//	lint.WriteReportText(os.Stdout, report)
 func WriteReportText(w io.Writer, report Report) {
 	WriteText(w, report.Findings)
 	fmt.Fprintf(w, "\n%d finding(s): %d error(s), %d warning(s), %d info\n", report.Summary.Total, report.Summary.Errors, report.Summary.Warnings, report.Summary.Info)
 }
 
 // WriteReportGitHub writes GitHub Actions annotation lines.
+//
+//	lint.WriteReportGitHub(os.Stdout, report)
 func WriteReportGitHub(w io.Writer, report Report) {
 	for _, finding := range report.Findings {
 		level := finding.Severity
@@ -128,6 +138,8 @@ func WriteReportGitHub(w io.Writer, report Report) {
 }
 
 // WriteReportSARIF writes a minimal SARIF document for code scanning tools.
+//
+//	_ = lint.WriteReportSARIF(os.Stdout, report)
 func WriteReportSARIF(w io.Writer, report Report) error {
 	type sarifMessage struct {
 		Text string `json:"text"`

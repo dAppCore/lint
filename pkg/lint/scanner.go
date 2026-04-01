@@ -42,6 +42,8 @@ var defaultExcludes = []string{
 
 // DetectLanguage returns the language identifier for a filename based on its extension.
 // Returns an empty string for unrecognised extensions.
+//
+//	lang := lint.DetectLanguage("main.go")
 func DetectLanguage(filename string) string {
 	base := filepath.Base(filename)
 	if strings.HasPrefix(base, "Dockerfile") {

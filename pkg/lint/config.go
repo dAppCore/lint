@@ -121,6 +121,7 @@ func DefaultConfigYAML() (string, error) {
 // ResolveConfigPath resolves an explicit config path or the repo-local default.
 //
 //	path := lint.ResolveConfigPath(".", "")
+//	override := lint.ResolveConfigPath("/repo", ".core/lint.yaml")
 func ResolveConfigPath(projectPath string, override string) string {
 	if projectPath == "" {
 		projectPath = "."
@@ -137,6 +138,7 @@ func ResolveConfigPath(projectPath string, override string) string {
 // LoadProjectConfig reads `.core/lint.yaml` if present, otherwise returns the default config.
 //
 //	cfg, path, err := lint.LoadProjectConfig(".", "")
+//	cfg, _, err = lint.LoadProjectConfig("/repo", ".core/lint.yaml")
 func LoadProjectConfig(projectPath string, override string) (LintConfig, string, error) {
 	config := DefaultConfig()
 	path := ResolveConfigPath(projectPath, override)
