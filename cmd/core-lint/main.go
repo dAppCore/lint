@@ -46,7 +46,7 @@ func addRFCCommands(parent *cli.Command) {
 	)
 }
 
-func newRunCommand(use string, short string, defaults lintpkg.RunInput) *cli.Command {
+func newRunCommand(commandName string, summary string, defaults lintpkg.RunInput) *cli.Command {
 	var (
 		output   string
 		config   string
@@ -58,7 +58,7 @@ func newRunCommand(use string, short string, defaults lintpkg.RunInput) *cli.Com
 		sbom     bool
 	)
 
-	cmd := cli.NewCommand(use, short, "", func(cmd *cli.Command, args []string) error {
+	command := cli.NewCommand(commandName, summary, "", func(command *cli.Command, args []string) error {
 		input := defaults
 		input.Output = output
 		input.Config = config
@@ -82,37 +82,37 @@ func newRunCommand(use string, short string, defaults lintpkg.RunInput) *cli.Com
 		}
 		input.Output = output
 
-		svc := lintpkg.NewService()
-		report, err := svc.Run(context.Background(), input)
+		service := lintpkg.NewService()
+		report, err := service.Run(context.Background(), input)
 		if err != nil {
 			return err
 		}
 
-		if err := writeReport(cmd.OutOrStdout(), input.Output, report); err != nil {
+		if err := writeReport(command.OutOrStdout(), input.Output, report); err != nil {
 			return err
 		}
 		if !report.Summary.Passed {
-			return coreerr.E("cmd."+use, "lint failed", nil)
+			return coreerr.E("cmd."+commandName, "lint failed", nil)
 		}
 		return nil
 	})
 
-	cli.StringFlag(cmd, &output, "output", "o", defaults.Output, "Output format: json, text, github, sarif")
-	cli.StringFlag(cmd, &config, "config", "c", defaults.Config, "Config path (default: .core/lint.yaml)")
-	cli.StringFlag(cmd, &failOn, "fail-on", "", defaults.FailOn, "Fail threshold: error, warning, info")
-	cli.StringFlag(cmd, &category, "category", "", defaults.Category, "Restrict to one category")
-	cli.StringFlag(cmd, &lang, "lang", "l", defaults.Lang, "Restrict to one language")
-	cli.BoolFlag(cmd, &hook, "hook", "", defaults.Hook, "Run in pre-commit mode against staged files")
-	cli.BoolFlag(cmd, &ci, "ci", "", defaults.CI, "GitHub Actions mode (github annotations)")
-	cli.BoolFlag(cmd, &sbom, "sbom", "", defaults.SBOM, "Enable compliance/SBOM tools")
+	cli.StringFlag(command, &output, "output", "o", defaults.Output, "Output format: json, text, github, sarif")
+	cli.StringFlag(command, &config, "config", "c", defaults.Config, "Config path (default: .core/lint.yaml)")
+	cli.StringFlag(command, &failOn, "fail-on", "", defaults.FailOn, "Fail threshold: error, warning, info")
+	cli.StringFlag(command, &category, "category", "", defaults.Category, "Restrict to one category")
+	cli.StringFlag(command, &lang, "lang", "l", defaults.Lang, "Restrict to one language")
+	cli.BoolFlag(command, &hook, "hook", "", defaults.Hook, "Run in pre-commit mode against staged files")
+	cli.BoolFlag(command, &ci, "ci", "", defaults.CI, "GitHub Actions mode (github annotations)")
+	cli.BoolFlag(command, &sbom, "sbom", "", defaults.SBOM, "Enable compliance/SBOM tools")
 
-	return cmd
+	return command
 }
 
-func newDetectCommand(use string, short string) *cli.Command {
+func newDetectCommand(commandName string, summary string) *cli.Command {
 	var output string
 
-	cmd := cli.NewCommand(use, short, "", func(cmd *cli.Command, args []string) error {
+	command := cli.NewCommand(commandName, summary, "", func(command *cli.Command, args []string) error {
 		path := "."
 		if len(args) > 0 {
 			path = args[0]
@@ -122,33 +122,33 @@ func newDetectCommand(use string, short string) *cli.Command {
 		switch output {
 		case "", "text":
 			for _, language := range languages {
-				fmt.Fprintln(cmd.OutOrStdout(), language)
+				fmt.Fprintln(command.OutOrStdout(), language)
 			}
 			return nil
 		case "json":
-			return writeJSON(cmd.OutOrStdout(), languages)
+			return writeJSON(command.OutOrStdout(), languages)
 		default:
 			return coreerr.E("cmd.detect", "unsupported output format "+output, nil)
 		}
 	})
 
-	cli.StringFlag(cmd, &output, "output", "o", "text", "Output format: text, json")
-	return cmd
+	cli.StringFlag(command, &output, "output", "o", "text", "Output format: text, json")
+	return command
 }
 
-func newToolsCommand(use string, short string) *cli.Command {
+func newToolsCommand(commandName string, summary string) *cli.Command {
 	var output string
 	var language string
 
-	cmd := cli.NewCommand(use, short, "", func(cmd *cli.Command, args []string) error {
-		svc := lintpkg.NewService()
+	command := cli.NewCommand(commandName, summary, "", func(command *cli.Command, args []string) error {
+		service := lintpkg.NewService()
 
 		var languages []string
 		if language != "" {
 			languages = []string{language}
 		}
 
-		tools := svc.Tools(languages)
+		tools := service.Tools(languages)
 		switch output {
 		case "", "text":
 			for _, tool := range tools {
@@ -156,71 +156,71 @@ func newToolsCommand(use string, short string) *cli.Command {
 				if tool.Available {
 					status = "available"
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "%-14s [%-11s] %s\n", tool.Name, tool.Category, status)
+				fmt.Fprintf(command.OutOrStdout(), "%-14s [%-11s] %s\n", tool.Name, tool.Category, status)
 			}
 			return nil
 		case "json":
-			return writeJSON(cmd.OutOrStdout(), tools)
+			return writeJSON(command.OutOrStdout(), tools)
 		default:
 			return coreerr.E("cmd.tools", "unsupported output format "+output, nil)
 		}
 	})
 
-	cli.StringFlag(cmd, &output, "output", "o", "text", "Output format: text, json")
-	cli.StringFlag(cmd, &language, "lang", "l", "", "Filter by language")
-	return cmd
+	cli.StringFlag(command, &output, "output", "o", "text", "Output format: text, json")
+	cli.StringFlag(command, &language, "lang", "l", "", "Filter by language")
+	return command
 }
 
-func newInitCommand(use string, short string) *cli.Command {
+func newInitCommand(commandName string, summary string) *cli.Command {
 	var force bool
 
-	cmd := cli.NewCommand(use, short, "", func(cmd *cli.Command, args []string) error {
+	command := cli.NewCommand(commandName, summary, "", func(command *cli.Command, args []string) error {
 		path := "."
 		if len(args) > 0 {
 			path = args[0]
 		}
 
-		svc := lintpkg.NewService()
-		writtenPath, err := svc.WriteDefaultConfig(path, force)
+		service := lintpkg.NewService()
+		writtenPath, err := service.WriteDefaultConfig(path, force)
 		if err != nil {
 			return err
 		}
-		fmt.Fprintln(cmd.OutOrStdout(), writtenPath)
+		fmt.Fprintln(command.OutOrStdout(), writtenPath)
 		return nil
 	})
 
-	cli.BoolFlag(cmd, &force, "force", "f", false, "Overwrite an existing config")
-	return cmd
+	cli.BoolFlag(command, &force, "force", "f", false, "Overwrite an existing config")
+	return command
 }
 
 func newHookCommand() *cli.Command {
 	hookCmd := cli.NewGroup("hook", "Install or remove the git pre-commit hook", "")
 
-	installCmd := cli.NewCommand("install", "Install the pre-commit hook", "", func(cmd *cli.Command, args []string) error {
+	installCmd := cli.NewCommand("install", "Install the pre-commit hook", "", func(command *cli.Command, args []string) error {
 		path := "."
 		if len(args) > 0 {
 			path = args[0]
 		}
 
-		svc := lintpkg.NewService()
-		if err := svc.InstallHook(path); err != nil {
+		service := lintpkg.NewService()
+		if err := service.InstallHook(path); err != nil {
 			return err
 		}
-		fmt.Fprintln(cmd.OutOrStdout(), "installed")
+		fmt.Fprintln(command.OutOrStdout(), "installed")
 		return nil
 	})
 
-	removeCmd := cli.NewCommand("remove", "Remove the pre-commit hook", "", func(cmd *cli.Command, args []string) error {
+	removeCmd := cli.NewCommand("remove", "Remove the pre-commit hook", "", func(command *cli.Command, args []string) error {
 		path := "."
 		if len(args) > 0 {
 			path = args[0]
 		}
 
-		svc := lintpkg.NewService()
-		if err := svc.RemoveHook(path); err != nil {
+		service := lintpkg.NewService()
+		if err := service.RemoveHook(path); err != nil {
 			return err
 		}
-		fmt.Fprintln(cmd.OutOrStdout(), "removed")
+		fmt.Fprintln(command.OutOrStdout(), "removed")
 		return nil
 	})
 
@@ -235,7 +235,7 @@ func newCheckCommand() *cli.Command {
 		severity string
 	)
 
-	cmd := cli.NewCommand("check", "Scan files for pattern matches", "", func(cmd *cli.Command, args []string) error {
+	command := cli.NewCommand("check", "Scan files for pattern matches", "", func(command *cli.Command, args []string) error {
 		catalog, err := cataloglint.LoadEmbeddedCatalog()
 		if err != nil {
 			return coreerr.E("cmd.check", "loading catalog", err)
@@ -293,30 +293,30 @@ func newCheckCommand() *cli.Command {
 
 		switch format {
 		case "json":
-			return lintpkg.WriteJSON(cmd.OutOrStdout(), findings)
+			return lintpkg.WriteJSON(command.OutOrStdout(), findings)
 		case "jsonl":
-			return lintpkg.WriteJSONL(cmd.OutOrStdout(), findings)
+			return lintpkg.WriteJSONL(command.OutOrStdout(), findings)
 		default:
-			lintpkg.WriteText(cmd.OutOrStdout(), findings)
+			lintpkg.WriteText(command.OutOrStdout(), findings)
 			if format == "text" && len(findings) > 0 {
-				writeLegacySummary(cmd.OutOrStdout(), findings)
+				writeLegacySummary(command.OutOrStdout(), findings)
 			}
 			return nil
 		}
 	})
 
-	cli.StringFlag(cmd, &format, "format", "f", "text", "Output format: text, json, jsonl")
-	cli.StringFlag(cmd, &language, "lang", "l", "", "Filter rules by language")
-	cli.StringFlag(cmd, &severity, "severity", "s", "", "Minimum severity threshold (info, low, medium, high, critical)")
+	cli.StringFlag(command, &format, "format", "f", "text", "Output format: text, json, jsonl")
+	cli.StringFlag(command, &language, "lang", "l", "", "Filter rules by language")
+	cli.StringFlag(command, &severity, "severity", "s", "", "Minimum severity threshold (info, low, medium, high, critical)")
 
-	return cmd
+	return command
 }
 
 func newCatalogCommand() *cli.Command {
 	catalogCmd := cli.NewGroup("catalog", "Browse the pattern catalog", "")
 
 	var listLanguage string
-	listCmd := cli.NewCommand("list", "List all rules in the catalog", "", func(cmd *cli.Command, args []string) error {
+	listCmd := cli.NewCommand("list", "List all rules in the catalog", "", func(command *cli.Command, args []string) error {
 		catalog, err := cataloglint.LoadEmbeddedCatalog()
 		if err != nil {
 			return coreerr.E("cmd.catalog.list", "loading catalog", err)
@@ -327,7 +327,7 @@ func newCatalogCommand() *cli.Command {
 			rules = catalog.ForLanguage(listLanguage)
 		}
 		if len(rules) == 0 {
-			fmt.Fprintln(cmd.OutOrStdout(), "No rules found.")
+			fmt.Fprintln(command.OutOrStdout(), "No rules found.")
 			return nil
 		}
 
@@ -340,14 +340,14 @@ func newCatalogCommand() *cli.Command {
 		})
 
 		for _, rule := range rules {
-			fmt.Fprintf(cmd.OutOrStdout(), "%-14s [%-8s] %s\n", rule.ID, rule.Severity, rule.Title)
+			fmt.Fprintf(command.OutOrStdout(), "%-14s [%-8s] %s\n", rule.ID, rule.Severity, rule.Title)
 		}
 		fmt.Fprintf(os.Stderr, "\n%d rule(s)\n", len(rules))
 		return nil
 	})
 	cli.StringFlag(listCmd, &listLanguage, "lang", "l", "", "Filter by language")
 
-	showCmd := cli.NewCommand("show", "Show details of a specific rule", "", func(cmd *cli.Command, args []string) error {
+	showCmd := cli.NewCommand("show", "Show details of a specific rule", "", func(command *cli.Command, args []string) error {
 		if len(args) == 0 {
 			return coreerr.E("cmd.catalog.show", "rule ID required", nil)
 		}
@@ -366,7 +366,7 @@ func newCatalogCommand() *cli.Command {
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(cmd.OutOrStdout(), "%s\n", string(data))
+		fmt.Fprintf(command.OutOrStdout(), "%s\n", string(data))
 		return nil
 	})
 
@@ -392,32 +392,32 @@ func resolvedOutput(input lintpkg.RunInput) (string, error) {
 	return "text", nil
 }
 
-func writeReport(w io.Writer, output string, report lintpkg.Report) error {
+func writeReport(writer io.Writer, output string, report lintpkg.Report) error {
 	switch output {
 	case "json":
-		return lintpkg.WriteReportJSON(w, report)
+		return lintpkg.WriteReportJSON(writer, report)
 	case "text":
-		lintpkg.WriteReportText(w, report)
+		lintpkg.WriteReportText(writer, report)
 		return nil
 	case "github":
-		lintpkg.WriteReportGitHub(w, report)
+		lintpkg.WriteReportGitHub(writer, report)
 		return nil
 	case "sarif":
-		return lintpkg.WriteReportSARIF(w, report)
+		return lintpkg.WriteReportSARIF(writer, report)
 	default:
 		return coreerr.E("writeReport", "unsupported output format "+output, nil)
 	}
 }
 
-func writeJSON(w io.Writer, value any) error {
-	encoder := json.NewEncoder(w)
+func writeJSON(writer io.Writer, value any) error {
+	encoder := json.NewEncoder(writer)
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(value)
 }
 
-func writeLegacySummary(w io.Writer, findings []lintpkg.Finding) {
+func writeLegacySummary(writer io.Writer, findings []lintpkg.Finding) {
 	summary := lintpkg.Summarise(findings)
-	fmt.Fprintf(w, "\n%d finding(s)", summary.Total)
+	fmt.Fprintf(writer, "\n%d finding(s)", summary.Total)
 
 	orderedSeverities := []string{"critical", "high", "medium", "low", "info", "error", "warning"}
 	seen := make(map[string]bool, len(summary.BySeverity))
@@ -449,7 +449,7 @@ func writeLegacySummary(w io.Writer, findings []lintpkg.Finding) {
 	}
 
 	if len(parts) > 0 {
-		fmt.Fprintf(w, " (%s)", strings.Join(parts, ", "))
+		fmt.Fprintf(writer, " (%s)", strings.Join(parts, ", "))
 	}
-	fmt.Fprintln(w)
+	fmt.Fprintln(writer)
 }
