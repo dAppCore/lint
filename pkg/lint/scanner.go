@@ -73,9 +73,8 @@ func shouldSkipTraversalRoot(path string) bool {
 
 // Scanner walks directory trees and matches files against lint rules.
 type Scanner struct {
-	matcher  *Matcher
-	rules    []Rule
-	excludes []string
+	matcher *Matcher
+	rules   []Rule
 }
 
 // NewScanner creates a Scanner with the given rules and default directory exclusions.
@@ -85,9 +84,8 @@ func NewScanner(rules []Rule) (*Scanner, error) {
 		return nil, err
 	}
 	return &Scanner{
-		matcher:  m,
-		rules:    rules,
-		excludes: slices.Clone(defaultExcludes),
+		matcher: m,
+		rules:   rules,
 	}, nil
 }
 
@@ -105,10 +103,10 @@ func (s *Scanner) ScanDir(root string) ([]Finding, error) {
 			return err
 		}
 
-		// Skip excluded directories.
+		// Skip excluded directories and hidden directories.
 		if d.IsDir() {
 			name := d.Name()
-			if slices.Contains(s.excludes, name) {
+			if IsExcludedDir(name) {
 				return filepath.SkipDir
 			}
 			return nil
