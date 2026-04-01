@@ -280,7 +280,7 @@ func (CatalogAdapter) Entitlement() string { return "" }
 func (CatalogAdapter) RequiresEntitlement() bool { return false }
 
 func (CatalogAdapter) MatchesLanguage(languages []string) bool {
-	return len(languages) == 0 || slicesContains(languages, "go")
+	return len(languages) == 0 || containsString(languages, "go")
 }
 
 func (CatalogAdapter) Category() string { return "correctness" }
@@ -846,7 +846,7 @@ func firstVersionLine(output string) string {
 	return ""
 }
 
-func slicesContains(values []string, target string) bool {
+func containsString(values []string, target string) bool {
 	for _, value := range values {
 		if value == target {
 			return true

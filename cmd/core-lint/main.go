@@ -41,7 +41,7 @@ func addRFCCommands(parent *cli.Command) {
 		newRunCommand("js", "Run JS/TS linters", lintpkg.RunInput{Lang: "js"}),
 		newRunCommand("python", "Run Python linters", lintpkg.RunInput{Lang: "python"}),
 		newRunCommand("security", "Run security linters", lintpkg.RunInput{Category: "security"}),
-		newRunCommand("compliance", "Run compliance linters", lintpkg.RunInput{Category: "compliance", SBOM: true}),
+		newRunCommand("compliance", "Run compliance linters", lintpkg.RunInput{Category: "compliance"}),
 		newHookCommand(),
 	)
 }

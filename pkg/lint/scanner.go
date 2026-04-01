@@ -79,12 +79,12 @@ type Scanner struct {
 
 // NewScanner creates a Scanner with the given rules and default directory exclusions.
 func NewScanner(rules []Rule) (*Scanner, error) {
-	m, err := NewMatcher(rules)
+	matcher, err := NewMatcher(rules)
 	if err != nil {
 		return nil, err
 	}
 	return &Scanner{
-		matcher: m,
+		matcher: matcher,
 		rules:   rules,
 	}, nil
 }
@@ -131,7 +131,7 @@ func (s *Scanner) ScanDir(root string) ([]Finding, error) {
 		content := []byte(raw)
 
 		// Build a matcher scoped to this file's language.
-		m, err := NewMatcher(langRules)
+		matcher, err := NewMatcher(langRules)
 		if err != nil {
 			return err
 		}
@@ -142,7 +142,7 @@ func (s *Scanner) ScanDir(root string) ([]Finding, error) {
 			relPath = path
 		}
 
-		found := m.Match(relPath, content)
+		found := matcher.Match(relPath, content)
 		findings = append(findings, found...)
 		return nil
 	})
@@ -172,12 +172,12 @@ func (s *Scanner) ScanFile(path string) ([]Finding, error) {
 		return nil, nil
 	}
 
-	m, err := NewMatcher(langRules)
+	matcher, err := NewMatcher(langRules)
 	if err != nil {
 		return nil, err
 	}
 
-	return m.Match(path, content), nil
+	return matcher.Match(path, content), nil
 }
 
 // filterRulesByLanguage returns rules that include the given language.

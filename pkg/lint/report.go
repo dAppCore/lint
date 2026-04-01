@@ -21,27 +21,27 @@ type Summary struct {
 //
 //	summary := lint.Summarise(findings)
 func Summarise(findings []Finding) Summary {
-	s := Summary{
+	summary := Summary{
 		Total:      len(findings),
 		BySeverity: make(map[string]int),
 	}
-	for _, f := range findings {
-		severity := strings.TrimSpace(f.Severity)
+	for _, finding := range findings {
+		severity := strings.TrimSpace(finding.Severity)
 		if severity == "" {
 			severity = "warning"
 		}
-		s.BySeverity[severity]++
+		summary.BySeverity[severity]++
 		switch severity {
 		case "error":
-			s.Errors++
+			summary.Errors++
 		case "info":
-			s.Info++
+			summary.Info++
 		default:
-			s.Warnings++
+			summary.Warnings++
 		}
 	}
-	s.Passed = s.Errors == 0
-	return s
+	summary.Passed = summary.Errors == 0
+	return summary
 }
 
 // WriteJSON writes findings as a pretty-printed JSON array.
@@ -76,16 +76,16 @@ func WriteJSONL(w io.Writer, findings []Finding) error {
 //
 //	lint.WriteText(os.Stdout, findings)
 func WriteText(w io.Writer, findings []Finding) {
-	for _, f := range findings {
-		message := f.Message
+	for _, finding := range findings {
+		message := finding.Message
 		if message == "" {
-			message = f.Title
+			message = finding.Title
 		}
-		code := f.Code
+		code := finding.Code
 		if code == "" {
-			code = f.RuleID
+			code = finding.RuleID
 		}
-		fmt.Fprintf(w, "%s:%d [%s] %s (%s)\n", f.File, f.Line, f.Severity, message, code)
+		fmt.Fprintf(w, "%s:%d [%s] %s (%s)\n", finding.File, finding.Line, finding.Severity, message, code)
 	}
 }
 
