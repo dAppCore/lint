@@ -80,6 +80,7 @@ func defaultAdapters() []Adapter {
 		newCommandAdapter("yamllint", []string{"yamllint"}, []string{"yaml"}, "style", "", false, true, pathArgs("-f", "parsable"), parseTextDiagnostics),
 		newCommandAdapter("jsonlint", []string{"jsonlint"}, []string{"json"}, "style", "", false, true, fileArgs(), parseTextDiagnostics),
 		newCommandAdapter("markdownlint", []string{"markdownlint", "markdownlint-cli"}, []string{"markdown"}, "style", "", false, true, pathArgs("--json"), parseJSONDiagnostics),
+		newCommandAdapter("prettier", []string{"prettier"}, []string{"js"}, "style", "", false, true, pathArgs("--list-different"), parsePrettierDiagnostics),
 		newCommandAdapter("gitleaks", []string{"gitleaks"}, []string{"*"}, "security", "lint.security", true, false, recursivePathArgs("detect", "--no-git", "--report-format", "json", "--source"), parseJSONDiagnostics),
 		newCommandAdapter("trivy", []string{"trivy"}, []string{"*"}, "security", "lint.security", true, false, pathArgs("fs", "--format", "json"), parseJSONDiagnostics),
 		newCommandAdapter("semgrep", []string{"semgrep"}, []string{"*"}, "security", "lint.security", true, false, pathArgs("--json"), parseJSONDiagnostics),
@@ -591,6 +592,28 @@ func parseTextDiagnostics(tool string, category string, output string) []Finding
 			Severity: defaultSeverityForCategory(category),
 			Code:     "diagnostic",
 			Message:  strings.TrimSpace(output),
+			Category: category,
+		})
+	}
+
+	return dedupeFindings(findings)
+}
+
+func parsePrettierDiagnostics(tool string, category string, output string) []Finding {
+	var findings []Finding
+
+	for line := range strings.SplitSeq(strings.TrimSpace(output), "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+
+		findings = append(findings, Finding{
+			Tool:     tool,
+			File:     filepath.ToSlash(trimmed),
+			Severity: defaultSeverityForCategory(category),
+			Code:     "prettier-format",
+			Message:  "File is not formatted with Prettier",
 			Category: category,
 		})
 	}

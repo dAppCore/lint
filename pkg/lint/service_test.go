@@ -90,6 +90,34 @@ func run2() {
 	assert.False(t, report.Summary.Passed)
 }
 
+func TestServiceRun_JS_PrettierFindings(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "package.json"), []byte("{\n  \"name\": \"example\"\n}\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "index.js"), []byte("const value = 1;\n"), 0o644))
+
+	setupMockCmdExit(t, "prettier", "index.js\n", "", 1)
+
+	svc := &Service{adapters: []Adapter{
+		newCommandAdapter("prettier", []string{"prettier"}, []string{"js"}, "style", "", false, true, pathArgs("--list-different"), parsePrettierDiagnostics),
+	}}
+	report, err := svc.Run(context.Background(), RunInput{
+		Path:   dir,
+		FailOn: "warning",
+	})
+	require.NoError(t, err)
+
+	require.Len(t, report.Findings, 1)
+	require.Len(t, report.Tools, 1)
+	assert.Equal(t, "prettier", report.Findings[0].Tool)
+	assert.Equal(t, "index.js", report.Findings[0].File)
+	assert.Equal(t, "prettier-format", report.Findings[0].Code)
+	assert.Equal(t, "warning", report.Findings[0].Severity)
+	assert.False(t, report.Summary.Passed)
+	assert.Equal(t, "prettier", report.Tools[0].Name)
+	assert.Equal(t, "failed", report.Tools[0].Status)
+	assert.Equal(t, 1, report.Tools[0].Findings)
+}
+
 func runTestCommand(t *testing.T, dir string, name string, args ...string) {
 	t.Helper()
 
