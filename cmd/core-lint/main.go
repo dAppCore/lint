@@ -80,7 +80,7 @@ func newRunCommand(commandName string, summary string, defaults lintpkg.RunInput
 			input.Path = "."
 		}
 
-		resolvedOutputFormat, err := resolveRunOutputFormat(input)
+		resolvedOutputFormat, err := lintpkg.ResolveRunOutputFormat(input)
 		if err != nil {
 			return err
 		}
@@ -382,31 +382,6 @@ func newCatalogCommand() *cli.Command {
 
 	catalogCmd.AddCommand(listCmd, showCmd)
 	return catalogCmd
-}
-
-func resolveRunOutputFormat(input lintpkg.RunInput) (string, error) {
-	if input.Output != "" {
-		return input.Output, nil
-	}
-
-	config, _, err := lintpkg.LoadProjectConfig(input.Path, input.Config)
-	if err != nil {
-		return "", err
-	}
-	schedule, err := lintpkg.ResolveSchedule(config, input.Schedule)
-	if err != nil {
-		return "", err
-	}
-	if input.CI {
-		return "github", nil
-	}
-	if schedule != nil && schedule.Output != "" {
-		return schedule.Output, nil
-	}
-	if config.Output != "" {
-		return config.Output, nil
-	}
-	return "text", nil
 }
 
 func writeReport(writer io.Writer, output string, report lintpkg.Report) error {
