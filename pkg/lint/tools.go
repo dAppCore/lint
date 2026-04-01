@@ -38,13 +38,16 @@ type RaceCondition struct {
 	Desc string `json:"desc"`
 }
 
-// TODO represents a tracked code comment like TODO, FIXME, or HACK.
-type TODO struct {
+// TrackedComment represents a tracked code comment like TODO, FIXME, or HACK.
+type TrackedComment struct {
 	File    string `json:"file"`
 	Line    int    `json:"line"`
 	Type    string `json:"type"`
 	Message string `json:"message"`
 }
+
+// TODO is kept for compatibility with the older API name.
+type TODO = TrackedComment
 
 // Vulnerability represents a dependency vulnerability from govulncheck text output.
 type Vulnerability struct {
@@ -139,8 +142,10 @@ func (t *Toolkit) Run(name string, args ...string) (stdout, stderr string, exitC
 	return
 }
 
-// FindTODOs greps for TODO/FIXME/HACK comments within a directory.
-func (t *Toolkit) FindTODOs(dir string) ([]TODO, error) {
+// FindTrackedComments greps for TODO/FIXME/HACK comments within a directory.
+//
+//	comments, err := lint.NewToolkit(".").FindTrackedComments("pkg/lint")
+func (t *Toolkit) FindTrackedComments(dir string) ([]TrackedComment, error) {
 	pattern := `\b(TODO|FIXME|HACK)\b(\(.*\))?:`
 	stdout, stderr, exitCode, err := t.Run("git", "grep", "--line-number", "-E", pattern, "--", dir)
 
@@ -148,10 +153,10 @@ func (t *Toolkit) FindTODOs(dir string) ([]TODO, error) {
 		return nil, nil
 	}
 	if err != nil && exitCode != 1 {
-		return nil, coreerr.E("Toolkit.FindTODOs", fmt.Sprintf("git grep failed (exit %d):\n%s", exitCode, stderr), err)
+		return nil, coreerr.E("Toolkit.FindTrackedComments", fmt.Sprintf("git grep failed (exit %d):\n%s", exitCode, stderr), err)
 	}
 
-	var todos []TODO
+	var comments []TrackedComment
 	re := regexp.MustCompile(pattern)
 
 	for line := range strings.SplitSeq(strings.TrimSpace(stdout), "\n") {
@@ -170,14 +175,19 @@ func (t *Toolkit) FindTODOs(dir string) ([]TODO, error) {
 		}
 		msg := strings.TrimSpace(re.Split(parts[2], 2)[1])
 
-		todos = append(todos, TODO{
+		comments = append(comments, TrackedComment{
 			File:    parts[0],
 			Line:    lineNum,
 			Type:    todoType,
 			Message: msg,
 		})
 	}
-	return todos, nil
+	return comments, nil
+}
+
+// FindTODOs is kept for compatibility with the older API name.
+func (t *Toolkit) FindTODOs(dir string) ([]TODO, error) {
+	return t.FindTrackedComments(dir)
 }
 
 // AuditDeps runs govulncheck to find dependency vulnerabilities (text output).
