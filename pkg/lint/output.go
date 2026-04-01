@@ -3,6 +3,7 @@ package lint
 // ResolveRunOutputFormat resolves the report writer from the run input and project config.
 //
 //	format, err := lint.ResolveRunOutputFormat(lint.RunInput{Path: ".", CI: true})
+//	format, err := lint.ResolveRunOutputFormat(lint.RunInput{Path: ".", Schedule: "nightly"})
 func ResolveRunOutputFormat(input RunInput) (string, error) {
 	if input.Output != "" {
 		return input.Output, nil

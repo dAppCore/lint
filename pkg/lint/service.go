@@ -83,7 +83,7 @@ func NewService() *Service {
 // Run executes the selected adapters and returns the merged report.
 //
 //	report, err := lint.NewService().Run(ctx, lint.RunInput{Path: ".", Output: "json"})
-func (s *Service) Run(ctx context.Context, input RunInput) (Report, error) {
+func (service *Service) Run(ctx context.Context, input RunInput) (Report, error) {
 	startedAt := time.Now().UTC()
 	input = normaliseRunInput(input)
 
@@ -102,7 +102,7 @@ func (s *Service) Run(ctx context.Context, input RunInput) (Report, error) {
 		input.FailOn = config.FailOn
 	}
 
-	files, scoped, err := s.scopeFiles(input.Path, config, input, schedule)
+	files, scoped, err := service.scopeFiles(input.Path, config, input, schedule)
 	if err != nil {
 		return Report{}, err
 	}
@@ -133,8 +133,8 @@ func (s *Service) Run(ctx context.Context, input RunInput) (Report, error) {
 		return report, nil
 	}
 
-	languages := s.languagesForInput(input, files, scoped)
-	selectedAdapters := s.selectAdapters(config, languages, input, schedule)
+	languages := service.languagesForInput(input, files, scoped)
+	selectedAdapters := service.selectAdapters(config, languages, input, schedule)
 
 	var findings []Finding
 	var toolRuns []ToolRun
@@ -185,9 +185,9 @@ func (s *Service) Run(ctx context.Context, input RunInput) (Report, error) {
 // Tools returns the current adapter inventory for display in the CLI.
 //
 //	tools := lint.NewService().Tools([]string{"go"})
-func (s *Service) Tools(languages []string) []ToolInfo {
+func (service *Service) Tools(languages []string) []ToolInfo {
 	var tools []ToolInfo
-	for _, adapter := range s.adapters {
+	for _, adapter := range service.adapters {
 		if len(languages) > 0 && !adapter.MatchesLanguage(languages) {
 			continue
 		}
@@ -211,7 +211,7 @@ func (s *Service) Tools(languages []string) []ToolInfo {
 // WriteDefaultConfig creates `.core/lint.yaml` in the target project.
 //
 //	path, err := svc.WriteDefaultConfig(".", false)
-func (s *Service) WriteDefaultConfig(projectPath string, force bool) (string, error) {
+func (service *Service) WriteDefaultConfig(projectPath string, force bool) (string, error) {
 	if projectPath == "" {
 		projectPath = "."
 	}
@@ -241,7 +241,7 @@ func (s *Service) WriteDefaultConfig(projectPath string, force bool) (string, er
 // InstallHook adds a git pre-commit hook that runs `core-lint run --hook`.
 //
 //	_ = lint.NewService().InstallHook(".")
-func (s *Service) InstallHook(projectPath string) error {
+func (service *Service) InstallHook(projectPath string) error {
 	hookPath, err := hookFilePath(projectPath)
 	if err != nil {
 		return err
@@ -280,7 +280,7 @@ func (s *Service) InstallHook(projectPath string) error {
 // RemoveHook removes the block previously installed by InstallHook.
 //
 //	_ = lint.NewService().RemoveHook(".")
-func (s *Service) RemoveHook(projectPath string) error {
+func (service *Service) RemoveHook(projectPath string) error {
 	hookPath, err := hookFilePath(projectPath)
 	if err != nil {
 		return err
@@ -315,7 +315,7 @@ func (s *Service) RemoveHook(projectPath string) error {
 	return nil
 }
 
-func (s *Service) languagesForInput(input RunInput, files []string, scoped bool) []string {
+func (service *Service) languagesForInput(input RunInput, files []string, scoped bool) []string {
 	if input.Lang != "" {
 		return []string{input.Lang}
 	}
@@ -325,12 +325,12 @@ func (s *Service) languagesForInput(input RunInput, files []string, scoped bool)
 	return Detect(input.Path)
 }
 
-func (s *Service) scopeFiles(projectPath string, config LintConfig, input RunInput, schedule *Schedule) ([]string, bool, error) {
+func (service *Service) scopeFiles(projectPath string, config LintConfig, input RunInput, schedule *Schedule) ([]string, bool, error) {
 	if input.Files != nil {
 		return slices.Clone(input.Files), true, nil
 	}
 	if input.Hook {
-		files, err := s.stagedFiles(projectPath)
+		files, err := service.stagedFiles(projectPath)
 		return files, true, err
 	}
 	if schedule != nil && len(schedule.Paths) > 0 {
@@ -344,7 +344,7 @@ func (s *Service) scopeFiles(projectPath string, config LintConfig, input RunInp
 	return nil, false, nil
 }
 
-func (s *Service) selectAdapters(config LintConfig, languages []string, input RunInput, schedule *Schedule) []Adapter {
+func (service *Service) selectAdapters(config LintConfig, languages []string, input RunInput, schedule *Schedule) []Adapter {
 	categories := selectedCategories(input, schedule)
 	enabled := make(map[string]bool)
 	for _, name := range enabledToolNames(config, languages, input, categories) {
@@ -352,7 +352,7 @@ func (s *Service) selectAdapters(config LintConfig, languages []string, input Ru
 	}
 
 	var selected []Adapter
-	for _, adapter := range s.adapters {
+	for _, adapter := range service.adapters {
 		if len(enabled) > 0 && !enabled[adapter.Name()] {
 			continue
 		}
@@ -374,7 +374,7 @@ func (s *Service) selectAdapters(config LintConfig, languages []string, input Ru
 	return selected
 }
 
-func (s *Service) stagedFiles(projectPath string) ([]string, error) {
+func (service *Service) stagedFiles(projectPath string) ([]string, error) {
 	toolkit := NewToolkit(projectPath)
 	stdout, stderr, exitCode, err := toolkit.Run("git", "diff", "--cached", "--name-only")
 	if err != nil && exitCode != 0 {
