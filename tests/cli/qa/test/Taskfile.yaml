@@ -1,0 +1,17 @@
+version: "3"
+
+tasks:
+  test:
+    cmds:
+      - |
+          bash <<'EOF'
+          set -euo pipefail
+          source ../../_lib/run.sh
+
+          go build -trimpath -ldflags="-s -w" -o bin/core ../_harness
+
+          cd fixtures/project
+          output="$(mktemp)"
+          run_capture_stdout 0 "$output" ../../bin/core qa test --junit
+          grep -Fq '<testsuite tests="1" failures="1"></testsuite>' "$output"
+          EOF

@@ -1,0 +1,22 @@
+version: "3"
+
+tasks:
+  test:
+    cmds:
+      - |
+          bash <<'EOF'
+          set -euo pipefail
+          source ../../_lib/run.sh
+
+          go build -trimpath -ldflags="-s -w" -o bin/core ../_harness
+
+          repo="$(cat fixtures/repo.txt)"
+          commit="$(cat fixtures/commit.txt)"
+          output="$(mktemp)"
+          export PATH="$(pwd)/fixtures/bin:$PATH"
+          run_capture_all 1 "$output" ./bin/core qa watch --repo "$repo" --commit "$commit" --timeout 1s
+          grep -Fq "forge/example" "$output"
+          grep -Fq "01234567" "$output"
+          grep -Fq "Job: Build" "$output"
+          grep -Fq "Error: fatal: build failed in src/app.go:17" "$output"
+          EOF

@@ -30,6 +30,7 @@ var (
 	issuesBlocked  bool
 	issuesRegistry string
 	issuesLimit    int
+	issuesJSON     bool
 )
 
 // Issue represents a GitHub issue with triage metadata
@@ -65,10 +66,31 @@ type Issue struct {
 	URL string `json:"url"`
 
 	// Computed fields
-	RepoName   string
-	Priority   int    // Lower = higher priority
-	Category   string // "needs_response", "ready", "blocked", "triage"
-	ActionHint string
+	RepoName   string `json:"repo_name"`
+	Priority   int    `json:"priority"` // Lower = higher priority
+	Category   string `json:"category"` // "needs_response", "ready", "blocked", "triage"
+	ActionHint string `json:"action_hint,omitempty"`
+}
+
+type IssueFetchError struct {
+	Repo  string `json:"repo"`
+	Error string `json:"error"`
+}
+
+type IssueCategoryOutput struct {
+	Category string  `json:"category"`
+	Count    int     `json:"count"`
+	Issues   []Issue `json:"issues"`
+}
+
+type IssuesOutput struct {
+	TotalIssues    int                   `json:"total_issues"`
+	FilteredIssues int                   `json:"filtered_issues"`
+	ShowingMine    bool                  `json:"showing_mine"`
+	ShowingTriage  bool                  `json:"showing_triage"`
+	ShowingBlocked bool                  `json:"showing_blocked"`
+	Categories     []IssueCategoryOutput `json:"categories"`
+	FetchErrors    []IssueFetchError     `json:"fetch_errors"`
 }
 
 // addIssuesCommand adds the 'issues' subcommand to qa.
@@ -87,6 +109,7 @@ func addIssuesCommand(parent *cli.Command) {
 	issuesCmd.Flags().BoolVarP(&issuesBlocked, "blocked", "b", false, i18n.T("cmd.qa.issues.flag.blocked"))
 	issuesCmd.Flags().StringVar(&issuesRegistry, "registry", "", i18n.T("common.flag.registry"))
 	issuesCmd.Flags().IntVarP(&issuesLimit, "limit", "l", 50, i18n.T("cmd.qa.issues.flag.limit"))
+	issuesCmd.Flags().BoolVar(&issuesJSON, "json", false, i18n.T("common.flag.json"))
 
 	parent.AddCommand(issuesCmd)
 }
@@ -116,22 +139,59 @@ func runQAIssues() error {
 
 	// Fetch issues from all repos
 	var allIssues []Issue
+	fetchErrors := make([]IssueFetchError, 0)
 	repoList := reg.List()
+	// Registry repos are map-backed, so sort before fetching to keep output stable.
+	slices.SortFunc(repoList, func(a, b *repos.Repo) int {
+		return cmp.Compare(a.Name, b.Name)
+	})
+	successfulFetches := 0
 
 	for i, repo := range repoList {
-		cli.Print("\033[2K\r%s %d/%d %s",
-			dimStyle.Render(i18n.T("cmd.qa.issues.fetching")),
-			i+1, len(repoList), repo.Name)
+		if !issuesJSON {
+			cli.Print("%s %d/%d %s\n",
+				dimStyle.Render(i18n.T("cmd.qa.issues.fetching")),
+				i+1, len(repoList), repo.Name)
+		}
 
 		issues, err := fetchQAIssues(reg.Org, repo.Name, issuesLimit)
 		if err != nil {
+			fetchErrors = append(fetchErrors, IssueFetchError{
+				Repo:  repo.Name,
+				Error: strings.TrimSpace(err.Error()),
+			})
+			if !issuesJSON {
+				cli.Print("%s\n", warningStyle.Render(i18n.T(
+					"cmd.qa.issues.fetch_error",
+					map[string]any{"Repo": repo.Name, "Error": strings.TrimSpace(err.Error())},
+				)))
+			}
 			continue // Skip repos with errors
 		}
 		allIssues = append(allIssues, issues...)
+		successfulFetches++
 	}
-	cli.Print("\033[2K\r") // Clear progress
+	totalIssues := len(allIssues)
 
 	if len(allIssues) == 0 {
+		emptyCategorised := map[string][]Issue{
+			"needs_response": {},
+			"ready":          {},
+			"blocked":        {},
+			"triage":         {},
+		}
+		if issuesJSON {
+			if err := printCategorisedIssuesJSON(0, emptyCategorised, fetchErrors); err != nil {
+				return err
+			}
+			if successfulFetches == 0 && len(fetchErrors) > 0 {
+				return cli.Err("failed to fetch issues from any repository")
+			}
+			return nil
+		}
+		if successfulFetches == 0 && len(fetchErrors) > 0 {
+			return cli.Err("failed to fetch issues from any repository")
+		}
 		cli.Text(i18n.T("cmd.qa.issues.no_issues"))
 		return nil
 	}
@@ -148,6 +208,10 @@ func runQAIssues() error {
 	}
 	if issuesBlocked {
 		categorised = filterCategory(categorised, "blocked")
+	}
+
+	if issuesJSON {
+		return printCategorisedIssuesJSON(totalIssues, categorised, fetchErrors)
 	}
 
 	// Print categorised issues
@@ -170,6 +234,9 @@ func fetchQAIssues(org, repoName string, limit int) ([]Issue, error) {
 	cmd := exec.Command("gh", args...)
 	output, err := cmd.Output()
 	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			return nil, log.E("qa.fetchQAIssues", strings.TrimSpace(string(exitErr.Stderr)), nil)
+		}
 		return nil, err
 	}
 
@@ -205,7 +272,16 @@ func categoriseIssues(issues []Issue) map[string][]Issue {
 	// Sort each category by priority
 	for cat := range result {
 		slices.SortFunc(result[cat], func(a, b Issue) int {
-			return cmp.Compare(a.Priority, b.Priority)
+			if priority := cmp.Compare(a.Priority, b.Priority); priority != 0 {
+				return priority
+			}
+			if byDate := cmp.Compare(b.UpdatedAt.Unix(), a.UpdatedAt.Unix()); byDate != 0 {
+				return byDate
+			}
+			if repo := cmp.Compare(a.RepoName, b.RepoName); repo != 0 {
+				return repo
+			}
+			return cmp.Compare(a.Number, b.Number)
 		})
 	}
 
@@ -250,24 +326,26 @@ func categoriseIssue(issue *Issue, currentUser string) {
 
 	// Default: ready to work
 	issue.Category = "ready"
-	issue.Priority = calculatePriority(issue, labels)
+	issue.Priority = calculatePriority(labels)
 	issue.ActionHint = ""
 }
 
-func calculatePriority(issue *Issue, labels []string) int {
+// calculatePriority chooses the most urgent matching label so label order
+// does not change how issues are ranked.
+func calculatePriority(labels []string) int {
 	priority := 50
 
 	// Priority labels
 	for _, l := range labels {
 		switch {
 		case strings.Contains(l, "critical") || strings.Contains(l, "urgent"):
-			priority = 1
+			priority = min(priority, 1)
 		case strings.Contains(l, "high"):
-			priority = 10
+			priority = min(priority, 10)
 		case strings.Contains(l, "medium"):
-			priority = 30
+			priority = min(priority, 30)
 		case strings.Contains(l, "low"):
-			priority = 70
+			priority = min(priority, 70)
 		case l == "good-first-issue" || l == "good first issue":
 			priority = min(priority, 15) // Boost good first issues
 		case l == "help-wanted" || l == "help wanted":
@@ -363,6 +441,39 @@ func printCategorisedIssues(categorised map[string][]Issue) {
 	}
 }
 
+func printCategorisedIssuesJSON(totalIssues int, categorised map[string][]Issue, fetchErrors []IssueFetchError) error {
+	categories := []string{"needs_response", "ready", "blocked", "triage"}
+	filteredIssues := 0
+	categoryOutput := make([]IssueCategoryOutput, 0, len(categories))
+
+	for _, category := range categories {
+		issues := categorised[category]
+		filteredIssues += len(issues)
+		categoryOutput = append(categoryOutput, IssueCategoryOutput{
+			Category: category,
+			Count:    len(issues),
+			Issues:   issues,
+		})
+	}
+
+	output := IssuesOutput{
+		TotalIssues:    totalIssues,
+		FilteredIssues: filteredIssues,
+		ShowingMine:    issuesMine,
+		ShowingTriage:  issuesTriage,
+		ShowingBlocked: issuesBlocked,
+		Categories:     categoryOutput,
+		FetchErrors:    fetchErrors,
+	}
+
+	data, err := json.MarshalIndent(output, "", "  ")
+	if err != nil {
+		return err
+	}
+	cli.Print("%s\n", string(data))
+	return nil
+}
+
 func printTriagedIssue(issue Issue) {
 	// #42 [core-bio] Fix avatar upload
 	num := cli.TitleStyle.Render(cli.Sprintf("#%d", issue.Number))
@@ -381,6 +492,7 @@ func printTriagedIssue(issue Issue) {
 		}
 	}
 	if len(importantLabels) > 0 {
+		slices.Sort(importantLabels)
 		cli.Print(" %s", warningStyle.Render("["+strings.Join(importantLabels, ", ")+"]"))
 	}
 

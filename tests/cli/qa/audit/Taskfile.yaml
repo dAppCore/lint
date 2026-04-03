@@ -1,0 +1,20 @@
+version: "3"
+
+tasks:
+  test:
+    cmds:
+      - |
+          bash <<'EOF'
+          set -euo pipefail
+          source ../../_lib/run.sh
+
+          go build -trimpath -ldflags="-s -w" -o bin/core ../_harness
+
+          cd fixtures/project
+          output="$(mktemp)"
+          export PATH="$(pwd)/../bin:$PATH"
+          run_capture_stdout 1 "$output" ../../bin/core qa audit --json
+          jq -e '.results[0].tool == "composer" and .results[0].vulnerabilities == 1' "$output" >/dev/null
+          jq -e '.has_vulnerabilities == true and .vulnerabilities == 1' "$output" >/dev/null
+          jq -e '.results[0].advisories[0].package == "vendor/package-a"' "$output" >/dev/null
+          EOF

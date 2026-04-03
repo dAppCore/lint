@@ -1,0 +1,316 @@
+package qa
+
+import (
+	"encoding/json"
+	"fmt"
+	"path/filepath"
+	"testing"
+	"time"
+
+	"forge.lthn.ai/core/cli/pkg/cli"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestRunQAIssuesJSONOutput_UsesMachineFriendlyKeys(t *testing.T) {
+	dir := t.TempDir()
+	commentTime := time.Now().UTC().Add(-1 * time.Hour).Format(time.RFC3339)
+	updatedAt := time.Now().UTC().Format(time.RFC3339)
+	writeTestFile(t, filepath.Join(dir, "repos.yaml"), `version: 1
+org: forge
+base_path: .
+repos:
+  alpha:
+    type: module
+`)
+	writeExecutable(t, filepath.Join(dir, "gh"), fmt.Sprintf(`#!/bin/sh
+case "$*" in
+  *"api user"*)
+    printf '%%s\n' 'alice'
+    ;;
+  *"issue list --repo forge/alpha"*)
+    cat <<JSON
+[
+  {
+    "number": 7,
+    "title": "Clarify agent output",
+    "state": "OPEN",
+    "body": "Explain behaviour",
+    "createdAt": "2026-03-30T00:00:00Z",
+    "updatedAt": %q,
+    "author": {"login": "bob"},
+    "assignees": {"nodes": []},
+    "labels": {"nodes": [{"name": "agent:ready"}]},
+    "comments": {
+      "totalCount": 1,
+      "nodes": [
+        {
+          "author": {"login": "carol"},
+          "createdAt": %q
+        }
+      ]
+    },
+    "url": "https://example.com/issues/7"
+  }
+]
+JSON
+    ;;
+  *)
+    printf '%%s\n' "unexpected gh invocation: $*" >&2
+    exit 1
+    ;;
+esac
+`, updatedAt, commentTime))
+
+	restoreWorkingDir(t, dir)
+	prependPath(t, dir)
+	resetIssuesFlags(t)
+	t.Cleanup(func() {
+		issuesRegistry = ""
+	})
+
+	parent := &cli.Command{Use: "qa"}
+	addIssuesCommand(parent)
+	command := findSubcommand(t, parent, "issues")
+	require.NoError(t, command.Flags().Set("registry", filepath.Join(dir, "repos.yaml")))
+	require.NoError(t, command.Flags().Set("json", "true"))
+
+	output := captureStdout(t, func() {
+		require.NoError(t, command.RunE(command, nil))
+	})
+
+	var payload IssuesOutput
+	require.NoError(t, json.Unmarshal([]byte(output), &payload))
+	assert.Equal(t, 1, payload.TotalIssues)
+	assert.Equal(t, 1, payload.FilteredIssues)
+	require.Len(t, payload.Categories, 4)
+	require.Len(t, payload.Categories[0].Issues, 1)
+
+	issue := payload.Categories[0].Issues[0]
+	assert.Equal(t, "needs_response", payload.Categories[0].Category)
+	assert.Equal(t, "alpha", issue.RepoName)
+	assert.Equal(t, 10, issue.Priority)
+	assert.Equal(t, "needs_response", issue.Category)
+	assert.Equal(t, "@carol cmd.qa.issues.hint.needs_response", issue.ActionHint)
+	assert.Contains(t, output, `"repo_name"`)
+	assert.Contains(t, output, `"action_hint"`)
+	assert.NotContains(t, output, `"RepoName"`)
+	assert.NotContains(t, output, `"ActionHint"`)
+}
+
+func TestRunQAIssuesJSONOutput_SortsFetchErrorsByRepoName(t *testing.T) {
+	dir := t.TempDir()
+	writeTestFile(t, filepath.Join(dir, "repos.yaml"), `version: 1
+org: forge
+base_path: .
+repos:
+  beta:
+    type: module
+  alpha:
+    type: module
+`)
+	writeExecutable(t, filepath.Join(dir, "gh"), `#!/bin/sh
+case "$*" in
+  *"issue list --repo forge/alpha"*)
+    printf '%s\n' 'alpha failed' >&2
+    exit 1
+    ;;
+  *"issue list --repo forge/beta"*)
+    printf '%s\n' 'beta failed' >&2
+    exit 1
+    ;;
+  *)
+    printf '%s\n' "unexpected gh invocation: $*" >&2
+    exit 1
+    ;;
+esac
+`)
+
+	restoreWorkingDir(t, dir)
+	prependPath(t, dir)
+	resetIssuesFlags(t)
+	t.Cleanup(func() {
+		issuesRegistry = ""
+	})
+
+	parent := &cli.Command{Use: "qa"}
+	addIssuesCommand(parent)
+	command := findSubcommand(t, parent, "issues")
+	require.NoError(t, command.Flags().Set("registry", filepath.Join(dir, "repos.yaml")))
+	require.NoError(t, command.Flags().Set("json", "true"))
+
+	var runErr error
+	output := captureStdout(t, func() {
+		runErr = command.RunE(command, nil)
+	})
+
+	require.Error(t, runErr)
+	var payload IssuesOutput
+	require.NoError(t, json.Unmarshal([]byte(output), &payload))
+	require.Len(t, payload.FetchErrors, 2)
+	assert.Equal(t, "alpha", payload.FetchErrors[0].Repo)
+	assert.Equal(t, "beta", payload.FetchErrors[1].Repo)
+}
+
+func TestRunQAIssuesJSONOutput_ReturnsErrorWhenAllFetchesFail(t *testing.T) {
+	dir := t.TempDir()
+	writeTestFile(t, filepath.Join(dir, "repos.yaml"), `version: 1
+org: forge
+base_path: .
+repos:
+  beta:
+    type: module
+  alpha:
+    type: module
+`)
+	writeExecutable(t, filepath.Join(dir, "gh"), `#!/bin/sh
+case "$*" in
+  *"issue list --repo forge/alpha"*)
+    printf '%s\n' 'alpha failed' >&2
+    exit 1
+    ;;
+  *"issue list --repo forge/beta"*)
+    printf '%s\n' 'beta failed' >&2
+    exit 1
+    ;;
+  *)
+    printf '%s\n' "unexpected gh invocation: $*" >&2
+    exit 1
+    ;;
+esac
+`)
+
+	restoreWorkingDir(t, dir)
+	prependPath(t, dir)
+	resetIssuesFlags(t)
+	t.Cleanup(func() {
+		issuesRegistry = ""
+	})
+
+	parent := &cli.Command{Use: "qa"}
+	addIssuesCommand(parent)
+	command := findSubcommand(t, parent, "issues")
+	require.NoError(t, command.Flags().Set("registry", filepath.Join(dir, "repos.yaml")))
+	require.NoError(t, command.Flags().Set("json", "true"))
+
+	var runErr error
+	output := captureStdout(t, func() {
+		runErr = command.RunE(command, nil)
+	})
+
+	require.Error(t, runErr)
+
+	var payload IssuesOutput
+	require.NoError(t, json.Unmarshal([]byte(output), &payload))
+	require.Len(t, payload.Categories, 4)
+	assert.Empty(t, payload.Categories[0].Issues)
+	require.Len(t, payload.FetchErrors, 2)
+	assert.Equal(t, "alpha", payload.FetchErrors[0].Repo)
+	assert.Equal(t, "beta", payload.FetchErrors[1].Repo)
+}
+
+func TestRunQAIssuesHumanOutput_ReturnsErrorWhenAllFetchesFail(t *testing.T) {
+	dir := t.TempDir()
+	writeTestFile(t, filepath.Join(dir, "repos.yaml"), `version: 1
+org: forge
+base_path: .
+repos:
+  beta:
+    type: module
+  alpha:
+    type: module
+`)
+	writeExecutable(t, filepath.Join(dir, "gh"), `#!/bin/sh
+case "$*" in
+  *"issue list --repo forge/alpha"*)
+    printf '%s\n' 'alpha failed' >&2
+    exit 1
+    ;;
+  *"issue list --repo forge/beta"*)
+    printf '%s\n' 'beta failed' >&2
+    exit 1
+    ;;
+  *)
+    printf '%s\n' "unexpected gh invocation: $*" >&2
+    exit 1
+    ;;
+esac
+`)
+
+	restoreWorkingDir(t, dir)
+	prependPath(t, dir)
+	resetIssuesFlags(t)
+	t.Cleanup(func() {
+		issuesRegistry = ""
+	})
+
+	parent := &cli.Command{Use: "qa"}
+	addIssuesCommand(parent)
+	command := findSubcommand(t, parent, "issues")
+	require.NoError(t, command.Flags().Set("registry", filepath.Join(dir, "repos.yaml")))
+
+	var runErr error
+	output := captureStdout(t, func() {
+		runErr = command.RunE(command, nil)
+	})
+
+	require.Error(t, runErr)
+	assert.NotContains(t, output, "cmd.qa.issues.no_issues")
+}
+
+func TestCalculatePriority_UsesMostUrgentLabelRegardlessOfOrder(t *testing.T) {
+	labelsA := []string{"low", "critical"}
+	labelsB := []string{"critical", "low"}
+
+	assert.Equal(t, 1, calculatePriority(labelsA))
+	assert.Equal(t, 1, calculatePriority(labelsB))
+}
+
+func TestPrintTriagedIssue_SortsImportantLabels(t *testing.T) {
+	var issue Issue
+	require.NoError(t, json.Unmarshal([]byte(`{
+		"number": 7,
+		"title": "Stabilise output",
+		"updatedAt": "2026-03-30T00:00:00Z",
+		"labels": {
+			"nodes": [
+				{"name": "priority:urgent"},
+				{"name": "agent:ready"}
+			]
+		}
+	}`), &issue))
+	issue.RepoName = "alpha"
+
+	output := captureStdout(t, func() {
+		printTriagedIssue(issue)
+	})
+
+	assert.Contains(t, output, "[agent:ready, priority:urgent]")
+	assert.NotContains(t, output, "[priority:urgent, agent:ready]")
+}
+
+func resetIssuesFlags(t *testing.T) {
+	t.Helper()
+	oldMine := issuesMine
+	oldTriage := issuesTriage
+	oldBlocked := issuesBlocked
+	oldRegistry := issuesRegistry
+	oldLimit := issuesLimit
+	oldJSON := issuesJSON
+
+	issuesMine = false
+	issuesTriage = false
+	issuesBlocked = false
+	issuesRegistry = ""
+	issuesLimit = 50
+	issuesJSON = false
+
+	t.Cleanup(func() {
+		issuesMine = oldMine
+		issuesTriage = oldTriage
+		issuesBlocked = oldBlocked
+		issuesRegistry = oldRegistry
+		issuesLimit = oldLimit
+		issuesJSON = oldJSON
+	})
+}

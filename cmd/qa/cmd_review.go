@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
+	"sort"
 	"strings"
 	"time"
 
@@ -25,6 +26,7 @@ var (
 	reviewMine      bool
 	reviewRequested bool
 	reviewRepo      string
+	reviewJSON      bool
 )
 
 // PullRequest represents a GitHub pull request
@@ -81,6 +83,24 @@ type Review struct {
 	State  string `json:"state"`
 }
 
+// ReviewFetchError captures a partial fetch failure while preserving any
+// successfully fetched PRs in the same review run.
+type ReviewFetchError struct {
+	Repo  string `json:"repo"`
+	Scope string `json:"scope"`
+	Error string `json:"error"`
+}
+
+type reviewOutput struct {
+	Mine             []PullRequest      `json:"mine"`
+	Requested        []PullRequest      `json:"requested"`
+	TotalMine        int                `json:"total_mine"`
+	TotalRequested   int                `json:"total_requested"`
+	ShowingMine      bool               `json:"showing_mine"`
+	ShowingRequested bool               `json:"showing_requested"`
+	FetchErrors      []ReviewFetchError `json:"fetch_errors"`
+}
+
 // addReviewCommand adds the 'review' subcommand to the qa command.
 func addReviewCommand(parent *cli.Command) {
 	reviewCmd := &cli.Command{
@@ -95,6 +115,7 @@ func addReviewCommand(parent *cli.Command) {
 	reviewCmd.Flags().BoolVarP(&reviewMine, "mine", "m", false, i18n.T("cmd.qa.review.flag.mine"))
 	reviewCmd.Flags().BoolVarP(&reviewRequested, "requested", "r", false, i18n.T("cmd.qa.review.flag.requested"))
 	reviewCmd.Flags().StringVar(&reviewRepo, "repo", "", i18n.T("cmd.qa.review.flag.repo"))
+	reviewCmd.Flags().BoolVar(&reviewJSON, "json", false, i18n.T("common.flag.json"))
 
 	parent.AddCommand(reviewCmd)
 }
@@ -121,18 +142,98 @@ func runReview() error {
 	// Default: show both mine and requested if neither flag is set
 	showMine := reviewMine || (!reviewMine && !reviewRequested)
 	showRequested := reviewRequested || (!reviewMine && !reviewRequested)
+	minePRs := []PullRequest{}
+	requestedPRs := []PullRequest{}
+	fetchErrors := make([]ReviewFetchError, 0)
+	mineFetched := false
+	requestedFetched := false
+	successfulFetches := 0
 
 	if showMine {
-		if err := showMyPRs(ctx, repoFullName); err != nil {
-			return err
+		prs, err := fetchPRs(ctx, repoFullName, "author:@me")
+		if err != nil {
+			fetchErrors = append(fetchErrors, ReviewFetchError{
+				Repo:  repoFullName,
+				Scope: "mine",
+				Error: strings.TrimSpace(err.Error()),
+			})
+			if !reviewJSON {
+				cli.Warnf("failed to fetch your PRs for %s: %s", repoFullName, strings.TrimSpace(err.Error()))
+			}
+		} else {
+			sort.Slice(prs, func(i, j int) bool {
+				if prs[i].Number == prs[j].Number {
+					return strings.Compare(prs[i].Title, prs[j].Title) < 0
+				}
+				return prs[i].Number < prs[j].Number
+			})
+			minePRs = prs
+			mineFetched = true
+			successfulFetches++
 		}
 	}
 
 	if showRequested {
-		if showMine {
+		prs, err := fetchPRs(ctx, repoFullName, "review-requested:@me")
+		if err != nil {
+			fetchErrors = append(fetchErrors, ReviewFetchError{
+				Repo:  repoFullName,
+				Scope: "requested",
+				Error: strings.TrimSpace(err.Error()),
+			})
+			if !reviewJSON {
+				cli.Warnf("failed to fetch review requested PRs for %s: %s", repoFullName, strings.TrimSpace(err.Error()))
+			}
+		} else {
+			sort.Slice(prs, func(i, j int) bool {
+				if prs[i].Number == prs[j].Number {
+					return strings.Compare(prs[i].Title, prs[j].Title) < 0
+				}
+				return prs[i].Number < prs[j].Number
+			})
+			requestedPRs = prs
+			requestedFetched = true
+			successfulFetches++
+		}
+	}
+
+	output := reviewOutput{
+		Mine:             minePRs,
+		Requested:        requestedPRs,
+		TotalMine:        len(minePRs),
+		TotalRequested:   len(requestedPRs),
+		ShowingMine:      showMine,
+		ShowingRequested: showRequested,
+		FetchErrors:      fetchErrors,
+	}
+
+	if reviewJSON {
+		data, err := json.MarshalIndent(output, "", "  ")
+		if err != nil {
+			return err
+		}
+		cli.Print("%s\n", string(data))
+		if successfulFetches == 0 && len(fetchErrors) > 0 {
+			return cli.Err("failed to fetch pull requests for %s", repoFullName)
+		}
+		return nil
+	}
+
+	if successfulFetches == 0 && len(fetchErrors) > 0 {
+		return cli.Err("failed to fetch pull requests for %s", repoFullName)
+	}
+
+	if showMine && mineFetched {
+		if err := printMyPRs(minePRs); err != nil {
+			return err
+		}
+	}
+
+	if showRequested && requestedFetched {
+		if showMine && mineFetched {
 			cli.Blank()
 		}
-		if err := showRequestedReviews(ctx, repoFullName); err != nil {
+		if err := printRequestedPRs(requestedPRs); err != nil {
 			return err
 		}
 	}
@@ -140,13 +241,8 @@ func runReview() error {
 	return nil
 }
 
-// showMyPRs shows the user's open PRs with status
-func showMyPRs(ctx context.Context, repo string) error {
-	prs, err := fetchPRs(ctx, repo, "author:@me")
-	if err != nil {
-		return log.E("qa.review", "failed to fetch your PRs", err)
-	}
-
+// printMyPRs shows the user's open PRs with status
+func printMyPRs(prs []PullRequest) error {
 	if len(prs) == 0 {
 		cli.Print("%s\n", dimStyle.Render(i18n.T("cmd.qa.review.no_prs")))
 		return nil
@@ -161,13 +257,8 @@ func showMyPRs(ctx context.Context, repo string) error {
 	return nil
 }
 
-// showRequestedReviews shows PRs where user's review is requested
-func showRequestedReviews(ctx context.Context, repo string) error {
-	prs, err := fetchPRs(ctx, repo, "review-requested:@me")
-	if err != nil {
-		return log.E("qa.review", "failed to fetch review requests", err)
-	}
-
+// printRequestedPRs shows PRs where user's review is requested
+func printRequestedPRs(prs []PullRequest) error {
 	if len(prs) == 0 {
 		cli.Print("%s\n", dimStyle.Render(i18n.T("cmd.qa.review.no_reviews")))
 		return nil
@@ -257,7 +348,7 @@ func analyzePRStatus(pr PullRequest) (status string, style *cli.AnsiStyle, actio
 	ciPassed := true
 	ciFailed := false
 	ciPending := false
-	var failedCheck string
+	var failedChecks []string
 
 	if pr.StatusChecks != nil {
 		for _, check := range pr.StatusChecks.Contexts {
@@ -265,9 +356,7 @@ func analyzePRStatus(pr PullRequest) (status string, style *cli.AnsiStyle, actio
 			case "FAILURE", "failure":
 				ciFailed = true
 				ciPassed = false
-				if failedCheck == "" {
-					failedCheck = check.Name
-				}
+				failedChecks = append(failedChecks, check.Name)
 			case "PENDING", "pending", "":
 				if check.State == "PENDING" || check.State == "" {
 					ciPending = true
@@ -290,7 +379,11 @@ func analyzePRStatus(pr PullRequest) (status string, style *cli.AnsiStyle, actio
 	}
 
 	if ciFailed {
-		return "✗", errorStyle, fmt.Sprintf("CI failed: %s", failedCheck)
+		if len(failedChecks) > 0 {
+			sort.Strings(failedChecks)
+			return "✗", errorStyle, fmt.Sprintf("CI failed: %s", failedChecks[0])
+		}
+		return "✗", errorStyle, "CI failed"
 	}
 
 	if changesRequested {

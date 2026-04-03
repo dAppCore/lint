@@ -1,0 +1,18 @@
+version: "3"
+
+tasks:
+  test:
+    cmds:
+      - |
+          bash <<'EOF'
+          set -euo pipefail
+          source ../../_lib/run.sh
+
+          go build -trimpath -ldflags="-s -w" -o bin/core ../_harness
+
+          output="$(mktemp)"
+          run_capture_stdout 1 "$output" ./bin/core qa docblock --json --threshold 100 fixtures/src
+          jq -e '(.passed == false) and (.coverage < .threshold)' "$output" >/dev/null
+          jq -e '(.missing | length == 1) and (.missing[0].name == "Beta")' "$output" >/dev/null
+          jq -e '(.warnings | length == 1) and (.warnings[0].path == "fixtures/src")' "$output" >/dev/null
+          EOF

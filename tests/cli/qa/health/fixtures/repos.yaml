@@ -1,0 +1,8 @@
+version: 1
+org: forge
+base_path: .
+repos:
+  alpha:
+    type: module
+  beta:
+    type: module

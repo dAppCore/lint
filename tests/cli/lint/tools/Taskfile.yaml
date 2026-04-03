@@ -1,0 +1,18 @@
+version: "3"
+
+tasks:
+  test:
+    cmds:
+      - |
+          bash <<'EOF'
+          set -euo pipefail
+          source ../../_lib/run.sh
+
+          go build -trimpath -ldflags="-s -w" -o bin/core-lint ../../../../cmd/core-lint
+
+          output="$(mktemp)"
+          run_capture_stdout 0 "$output" ./bin/core-lint tools --output json --lang go
+          jq -e '.[] | select(.name == "golangci-lint")' "$output" >/dev/null
+          jq -e '.[] | select(.name == "govulncheck")' "$output" >/dev/null
+          EOF
+

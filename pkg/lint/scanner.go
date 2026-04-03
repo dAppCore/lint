@@ -12,17 +12,23 @@ import (
 
 // extensionMap maps file extensions to language identifiers.
 var extensionMap = map[string]string{
-	".go":  "go",
-	".php": "php",
-	".ts":  "ts",
-	".tsx": "ts",
-	".js":  "js",
-	".jsx": "js",
-	".cpp": "cpp",
-	".cc":  "cpp",
-	".c":   "cpp",
-	".h":   "cpp",
-	".py":  "py",
+	".go":   "go",
+	".php":  "php",
+	".ts":   "ts",
+	".tsx":  "ts",
+	".js":   "js",
+	".jsx":  "js",
+	".cpp":  "cpp",
+	".cc":   "cpp",
+	".c":    "cpp",
+	".h":    "cpp",
+	".py":   "python",
+	".rs":   "rust",
+	".sh":   "shell",
+	".yaml": "yaml",
+	".yml":  "yaml",
+	".json": "json",
+	".md":   "markdown",
 }
 
 // defaultExcludes lists directory names that are always skipped during scanning.
@@ -35,32 +41,51 @@ var defaultExcludes = []string{
 }
 
 // DetectLanguage returns the language identifier for a filename based on its extension.
-// Returns an empty string for unrecognised extensions.
+//
+//	lint.DetectLanguage("main.go")
+//	lint.DetectLanguage("Dockerfile")
 func DetectLanguage(filename string) string {
-	ext := filepath.Ext(filename)
+	base := filepath.Base(filename)
+	if strings.HasPrefix(base, "Dockerfile") {
+		return "dockerfile"
+	}
+
+	ext := filepath.Ext(base)
 	if lang, ok := extensionMap[ext]; ok {
 		return lang
 	}
 	return ""
 }
 
+func shouldSkipTraversalRoot(path string) bool {
+	cleanedPath := filepath.Clean(path)
+	if cleanedPath == "." {
+		return false
+	}
+
+	base := filepath.Base(cleanedPath)
+	if base == "." || base == string(filepath.Separator) {
+		return false
+	}
+
+	return IsExcludedDir(base)
+}
+
 // Scanner walks directory trees and matches files against lint rules.
 type Scanner struct {
-	matcher  *Matcher
-	rules    []Rule
-	excludes []string
+	matcher *Matcher
+	rules   []Rule
 }
 
 // NewScanner creates a Scanner with the given rules and default directory exclusions.
 func NewScanner(rules []Rule) (*Scanner, error) {
-	m, err := NewMatcher(rules)
+	matcher, err := NewMatcher(rules)
 	if err != nil {
 		return nil, err
 	}
 	return &Scanner{
-		matcher:  m,
-		rules:    rules,
-		excludes: slices.Clone(defaultExcludes),
+		matcher: matcher,
+		rules:   rules,
 	}, nil
 }
 
@@ -69,15 +94,19 @@ func NewScanner(rules []Rule) (*Scanner, error) {
 func (s *Scanner) ScanDir(root string) ([]Finding, error) {
 	var findings []Finding
 
+	if shouldSkipTraversalRoot(root) {
+		return findings, nil
+	}
+
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 
-		// Skip excluded directories.
+		// Skip excluded directories and hidden directories.
 		if d.IsDir() {
 			name := d.Name()
-			if slices.Contains(s.excludes, name) {
+			if IsExcludedDir(name) {
 				return filepath.SkipDir
 			}
 			return nil
@@ -102,7 +131,7 @@ func (s *Scanner) ScanDir(root string) ([]Finding, error) {
 		content := []byte(raw)
 
 		// Build a matcher scoped to this file's language.
-		m, err := NewMatcher(langRules)
+		matcher, err := NewMatcher(langRules)
 		if err != nil {
 			return err
 		}
@@ -113,7 +142,7 @@ func (s *Scanner) ScanDir(root string) ([]Finding, error) {
 			relPath = path
 		}
 
-		found := m.Match(relPath, content)
+		found := matcher.Match(relPath, content)
 		findings = append(findings, found...)
 		return nil
 	})
@@ -143,12 +172,12 @@ func (s *Scanner) ScanFile(path string) ([]Finding, error) {
 		return nil, nil
 	}
 
-	m, err := NewMatcher(langRules)
+	matcher, err := NewMatcher(langRules)
 	if err != nil {
 		return nil, err
 	}
 
-	return m.Match(path, content), nil
+	return matcher.Match(path, content), nil
 }
 
 // filterRulesByLanguage returns rules that include the given language.

@@ -1,0 +1,20 @@
+version: "3"
+
+tasks:
+  test:
+    cmds:
+      - |
+          bash <<'EOF'
+          set -euo pipefail
+          source ../../_lib/run.sh
+
+          go build -trimpath -ldflags="-s -w" -o bin/core ../_harness
+
+          output="$(mktemp)"
+          export PATH="$(pwd)/fixtures/bin:$PATH"
+          run_capture_stdout 0 "$output" ./bin/core qa health --registry fixtures/repos.yaml --json
+          jq -e '.summary.total_repos == 2 and .summary.filtered_repos == 2' "$output" >/dev/null
+          jq -e '.summary.passing == 1 and .summary.errors == 1' "$output" >/dev/null
+          jq -e '.repos[0].status == "error" and .repos[0].name == "beta"' "$output" >/dev/null
+          jq -e '.repos[1].status == "passing" and .repos[1].name == "alpha"' "$output" >/dev/null
+          EOF

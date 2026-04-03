@@ -1,0 +1,21 @@
+version: "3"
+
+tasks:
+  test:
+    cmds:
+      - |
+          bash <<'EOF'
+          set -euo pipefail
+          source ../../_lib/run.sh
+
+          go build -trimpath -ldflags="-s -w" -o bin/core ../_harness
+
+          cd fixtures/project
+          output="$(mktemp)"
+          export PATH="$(pwd)/../bin:$PATH"
+          run_capture_stdout 1 "$output" ../../bin/core qa security --json
+          jq -e '.summary.total == 4 and .summary.passed == 0' "$output" >/dev/null
+          jq -e '.summary.critical == 3 and .summary.high == 1' "$output" >/dev/null
+          jq -e '.checks[0].id == "app_key_set" and .checks[1].id == "composer_audit"' "$output" >/dev/null
+          jq -e '.checks[] | select(.id == "debug_mode") | .passed == false' "$output" >/dev/null
+          EOF

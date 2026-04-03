@@ -25,9 +25,10 @@ func TestDetectLanguage_Good(t *testing.T) {
 		{"core.c", "cpp"},
 		{"app.js", "js"},
 		{"component.jsx", "js"},
-		{"unknown.rs", ""},
+		{"unknown.rs", "rust"},
 		{"noextension", ""},
-		{"file.py", "py"},
+		{"file.py", "python"},
+		{"Dockerfile", "dockerfile"},
 	}
 
 	for _, tt := range tests {
@@ -180,6 +181,34 @@ func TestScanFile_Good(t *testing.T) {
 	assert.Equal(t, "test-panic", findings[0].RuleID)
 }
 
+func TestScanFile_Good_Python(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "app.py")
+	err := os.WriteFile(file, []byte("print('hello')\n# TODO: fix\n"), 0o644)
+	require.NoError(t, err)
+
+	rules := []Rule{
+		{
+			ID:        "python-todo",
+			Title:     "Python TODO",
+			Severity:  "low",
+			Languages: []string{"python"},
+			Pattern:   `TODO`,
+			Fix:       "Remove TODO",
+			Detection: "regex",
+		},
+	}
+
+	s, err := NewScanner(rules)
+	require.NoError(t, err)
+
+	findings, err := s.ScanFile(file)
+	require.NoError(t, err)
+	require.Len(t, findings, 1)
+	assert.Equal(t, "python-todo", findings[0].RuleID)
+	assert.Equal(t, "python", DetectLanguage(file))
+}
+
 func TestScanDir_Good_Subdirectories(t *testing.T) {
 	dir := t.TempDir()
 
@@ -209,53 +238,16 @@ func TestScanDir_Good_Subdirectories(t *testing.T) {
 	require.Len(t, findings, 1)
 }
 
-func TestLanguagesFromRules_Good(t *testing.T) {
-	rules := []Rule{
-		{Languages: []string{"go", "php"}},
-		{Languages: []string{"go", "ts"}},
-		{Languages: []string{"py"}},
-	}
-	langs := languagesFromRules(rules)
-	assert.Equal(t, []string{"go", "php", "py", "ts"}, langs)
-}
-
-func TestLanguagesFromRules_Good_Empty(t *testing.T) {
-	langs := languagesFromRules(nil)
-	assert.Empty(t, langs)
-}
-
-func TestIsExcludedDir_Good(t *testing.T) {
-	tests := []struct {
-		name string
-		want bool
-	}{
-		{"vendor", true},
-		{"node_modules", true},
-		{".git", true},
-		{"testdata", true},
-		{".core", true},
-		{".hidden", true},  // any dot-prefixed dir
-		{".idea", true},    // any dot-prefixed dir
-		{"src", false},
-		{"pkg", false},
-		{"cmd", false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, IsExcludedDir(tt.name))
-		})
-	}
-}
-
-func TestScanFile_Bad_UnrecognisedExtension(t *testing.T) {
+func TestScanDir_Good_SkipsHiddenRootDirectory(t *testing.T) {
 	dir := t.TempDir()
-	file := filepath.Join(dir, "readme.txt")
-	require.NoError(t, os.WriteFile(file, []byte("TODO: fix this"), 0o644))
+	hiddenDir := filepath.Join(dir, ".git")
+	require.NoError(t, os.MkdirAll(hiddenDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(hiddenDir, "main.go"), []byte("// TODO: hidden\n"), 0o644))
 
 	rules := []Rule{
 		{
 			ID:        "test-001",
-			Title:     "Found TODO",
+			Title:     "Found a TODO",
 			Severity:  "low",
 			Languages: []string{"go"},
 			Pattern:   `TODO`,
@@ -267,20 +259,25 @@ func TestScanFile_Bad_UnrecognisedExtension(t *testing.T) {
 	s, err := NewScanner(rules)
 	require.NoError(t, err)
 
-	findings, err := s.ScanFile(file)
+	findings, err := s.ScanDir(hiddenDir)
 	require.NoError(t, err)
-	assert.Empty(t, findings, "should not match unrecognised extensions")
+	assert.Empty(t, findings)
 }
 
-func TestScanFile_Bad_NonexistentFile(t *testing.T) {
+func TestScanDir_Good_SkipsHiddenNestedDirectory(t *testing.T) {
+	dir := t.TempDir()
+	hiddenDir := filepath.Join(dir, "services", ".generated")
+	require.NoError(t, os.MkdirAll(hiddenDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(hiddenDir, "main.go"), []byte("// TODO: hidden\n"), 0o644))
+
 	rules := []Rule{
 		{
 			ID:        "test-001",
-			Title:     "Test",
+			Title:     "Found a TODO",
 			Severity:  "low",
 			Languages: []string{"go"},
 			Pattern:   `TODO`,
-			Fix:       "Fix",
+			Fix:       "Remove TODO",
 			Detection: "regex",
 		},
 	}
@@ -288,8 +285,9 @@ func TestScanFile_Bad_NonexistentFile(t *testing.T) {
 	s, err := NewScanner(rules)
 	require.NoError(t, err)
 
-	_, err = s.ScanFile("/nonexistent/test.go")
-	assert.Error(t, err)
+	findings, err := s.ScanDir(dir)
+	require.NoError(t, err)
+	assert.Empty(t, findings)
 }
 
 func TestScanDir_Bad_NonexistentDir(t *testing.T) {

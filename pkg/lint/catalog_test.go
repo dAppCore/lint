@@ -29,6 +29,38 @@ func TestLoadDir_Good(t *testing.T) {
 	assert.NotNil(t, cat.ByID("go-mod-001"))
 }
 
+func TestLoadDir_SortsFilesDeterministically(t *testing.T) {
+	dir := t.TempDir()
+
+	err := os.WriteFile(filepath.Join(dir, "z.yaml"), []byte(`- id: z-rule
+  title: "Z rule"
+  severity: info
+  languages: [go]
+  pattern: 'z'
+  fix: "z"
+  detection: regex
+  auto_fixable: false
+`), 0o644)
+	require.NoError(t, err)
+
+	err = os.WriteFile(filepath.Join(dir, "a.yaml"), []byte(`- id: a-rule
+  title: "A rule"
+  severity: info
+  languages: [go]
+  pattern: 'a'
+  fix: "a"
+  detection: regex
+  auto_fixable: false
+`), 0o644)
+	require.NoError(t, err)
+
+	cat, err := LoadDir(dir)
+	require.NoError(t, err)
+	require.Len(t, cat.Rules, 2)
+	assert.Equal(t, "a-rule", cat.Rules[0].ID)
+	assert.Equal(t, "z-rule", cat.Rules[1].ID)
+}
+
 func TestLoadDir_Bad_NonexistentDir(t *testing.T) {
 	_, err := LoadDir("/nonexistent/path/that/does/not/exist")
 	assert.Error(t, err)

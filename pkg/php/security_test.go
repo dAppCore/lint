@@ -2,8 +2,11 @@ package php
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -192,7 +195,7 @@ func TestRunSecurityChecks_Summary(t *testing.T) {
 	// Summary should have totals
 	assert.Greater(t, result.Summary.Total, 0)
 	assert.Greater(t, result.Summary.Critical, 0) // at least debug_mode fails
-	assert.Greater(t, result.Summary.High, 0)      // at least https_enforced fails
+	assert.Greater(t, result.Summary.High, 0)     // at least https_enforced fails
 }
 
 func TestRunSecurityChecks_DefaultsDir(t *testing.T) {
@@ -202,9 +205,100 @@ func TestRunSecurityChecks_DefaultsDir(t *testing.T) {
 	assert.NotNil(t, result)
 }
 
+func TestRunSecurityChecks_SeverityFilterCritical(t *testing.T) {
+	dir := t.TempDir()
+	setupSecurityFixture(t, dir, "APP_DEBUG=true\nAPP_KEY=short\nAPP_URL=http://example.com\n")
+
+	result, err := RunSecurityChecks(context.Background(), SecurityOptions{
+		Dir:      dir,
+		Severity: "critical",
+	})
+	require.NoError(t, err)
+
+	require.Len(t, result.Checks, 3)
+	assert.Equal(t, 3, result.Summary.Total)
+	assert.Equal(t, 1, result.Summary.Passed)
+	assert.Equal(t, 2, result.Summary.Critical)
+	assert.Zero(t, result.Summary.High)
+
+	for _, check := range result.Checks {
+		assert.Equal(t, "critical", check.Severity)
+	}
+
+	byID := make(map[string]SecurityCheck)
+	for _, check := range result.Checks {
+		byID[check.ID] = check
+	}
+
+	assert.NotContains(t, byID, "https_enforced")
+	assert.Contains(t, byID, "app_key_set")
+	assert.Contains(t, byID, "composer_audit")
+	assert.Contains(t, byID, "debug_mode")
+}
+
+func TestRunSecurityChecks_URLAddsHeaderCheck(t *testing.T) {
+	dir := t.TempDir()
+	setupSecurityFixture(t, dir, "APP_DEBUG=false\nAPP_KEY=base64:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=\nAPP_URL=https://example.com\n")
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	}))
+	defer server.Close()
+
+	result, err := RunSecurityChecks(context.Background(), SecurityOptions{
+		Dir: dir,
+		URL: server.URL,
+	})
+	require.NoError(t, err)
+
+	byID := make(map[string]SecurityCheck)
+	for _, check := range result.Checks {
+		byID[check.ID] = check
+	}
+
+	headerCheck, ok := byID["http_security_headers"]
+	require.True(t, ok)
+	assert.False(t, headerCheck.Passed)
+	assert.Equal(t, "high", headerCheck.Severity)
+	assert.True(t, strings.Contains(headerCheck.Message, "Missing headers"))
+	assert.NotEmpty(t, headerCheck.Fix)
+
+	assert.Equal(t, 5, result.Summary.Total)
+	assert.Equal(t, 4, result.Summary.Passed)
+	assert.Equal(t, 1, result.Summary.High)
+}
+
+func TestRunSecurityChecks_InvalidSeverity(t *testing.T) {
+	dir := t.TempDir()
+
+	_, err := RunSecurityChecks(context.Background(), SecurityOptions{
+		Dir:      dir,
+		Severity: "banana",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid security severity")
+}
+
 func TestCapitalise(t *testing.T) {
 	assert.Equal(t, "Composer", capitalise("composer"))
 	assert.Equal(t, "Npm", capitalise("npm"))
 	assert.Equal(t, "", capitalise(""))
 	assert.Equal(t, "A", capitalise("a"))
+}
+
+func setupSecurityFixture(t *testing.T, dir string, envContent string) {
+	t.Helper()
+
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".env"), []byte(envContent), 0o644))
+
+	composerBin := filepath.Join(dir, "composer")
+	require.NoError(t, os.WriteFile(composerBin, []byte("#!/bin/sh\ncat <<'JSON'\n{\"advisories\":{}}\nJSON\n"), 0o755))
+
+	oldPath := os.Getenv("PATH")
+	require.NoError(t, os.Setenv("PATH", dir+string(os.PathListSeparator)+oldPath))
+	t.Cleanup(func() {
+		require.NoError(t, os.Setenv("PATH", oldPath))
+	})
 }

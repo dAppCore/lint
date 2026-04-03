@@ -14,8 +14,10 @@ package qa
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 
 	"forge.lthn.ai/core/cli/pkg/cli"
@@ -65,8 +67,10 @@ func addPHPFmtCommand(parent *cli.Command) {
 				return cli.Err("not a PHP project (no composer.json found)")
 			}
 
-			cli.Print("%s %s\n", headerStyle.Render("PHP Format"), dimStyle.Render("(Pint)"))
-			cli.Blank()
+			if !isMachineReadableOutput(phpFmtJSON) {
+				cli.Print("%s %s\n", headerStyle.Render("PHP Format"), dimStyle.Render("(Pint)"))
+				cli.Blank()
+			}
 
 			return php.Format(context.Background(), php.FormatOptions{
 				Dir:  cwd,
@@ -111,8 +115,10 @@ func addPHPStanCommand(parent *cli.Command) {
 				return cli.Err("no static analyser found (install PHPStan: composer require phpstan/phpstan --dev)")
 			}
 
-			cli.Print("%s %s\n", headerStyle.Render("PHP Static Analysis"), dimStyle.Render(fmt.Sprintf("(%s)", analyser)))
-			cli.Blank()
+			if !isMachineReadableOutput(phpStanJSON, phpStanSARIF) {
+				cli.Print("%s %s\n", headerStyle.Render("PHP Static Analysis"), dimStyle.Render(fmt.Sprintf("(%s)", analyser)))
+				cli.Blank()
+			}
 
 			err = php.Analyse(context.Background(), php.AnalyseOptions{
 				Dir:    cwd,
@@ -125,8 +131,10 @@ func addPHPStanCommand(parent *cli.Command) {
 				return cli.Err("static analysis found issues")
 			}
 
-			cli.Blank()
-			cli.Print("%s\n", successStyle.Render("Static analysis passed"))
+			if !isMachineReadableOutput(phpStanJSON, phpStanSARIF) {
+				cli.Blank()
+				cli.Print("%s\n", successStyle.Render("Static analysis passed"))
+			}
 			return nil
 		},
 	}
@@ -168,8 +176,10 @@ func addPHPPsalmCommand(parent *cli.Command) {
 				return cli.Err("Psalm not found (install: composer require vimeo/psalm --dev)")
 			}
 
-			cli.Print("%s\n", headerStyle.Render("PHP Psalm Analysis"))
-			cli.Blank()
+			if !isMachineReadableOutput(phpPsalmJSON, phpPsalmSARIF) {
+				cli.Print("%s\n", headerStyle.Render("PHP Psalm Analysis"))
+				cli.Blank()
+			}
 
 			err = php.RunPsalm(context.Background(), php.PsalmOptions{
 				Dir:      cwd,
@@ -184,8 +194,10 @@ func addPHPPsalmCommand(parent *cli.Command) {
 				return cli.Err("Psalm found issues")
 			}
 
-			cli.Blank()
-			cli.Print("%s\n", successStyle.Render("Psalm analysis passed"))
+			if !isMachineReadableOutput(phpPsalmJSON, phpPsalmSARIF) {
+				cli.Blank()
+				cli.Print("%s\n", successStyle.Render("Psalm analysis passed"))
+			}
 			return nil
 		},
 	}
@@ -220,8 +232,10 @@ func addPHPAuditCommand(parent *cli.Command) {
 				return cli.Err("not a PHP project (no composer.json found)")
 			}
 
-			cli.Print("%s\n", headerStyle.Render("Dependency Audit"))
-			cli.Blank()
+			if !isMachineReadableOutput(phpAuditJSON) {
+				cli.Print("%s\n", headerStyle.Render("Dependency Audit"))
+				cli.Blank()
+			}
 
 			results, err := php.RunAudit(context.Background(), php.AuditOptions{
 				Dir:  cwd,
@@ -230,6 +244,20 @@ func addPHPAuditCommand(parent *cli.Command) {
 			})
 			if err != nil {
 				return err
+			}
+
+			if phpAuditJSON {
+				payload := mapAuditResultsForJSON(results)
+				data, err := json.MarshalIndent(payload, "", "  ")
+				if err != nil {
+					return err
+				}
+				cli.Print("%s\n", string(data))
+
+				if payload.HasVulnerabilities {
+					return cli.Err("vulnerabilities found in dependencies")
+				}
+				return nil
 			}
 
 			hasVulns := false
@@ -293,8 +321,10 @@ func addPHPSecurityCommand(parent *cli.Command) {
 				return cli.Err("not a PHP project (no composer.json found)")
 			}
 
-			cli.Print("%s\n", headerStyle.Render("Security Checks"))
-			cli.Blank()
+			if !isMachineReadableOutput(phpSecurityJSON, phpSecuritySARIF) {
+				cli.Print("%s\n", headerStyle.Render("Security Checks"))
+				cli.Blank()
+			}
 
 			result, err := php.RunSecurityChecks(context.Background(), php.SecurityOptions{
 				Dir:      cwd,
@@ -305,6 +335,36 @@ func addPHPSecurityCommand(parent *cli.Command) {
 			})
 			if err != nil {
 				return err
+			}
+
+			result.Checks = sortSecurityChecks(result.Checks)
+
+			if phpSecuritySARIF {
+				data, err := json.MarshalIndent(mapSecurityResultForSARIF(result), "", "  ")
+				if err != nil {
+					return err
+				}
+				cli.Print("%s\n", string(data))
+
+				summary := result.Summary
+				if summary.Critical > 0 || summary.High > 0 {
+					return cli.Err("security checks failed")
+				}
+				return nil
+			}
+
+			if phpSecurityJSON {
+				data, err := json.MarshalIndent(result, "", "  ")
+				if err != nil {
+					return err
+				}
+				cli.Print("%s\n", string(data))
+
+				summary := result.Summary
+				if summary.Critical > 0 || summary.High > 0 {
+					return cli.Err("security checks failed")
+				}
+				return nil
 			}
 
 			// Print each check result
@@ -361,6 +421,74 @@ func addPHPSecurityCommand(parent *cli.Command) {
 	cmd.Flags().StringVar(&phpSecurityURL, "url", "", "URL to check HTTP security headers")
 
 	parent.AddCommand(cmd)
+}
+
+type auditJSONOutput struct {
+	Results            []auditResultJSON `json:"results"`
+	HasVulnerabilities bool              `json:"has_vulnerabilities"`
+	Vulnerabilities    int               `json:"vulnerabilities"`
+}
+
+type auditResultJSON struct {
+	Tool            string              `json:"tool"`
+	Vulnerabilities int                 `json:"vulnerabilities"`
+	Advisories      []auditAdvisoryJSON `json:"advisories"`
+	Error           string              `json:"error,omitempty"`
+}
+
+type auditAdvisoryJSON struct {
+	Package     string   `json:"package"`
+	Severity    string   `json:"severity,omitempty"`
+	Title       string   `json:"title,omitempty"`
+	URL         string   `json:"url,omitempty"`
+	Identifiers []string `json:"identifiers,omitempty"`
+}
+
+func mapAuditResultsForJSON(results []php.AuditResult) auditJSONOutput {
+	output := auditJSONOutput{
+		Results: make([]auditResultJSON, 0, len(results)),
+	}
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].Tool < results[j].Tool
+	})
+
+	for _, result := range results {
+		entry := auditResultJSON{
+			Tool:            result.Tool,
+			Vulnerabilities: result.Vulnerabilities,
+		}
+		if result.Error != nil {
+			entry.Error = result.Error.Error()
+		}
+		entry.Advisories = make([]auditAdvisoryJSON, 0, len(result.Advisories))
+		for _, advisory := range result.Advisories {
+			entry.Advisories = append(entry.Advisories, auditAdvisoryJSON{
+				Package:     advisory.Package,
+				Severity:    advisory.Severity,
+				Title:       advisory.Title,
+				URL:         advisory.URL,
+				Identifiers: append([]string(nil), advisory.Identifiers...),
+			})
+		}
+		sort.Slice(entry.Advisories, func(i, j int) bool {
+			if entry.Advisories[i].Package == entry.Advisories[j].Package {
+				return entry.Advisories[i].Title < entry.Advisories[j].Title
+			}
+			return entry.Advisories[i].Package < entry.Advisories[j].Package
+		})
+		output.Results = append(output.Results, entry)
+		output.Vulnerabilities += entry.Vulnerabilities
+	}
+
+	output.HasVulnerabilities = output.Vulnerabilities > 0
+	return output
+}
+
+func sortSecurityChecks(checks []php.SecurityCheck) []php.SecurityCheck {
+	sort.Slice(checks, func(i, j int) bool {
+		return checks[i].ID < checks[j].ID
+	})
+	return checks
 }
 
 // PHP rector command flags.
@@ -499,8 +627,10 @@ func addPHPTestCommand(parent *cli.Command) {
 			}
 
 			runner := php.DetectTestRunner(cwd)
-			cli.Print("%s %s\n", headerStyle.Render("PHP Tests"), dimStyle.Render(fmt.Sprintf("(%s)", runner)))
-			cli.Blank()
+			if !isMachineReadableOutput(phpTestJUnit) {
+				cli.Print("%s %s\n", headerStyle.Render("PHP Tests"), dimStyle.Render(fmt.Sprintf("(%s)", runner)))
+				cli.Blank()
+			}
 
 			var groups []string
 			if phpTestGroup != "" {
@@ -519,8 +649,10 @@ func addPHPTestCommand(parent *cli.Command) {
 				return cli.Err("tests failed")
 			}
 
-			cli.Blank()
-			cli.Print("%s\n", successStyle.Render("All tests passed"))
+			if !isMachineReadableOutput(phpTestJUnit) {
+				cli.Blank()
+				cli.Print("%s\n", successStyle.Render("All tests passed"))
+			}
 			return nil
 		},
 	}
@@ -547,5 +679,126 @@ func getSeverityStyle(severity string) *cli.AnsiStyle {
 		return lowStyle
 	default:
 		return dimStyle
+	}
+}
+
+func isMachineReadableOutput(flags ...bool) bool {
+	for _, flag := range flags {
+		if flag {
+			return true
+		}
+	}
+	return false
+}
+
+type sarifLog struct {
+	Version string     `json:"version"`
+	Schema  string     `json:"$schema"`
+	Runs    []sarifRun `json:"runs"`
+}
+
+type sarifRun struct {
+	Tool    sarifTool     `json:"tool"`
+	Results []sarifResult `json:"results"`
+}
+
+type sarifTool struct {
+	Driver sarifDriver `json:"driver"`
+}
+
+type sarifDriver struct {
+	Name  string      `json:"name"`
+	Rules []sarifRule `json:"rules"`
+}
+
+type sarifRule struct {
+	ID               string       `json:"id"`
+	Name             string       `json:"name"`
+	ShortDescription sarifMessage `json:"shortDescription"`
+	FullDescription  sarifMessage `json:"fullDescription"`
+	Help             sarifMessage `json:"help,omitempty"`
+	Properties       any          `json:"properties,omitempty"`
+}
+
+type sarifResult struct {
+	RuleID     string       `json:"ruleId"`
+	Level      string       `json:"level"`
+	Message    sarifMessage `json:"message"`
+	Properties any          `json:"properties,omitempty"`
+}
+
+type sarifMessage struct {
+	Text string `json:"text"`
+}
+
+func mapSecurityResultForSARIF(result *php.SecurityResult) sarifLog {
+	rules := make([]sarifRule, 0, len(result.Checks))
+	sarifResults := make([]sarifResult, 0, len(result.Checks))
+
+	for _, check := range result.Checks {
+		rule := sarifRule{
+			ID:               check.ID,
+			Name:             check.Name,
+			ShortDescription: sarifMessage{Text: check.Name},
+			FullDescription:  sarifMessage{Text: check.Description},
+		}
+		if check.Fix != "" {
+			rule.Help = sarifMessage{Text: check.Fix}
+		}
+		if check.CWE != "" {
+			rule.Properties = map[string]any{"cwe": check.CWE}
+		}
+		rules = append(rules, rule)
+
+		if check.Passed {
+			continue
+		}
+
+		message := check.Message
+		if message == "" {
+			message = check.Description
+		}
+
+		properties := map[string]any{
+			"severity": check.Severity,
+		}
+		if check.CWE != "" {
+			properties["cwe"] = check.CWE
+		}
+		if check.Fix != "" {
+			properties["fix"] = check.Fix
+		}
+
+		sarifResults = append(sarifResults, sarifResult{
+			RuleID:     check.ID,
+			Level:      sarifLevel(check.Severity),
+			Message:    sarifMessage{Text: message},
+			Properties: properties,
+		})
+	}
+
+	return sarifLog{
+		Version: "2.1.0",
+		Schema:  "https://json.schemastore.org/sarif-2.1.0.json",
+		Runs: []sarifRun{{
+			Tool: sarifTool{
+				Driver: sarifDriver{
+					Name:  "core qa security",
+					Rules: rules,
+				},
+			},
+			Results: sarifResults,
+		}},
+	}
+}
+
+func sarifLevel(severity string) string {
+	switch strings.ToLower(severity) {
+	case "critical", "high":
+		return "error"
+	case "medium":
+		return "warning"
+	default:
+		return "note"
 	}
 }

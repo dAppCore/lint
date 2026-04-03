@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+
+printf '%s\n' '{"tool":"psalm","issues":[{"file":"src/Bad.php","line":3,"message":"Undefined variable $anotherMissingVariable"}]}'
+exit 1

@@ -1,12 +1,14 @@
 package php
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 
 	coreerr "forge.lthn.ai/core/go-log"
 )
@@ -102,6 +104,7 @@ func runComposerAudit(ctx context.Context, opts AuditOptions) AuditResult {
 				})
 			}
 		}
+		sortAuditAdvisories(result.Advisories)
 		result.Vulnerabilities = len(result.Advisories)
 	} else if err != nil {
 		result.Error = err
@@ -150,10 +153,22 @@ func runNpmAudit(ctx context.Context, opts AuditOptions) AuditResult {
 					Severity: vuln.Severity,
 				})
 			}
+			sortAuditAdvisories(result.Advisories)
 		} else if err != nil {
 			result.Error = err
 		}
 	}
 
 	return result
+}
+
+func sortAuditAdvisories(advisories []AuditAdvisory) {
+	slices.SortFunc(advisories, func(a, b AuditAdvisory) int {
+		return cmp.Or(
+			cmp.Compare(a.Package, b.Package),
+			cmp.Compare(a.Title, b.Title),
+			cmp.Compare(a.Severity, b.Severity),
+			cmp.Compare(a.URL, b.URL),
+		)
+	})
 }

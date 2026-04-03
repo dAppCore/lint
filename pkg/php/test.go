@@ -1,6 +1,7 @@
 package php
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"os"
@@ -32,6 +33,9 @@ type TestOptions struct {
 
 	// JUnit outputs results in JUnit XML format via --log-junit.
 	JUnit bool
+
+	// JUnitPath overrides the JUnit report path. Defaults to test-results.xml.
+	JUnitPath string
 
 	// Output is the writer for test output (defaults to os.Stdout).
 	Output io.Writer
@@ -73,6 +77,18 @@ func RunTests(ctx context.Context, opts TestOptions) error {
 		opts.Output = os.Stdout
 	}
 
+	if opts.JUnit && opts.JUnitPath == "" {
+		reportFile, err := os.CreateTemp("", "core-qa-junit-*.xml")
+		if err != nil {
+			return coreerr.E("php.RunTests", "create JUnit report file", err)
+		}
+		if closeErr := reportFile.Close(); closeErr != nil {
+			return coreerr.E("php.RunTests", "close JUnit report file", closeErr)
+		}
+		opts.JUnitPath = reportFile.Name()
+		defer os.Remove(opts.JUnitPath)
+	}
+
 	// Detect test runner
 	runner := DetectTestRunner(opts.Dir)
 
@@ -89,14 +105,27 @@ func RunTests(ctx context.Context, opts TestOptions) error {
 
 	cmd := exec.CommandContext(ctx, cmdName, args...)
 	cmd.Dir = opts.Dir
-	cmd.Stdout = opts.Output
-	cmd.Stderr = opts.Output
 	cmd.Stdin = os.Stdin
 
 	// Set XDEBUG_MODE=coverage to avoid PHPUnit 11 warning
 	cmd.Env = append(os.Environ(), "XDEBUG_MODE=coverage")
 
-	return cmd.Run()
+	if !opts.JUnit {
+		cmd.Stdout = opts.Output
+		cmd.Stderr = opts.Output
+		return cmd.Run()
+	}
+
+	var machineOutput bytes.Buffer
+	cmd.Stdout = &machineOutput
+	cmd.Stderr = &machineOutput
+
+	runErr := cmd.Run()
+	reportErr := emitJUnitReport(opts.Output, opts.JUnitPath)
+	if runErr != nil {
+		return runErr
+	}
+	return reportErr
 }
 
 // RunParallel runs tests in parallel using the appropriate runner.
@@ -140,7 +169,7 @@ func buildPestCommand(opts TestOptions) (string, []string) {
 	}
 
 	if opts.JUnit {
-		args = append(args, "--log-junit", "test-results.xml")
+		args = append(args, "--log-junit", junitReportPath(opts))
 	}
 
 	return cmdName, args
@@ -185,8 +214,34 @@ func buildPHPUnitCommand(opts TestOptions) (string, []string) {
 	}
 
 	if opts.JUnit {
-		args = append(args, "--log-junit", "test-results.xml", "--testdox")
+		args = append(args, "--log-junit", junitReportPath(opts))
 	}
 
 	return cmdName, args
+}
+
+func junitReportPath(opts TestOptions) string {
+	if opts.JUnitPath != "" {
+		return opts.JUnitPath
+	}
+	return "test-results.xml"
+}
+
+func emitJUnitReport(output io.Writer, reportPath string) error {
+	report, err := os.ReadFile(reportPath)
+	if err != nil {
+		return coreerr.E("php.emitJUnitReport", "read JUnit report", err)
+	}
+
+	if _, err := output.Write(report); err != nil {
+		return coreerr.E("php.emitJUnitReport", "write JUnit report", err)
+	}
+
+	if len(report) == 0 || report[len(report)-1] != '\n' {
+		if _, err := io.WriteString(output, "\n"); err != nil {
+			return coreerr.E("php.emitJUnitReport", "terminate JUnit report", err)
+		}
+	}
+
+	return nil
 }
