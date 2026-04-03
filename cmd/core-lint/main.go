@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"forge.lthn.ai/core/cli/pkg/cli"
+	coreio "forge.lthn.ai/core/go-io"
 	coreerr "forge.lthn.ai/core/go-log"
 	cataloglint "forge.lthn.ai/core/lint"
 	lintpkg "forge.lthn.ai/core/lint/pkg/lint"

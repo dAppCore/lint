@@ -8,13 +8,13 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	coreio "forge.lthn.ai/core/go-io"
 	coreerr "forge.lthn.ai/core/go-log"
 )
 
 // fileExists reports whether the named file or directory exists.
 func fileExists(path string) bool {
-	_, err := os.Stat(path)
-	return err == nil
+	return coreio.Local.Exists(path)
 }
 
 // FormatOptions configures PHP code formatting.

@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"forge.lthn.ai/core/cli/pkg/cli"
+	coreio "forge.lthn.ai/core/go-io"
 	"forge.lthn.ai/core/go-i18n"
 )
 
@@ -260,7 +261,7 @@ func expandPatterns(patterns []string) ([]string, error) {
 
 // hasGoFiles checks if a directory contains Go files.
 func hasGoFiles(dir string) bool {
-	entries, err := os.ReadDir(dir)
+	entries, err := coreio.Local.List(dir)
 	if err != nil {
 		return false
 	}
