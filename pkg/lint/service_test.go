@@ -501,6 +501,32 @@ exit 0
 	assert.Equal(t, "prettier 3.2.1", report.Tools[0].Version)
 }
 
+func TestServiceRun_Good_ReportsMissingToolAsInfoFinding(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "composer.json"), []byte("{\n  \"name\": \"example/test\"\n}\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "index.php"), []byte("<?php\n"), 0o644))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".core"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".core", "lint.yaml"), []byte("lint:\n  php:\n    - missing-tool\n"), 0o644))
+
+	svc := &Service{adapters: []Adapter{
+		newCommandAdapter("missing-tool", []string{"definitely-not-installed-xyz"}, []string{"php"}, "correctness", "", false, true, projectPathArguments(), parseTextDiagnostics),
+	}}
+	report, err := svc.Run(context.Background(), RunInput{
+		Path:   dir,
+		FailOn: "warning",
+	})
+	require.NoError(t, err)
+
+	require.Len(t, report.Tools, 1)
+	require.Len(t, report.Findings, 1)
+	assert.Equal(t, "skipped", report.Tools[0].Status)
+	assert.Equal(t, "info", report.Findings[0].Severity)
+	assert.Equal(t, "missing-tool", report.Findings[0].Code)
+	assert.Equal(t, "definitely-not-installed-xyz is not installed", report.Findings[0].Message)
+	assert.Equal(t, 1, report.Summary.Info)
+	assert.True(t, report.Summary.Passed)
+}
+
 func TestServiceRun_Good_DeduplicatesMergedFindings(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/test\n"), 0o644))

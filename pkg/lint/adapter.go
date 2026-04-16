@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os/exec"
 	"path/filepath"
@@ -166,6 +167,18 @@ func (adapter CommandAdapter) Run(ctx context.Context, input RunInput, files []s
 	if !ok {
 		result.Tool.Status = "skipped"
 		result.Tool.Duration = "0s"
+		missingName := firstNonEmpty(adapter.Command(), adapter.name)
+		if missingName == "" {
+			missingName = adapter.name
+		}
+		result.Findings = []Finding{{
+			Tool:     adapter.name,
+			Severity: "info",
+			Code:     "missing-tool",
+			Message:  fmt.Sprintf("%s is not installed", missingName),
+			Category: adapter.category,
+		}}
+		result.Tool.Findings = len(result.Findings)
 		return result
 	}
 
