@@ -193,6 +193,58 @@ func TestWriteReportSARIF_Good_MapsInfoToNote(t *testing.T) {
 	assert.Equal(t, "note", results[0].(map[string]any)["level"])
 }
 
+func TestWriteReportJSON_Good_Roundtrip(t *testing.T) {
+	var buf bytes.Buffer
+
+	err := WriteReportJSON(&buf, Report{
+		Project:   "demo",
+		Languages: []string{"go"},
+		Findings: []Finding{{
+			Tool:     "demo",
+			File:     "example.go",
+			Line:     7,
+			Column:   3,
+			Severity: "warning",
+			Code:     "demo-rule",
+			Message:  "explanation",
+		}},
+		Summary: Summary{Total: 1, Warnings: 1, Passed: true},
+	})
+	require.NoError(t, err)
+
+	var decoded Report
+	require.NoError(t, json.Unmarshal(buf.Bytes(), &decoded))
+	assert.Equal(t, "demo", decoded.Project)
+	assert.Equal(t, []string{"go"}, decoded.Languages)
+	require.Len(t, decoded.Findings, 1)
+	assert.Equal(t, "demo-rule", decoded.Findings[0].Code)
+	assert.Equal(t, 1, decoded.Summary.Total)
+	assert.Equal(t, 1, decoded.Summary.Warnings)
+}
+
+func TestWriteReportText_Good_IncludesSummary(t *testing.T) {
+	var buf bytes.Buffer
+
+	err := WriteReportText(&buf, Report{
+		Findings: sampleFindings(),
+		Summary:  Summarise(sampleFindings()),
+	})
+	require.NoError(t, err)
+
+	output := buf.String()
+	assert.Contains(t, output, "store/query.go:42")
+	assert.Contains(t, output, "3 finding(s):")
+	assert.Contains(t, output, "0 error(s), 3 warning(s), 0 info")
+}
+
+func TestWriteReportText_Bad_PropagatesWriterErrors(t *testing.T) {
+	err := WriteReportText(failingWriter{}, Report{
+		Findings: sampleFindings(),
+		Summary:  Summarise(sampleFindings()),
+	})
+	require.Error(t, err)
+}
+
 type failingWriter struct{}
 
 func (failingWriter) Write([]byte) (int, error) {
