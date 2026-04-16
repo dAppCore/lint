@@ -3,6 +3,7 @@ package lint
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 
@@ -118,7 +119,8 @@ func TestWriteJSONL_Good_Empty(t *testing.T) {
 func TestWriteText_Good(t *testing.T) {
 	findings := sampleFindings()
 	var buf bytes.Buffer
-	WriteText(&buf, findings)
+	err := WriteText(&buf, findings)
+	require.NoError(t, err)
 
 	output := buf.String()
 	assert.Contains(t, output, "store/query.go:42")
@@ -131,14 +133,15 @@ func TestWriteText_Good(t *testing.T) {
 
 func TestWriteText_Good_Empty(t *testing.T) {
 	var buf bytes.Buffer
-	WriteText(&buf, nil)
+	err := WriteText(&buf, nil)
+	require.NoError(t, err)
 	assert.Empty(t, buf.String())
 }
 
 func TestWriteReportGitHub_Good_MapsInfoToNotice(t *testing.T) {
 	var buf bytes.Buffer
 
-	WriteReportGitHub(&buf, Report{
+	err := WriteReportGitHub(&buf, Report{
 		Findings: []Finding{{
 			Tool:     "demo",
 			File:     "example.go",
@@ -149,8 +152,21 @@ func TestWriteReportGitHub_Good_MapsInfoToNotice(t *testing.T) {
 			Message:  "explanation",
 		}},
 	})
+	require.NoError(t, err)
 
 	assert.Contains(t, buf.String(), "::notice file=example.go,line=7,col=3::[demo] explanation (demo-rule)")
+}
+
+func TestWriteText_Bad_PropagatesWriterErrors(t *testing.T) {
+	err := WriteText(failingWriter{}, sampleFindings())
+	require.Error(t, err)
+}
+
+func TestWriteReportGitHub_Bad_PropagatesWriterErrors(t *testing.T) {
+	err := WriteReportGitHub(failingWriter{}, Report{
+		Findings: sampleFindings(),
+	})
+	require.Error(t, err)
 }
 
 func TestWriteReportSARIF_Good_MapsInfoToNote(t *testing.T) {
@@ -175,4 +191,10 @@ func TestWriteReportSARIF_Good_MapsInfoToNote(t *testing.T) {
 	runs := decoded["runs"].([]any)
 	results := runs[0].(map[string]any)["results"].([]any)
 	assert.Equal(t, "note", results[0].(map[string]any)["level"])
+}
+
+type failingWriter struct{}
+
+func (failingWriter) Write([]byte) (int, error) {
+	return 0, errors.New("write failed")
 }

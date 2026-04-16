@@ -323,7 +323,9 @@ func newCheckCommand() *cli.Command {
 			}
 			return lintpkg.WriteReportSARIF(command.OutOrStdout(), report)
 		default:
-			lintpkg.WriteText(command.OutOrStdout(), findings)
+			if err := lintpkg.WriteText(command.OutOrStdout(), findings); err != nil {
+				return err
+			}
 			if format == "text" && len(findings) > 0 {
 				writeCatalogSummary(command.OutOrStdout(), findings)
 			}
@@ -405,11 +407,9 @@ func writeReport(writer io.Writer, output string, report lintpkg.Report) error {
 	case "json":
 		return lintpkg.WriteReportJSON(writer, report)
 	case "text":
-		lintpkg.WriteReportText(writer, report)
-		return nil
+		return lintpkg.WriteReportText(writer, report)
 	case "github":
-		lintpkg.WriteReportGitHub(writer, report)
-		return nil
+		return lintpkg.WriteReportGitHub(writer, report)
 	case "sarif":
 		return lintpkg.WriteReportSARIF(writer, report)
 	default:
