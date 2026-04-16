@@ -91,7 +91,6 @@ func newRunCommand(commandName string, summary string, defaults lintpkg.RunInput
 		if err != nil {
 			return err
 		}
-		report = stripMissingToolFindings(report)
 
 		if err := writeReport(command.OutOrStdout(), input.Output, report); err != nil {
 			return err
@@ -422,30 +421,6 @@ func writeIndentedJSON(writer io.Writer, value any) error {
 	encoder := json.NewEncoder(writer)
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(value)
-}
-
-func stripMissingToolFindings(report lintpkg.Report) lintpkg.Report {
-	if len(report.Findings) == 0 {
-		return report
-	}
-	passed := report.Summary.Passed
-
-	filtered := make([]lintpkg.Finding, 0, len(report.Findings))
-	for _, finding := range report.Findings {
-		if finding.Code == "missing-tool" {
-			continue
-		}
-		filtered = append(filtered, finding)
-	}
-
-	if len(filtered) == len(report.Findings) {
-		return report
-	}
-
-	report.Findings = filtered
-	report.Summary = lintpkg.Summarise(filtered)
-	report.Summary.Passed = passed
-	return report
 }
 
 func writeCatalogSummary(writer io.Writer, findings []lintpkg.Finding) {
