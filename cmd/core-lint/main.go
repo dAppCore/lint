@@ -327,7 +327,9 @@ func newCheckCommand() *cli.Command {
 				return err
 			}
 			if format == "text" && len(findings) > 0 {
-				writeCatalogSummary(command.OutOrStdout(), findings)
+				if err := writeCatalogSummary(command.OutOrStdout(), findings); err != nil {
+					return err
+				}
 			}
 			return nil
 		}
@@ -423,9 +425,11 @@ func writeIndentedJSON(writer io.Writer, value any) error {
 	return encoder.Encode(value)
 }
 
-func writeCatalogSummary(writer io.Writer, findings []lintpkg.Finding) {
+func writeCatalogSummary(writer io.Writer, findings []lintpkg.Finding) error {
 	summary := lintpkg.Summarise(findings)
-	fmt.Fprintf(writer, "\n%d finding(s)", summary.Total)
+	if _, err := fmt.Fprintf(writer, "\n%d finding(s)", summary.Total); err != nil {
+		return err
+	}
 
 	orderedSeverities := []string{"critical", "high", "medium", "low", "info", "error", "warning"}
 	seen := make(map[string]bool, len(summary.BySeverity))
@@ -457,7 +461,12 @@ func writeCatalogSummary(writer io.Writer, findings []lintpkg.Finding) {
 	}
 
 	if len(parts) > 0 {
-		fmt.Fprintf(writer, " (%s)", strings.Join(parts, ", "))
+		if _, err := fmt.Fprintf(writer, " (%s)", strings.Join(parts, ", ")); err != nil {
+			return err
+		}
 	}
-	fmt.Fprintln(writer)
+	if _, err := fmt.Fprintln(writer); err != nil {
+		return err
+	}
+	return nil
 }
