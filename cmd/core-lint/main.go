@@ -11,8 +11,8 @@ import (
 
 	"forge.lthn.ai/core/cli/pkg/cli"
 	coreerr "forge.lthn.ai/core/go-log"
-	cataloglint "forge.lthn.ai/core/lint"
-	lintpkg "forge.lthn.ai/core/lint/pkg/lint"
+	cataloglint "dappco.re/go/core/lint"
+	lintpkg "dappco.re/go/core/lint/pkg/lint"
 )
 
 func main() {

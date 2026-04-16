@@ -10,7 +10,7 @@ import (
 	"sync"
 	"testing"
 
-	lintpkg "forge.lthn.ai/core/lint/pkg/lint"
+	lintpkg "dappco.re/go/core/lint/pkg/lint"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

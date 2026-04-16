@@ -21,8 +21,8 @@ import (
 	"strings"
 
 	"forge.lthn.ai/core/cli/pkg/cli"
-	"forge.lthn.ai/core/lint/pkg/detect"
-	"forge.lthn.ai/core/lint/pkg/php"
+	"dappco.re/go/core/lint/pkg/detect"
+	"dappco.re/go/core/lint/pkg/php"
 )
 
 // Severity styles for security output.

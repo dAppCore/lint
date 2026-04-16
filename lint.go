@@ -4,7 +4,7 @@ package lint
 import (
 	"embed"
 
-	lintpkg "forge.lthn.ai/core/lint/pkg/lint"
+	lintpkg "dappco.re/go/core/lint/pkg/lint"
 )
 
 //go:embed catalog/*.yaml
