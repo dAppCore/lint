@@ -265,14 +265,18 @@ func newCheckCommand() *cli.Command {
 		if language != "" {
 			rules = catalog.ForLanguage(language)
 			if len(rules) == 0 {
-				fmt.Fprintf(os.Stderr, "no rules for language %q\n", language)
+				if _, err := fmt.Fprintf(os.Stderr, "no rules for language %q\n", language); err != nil {
+					return err
+				}
 				return nil
 			}
 		}
 		if severity != "" {
 			filtered := (&lintpkg.Catalog{Rules: rules}).AtSeverity(severity)
 			if len(filtered) == 0 {
-				fmt.Fprintf(os.Stderr, "no rules at severity %q or above\n", severity)
+				if _, err := fmt.Fprintf(os.Stderr, "no rules at severity %q or above\n", severity); err != nil {
+					return err
+				}
 				return nil
 			}
 			rules = filtered
