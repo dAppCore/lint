@@ -566,6 +566,38 @@ func TestServiceTools_EmptyInventoryReturnsEmptySlice(t *testing.T) {
 	assert.Empty(t, tools)
 }
 
+func TestServiceRun_Good_StopsDispatchingAfterContextCancel(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "composer.json"), []byte("{\n  \"name\": \"example/test\"\n}\n"), 0o644))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".core"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".core", "lint.yaml"), []byte(`lint:
+  php:
+    - first
+    - second
+`), 0o644))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var secondRan bool
+	svc := &Service{adapters: []Adapter{
+		cancellingAdapter{name: "first", cancel: cancel},
+		recordingAdapter{name: "second", ran: &secondRan},
+	}}
+
+	report, err := svc.Run(ctx, RunInput{
+		Path:   dir,
+		Lang:   "php",
+		FailOn: "warning",
+	})
+	require.NoError(t, err)
+
+	require.Len(t, report.Tools, 1)
+	assert.Equal(t, "first", report.Tools[0].Name)
+	assert.False(t, secondRan)
+	assert.Empty(t, report.Findings)
+}
+
 type shortcutAdapter struct {
 	name     string
 	category string
@@ -590,6 +622,92 @@ func (adapter shortcutAdapter) Category() string { return adapter.category }
 func (adapter shortcutAdapter) Fast() bool { return true }
 
 func (adapter shortcutAdapter) Run(_ context.Context, _ RunInput, _ []string) AdapterResult {
+	return AdapterResult{
+		Tool: ToolRun{
+			Name:     adapter.name,
+			Status:   "passed",
+			Duration: "0s",
+		},
+	}
+}
+
+type recordingAdapter struct {
+	name string
+	ran  *bool
+}
+
+func (adapter recordingAdapter) Name() string { return adapter.name }
+
+func (adapter recordingAdapter) Available() bool { return true }
+
+func (adapter recordingAdapter) Languages() []string { return []string{"php"} }
+
+func (adapter recordingAdapter) Command() string { return adapter.name }
+
+func (adapter recordingAdapter) Entitlement() string { return "" }
+
+func (adapter recordingAdapter) RequiresEntitlement() bool { return false }
+
+func (adapter recordingAdapter) MatchesLanguage(languages []string) bool {
+	for _, language := range languages {
+		if language == "php" {
+			return true
+		}
+	}
+	return false
+}
+
+func (adapter recordingAdapter) Category() string { return "correctness" }
+
+func (adapter recordingAdapter) Fast() bool { return true }
+
+func (adapter recordingAdapter) Run(_ context.Context, _ RunInput, _ []string) AdapterResult {
+	if adapter.ran != nil {
+		*adapter.ran = true
+	}
+	return AdapterResult{
+		Tool: ToolRun{
+			Name:     adapter.name,
+			Status:   "passed",
+			Duration: "0s",
+		},
+	}
+}
+
+type cancellingAdapter struct {
+	name   string
+	cancel context.CancelFunc
+}
+
+func (adapter cancellingAdapter) Name() string { return adapter.name }
+
+func (adapter cancellingAdapter) Available() bool { return true }
+
+func (adapter cancellingAdapter) Languages() []string { return []string{"php"} }
+
+func (adapter cancellingAdapter) Command() string { return adapter.name }
+
+func (adapter cancellingAdapter) Entitlement() string { return "" }
+
+func (adapter cancellingAdapter) RequiresEntitlement() bool { return false }
+
+func (adapter cancellingAdapter) MatchesLanguage(languages []string) bool {
+	for _, language := range languages {
+		if language == "php" {
+			return true
+		}
+	}
+	return false
+}
+
+func (adapter cancellingAdapter) Category() string { return "correctness" }
+
+func (adapter cancellingAdapter) Fast() bool { return true }
+
+func (adapter cancellingAdapter) Run(_ context.Context, _ RunInput, _ []string) AdapterResult {
+	if adapter.cancel != nil {
+		adapter.cancel()
+	}
 	return AdapterResult{
 		Tool: ToolRun{
 			Name:     adapter.name,

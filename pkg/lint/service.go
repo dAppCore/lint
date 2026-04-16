@@ -144,6 +144,9 @@ func (service *Service) Run(ctx context.Context, input RunInput) (Report, error)
 	var toolRuns []ToolRun
 
 	for _, adapter := range selectedAdapters {
+		if err := ctx.Err(); err != nil {
+			break
+		}
 		if input.Hook && !adapter.Fast() {
 			toolRuns = append(toolRuns, ToolRun{
 				Name:     adapter.Name(),

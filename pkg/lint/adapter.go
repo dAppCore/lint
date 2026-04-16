@@ -206,6 +206,15 @@ func (adapter CommandAdapter) Run(ctx context.Context, input RunInput, files []s
 		}
 	}
 
+	if err := runContext.Err(); err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			result.Tool.Status = "timeout"
+		} else {
+			result.Tool.Status = "canceled"
+		}
+		return result
+	}
+
 	if adapter.parseOutput != nil && output != "" {
 		result.Findings = adapter.parseOutput(adapter.name, adapter.category, output)
 	}
@@ -300,7 +309,7 @@ func (CatalogAdapter) Category() string { return "correctness" }
 
 func (CatalogAdapter) Fast() bool { return true }
 
-func (CatalogAdapter) Run(_ context.Context, input RunInput, files []string) AdapterResult {
+func (CatalogAdapter) Run(ctx context.Context, input RunInput, files []string) AdapterResult {
 	startedAt := time.Now()
 	result := AdapterResult{
 		Tool: ToolRun{
@@ -346,6 +355,9 @@ func (CatalogAdapter) Run(_ context.Context, input RunInput, files []string) Ada
 	var findings []Finding
 	if len(files) > 0 {
 		for _, file := range files {
+			if err := ctx.Err(); err != nil {
+				break
+			}
 			scanPath := file
 			if !filepath.IsAbs(scanPath) {
 				scanPath = filepath.Join(input.Path, file)
@@ -357,7 +369,20 @@ func (CatalogAdapter) Run(_ context.Context, input RunInput, files []string) Ada
 			findings = append(findings, fileFindings...)
 		}
 	} else {
+		if ctx.Err() != nil {
+			result.Tool.Status = "canceled"
+			result.Tool.Duration = time.Since(startedAt).Round(time.Millisecond).String()
+			return result
+		}
 		findings, _ = scanner.ScanDir(input.Path)
+	}
+
+	if err := ctx.Err(); err != nil {
+		result.Tool.Status = "canceled"
+		result.Tool.Duration = time.Since(startedAt).Round(time.Millisecond).String()
+		result.Tool.Findings = len(findings)
+		result.Findings = findings
+		return result
 	}
 
 	for index := range findings {
