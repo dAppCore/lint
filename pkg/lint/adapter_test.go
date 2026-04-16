@@ -152,7 +152,33 @@ func TestAdapter_ParseJSONDiagnostics_Good(t *testing.T) {
 }
 
 func TestAdapter_ParseJSONDiagnostics_Bad(t *testing.T) {
-	assert.Nil(t, parseJSONDiagnostics("gosec", "security", "{not json"))
+	findings := parseJSONDiagnostics("gosec", "security", "{not json")
+	require.Len(t, findings, 1)
+	assert.Equal(t, "error", findings[0].Severity)
+	assert.Equal(t, "parse-error", findings[0].Code)
+	assert.Equal(t, "gosec", findings[0].Tool)
+	assert.Equal(t, "security", findings[0].Category)
+	assert.Contains(t, findings[0].Message, "failed to parse JSON output")
+}
+
+func TestAdapter_ParseJSONDiagnostics_PartialOutput(t *testing.T) {
+	output := `[
+  {
+    "location": {
+      "path": "internal/foo/bar.go",
+      "start": {"line": 42, "column": 5}
+    },
+    "message": {"text": "Errors unhandled"},
+    "rule_id": "G104",
+    "severity": "warn"
+  }
+]
+not json`
+
+	findings := parseJSONDiagnostics("gosec", "security", output)
+	require.Len(t, findings, 2)
+	assert.Equal(t, "G104", findings[0].Code)
+	assert.Equal(t, "parse-error", findings[1].Code)
 }
 
 func TestAdapter_ParseJSONDiagnostics_Ugly(t *testing.T) {
@@ -177,6 +203,43 @@ func TestAdapter_ParseJSONDiagnostics_Ugly(t *testing.T) {
 	assert.Equal(t, "Potential issue", findings[0].Message)
 	assert.Equal(t, "error", findings[0].Severity)
 	assert.Equal(t, "security", findings[0].Category)
+}
+
+func TestAdapter_CommandAdapter_JSONStdoutIgnoresStderr(t *testing.T) {
+	binDir := t.TempDir()
+	writeScript(t, binDir, "json-tool", `case "$1" in
+--version|-version|version)
+  echo "json-tool 1.0.0"
+  exit 0
+  ;;
+esac
+printf '%s\n' '[{"location":{"path":"src/main.go","start":{"line":12,"column":3}},"message":{"text":"boom"},"rule_id":"X1","severity":"warn"}]'
+echo "debug noise" >&2
+exit 0
+`)
+	prependPath(t, binDir)
+
+	adapter := newCommandAdapter(
+		"json-tool",
+		[]string{"json-tool"},
+		[]string{"go"},
+		"security",
+		"",
+		false,
+		true,
+		func(_ string, _ []string) []string {
+			return []string{"scan"}
+		},
+		parseJSONDiagnostics,
+	).(CommandAdapter)
+
+	result := adapter.Run(context.Background(), RunInput{Path: t.TempDir()}, nil)
+	require.Equal(t, "failed", result.Tool.Status)
+	require.Len(t, result.Findings, 1)
+	assert.Equal(t, "X1", result.Findings[0].Code)
+	assert.Equal(t, "src/main.go", result.Findings[0].File)
+	assert.Equal(t, "boom", result.Findings[0].Message)
+	assert.Equal(t, "warning", result.Findings[0].Severity)
 }
 
 func TestAdapter_ParseTextDiagnostics_Good(t *testing.T) {

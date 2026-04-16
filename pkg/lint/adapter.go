@@ -189,21 +189,14 @@ func (adapter CommandAdapter) Run(ctx context.Context, input RunInput, files []s
 
 	args := adapter.buildArgs(input.Path, files)
 	stdout, stderr, exitCode, runErr := runCommand(runContext, input.Path, binary, args)
+	stdout = strings.TrimSpace(stdout)
+	stderr = strings.TrimSpace(stderr)
 
 	result.Tool.Duration = time.Since(startedAt).Round(time.Millisecond).String()
 
 	if errors.Is(runContext.Err(), context.DeadlineExceeded) {
 		result.Tool.Status = "timeout"
 		return result
-	}
-
-	output := strings.TrimSpace(stdout)
-	if strings.TrimSpace(stderr) != "" {
-		if output != "" {
-			output += "\n" + strings.TrimSpace(stderr)
-		} else {
-			output = strings.TrimSpace(stderr)
-		}
 	}
 
 	if err := runContext.Err(); err != nil {
@@ -215,10 +208,21 @@ func (adapter CommandAdapter) Run(ctx context.Context, input RunInput, files []s
 		return result
 	}
 
-	if adapter.parseOutput != nil && output != "" {
-		result.Findings = adapter.parseOutput(adapter.name, adapter.category, output)
+	if adapter.parseOutput != nil {
+		if stdout != "" {
+			result.Findings = append(result.Findings, adapter.parseOutput(adapter.name, adapter.category, stdout)...)
+		}
+		if len(result.Findings) == 0 && stderr != "" {
+			result.Findings = append(result.Findings, adapter.parseOutput(adapter.name, adapter.category, stderr)...)
+		}
 	}
-	if len(result.Findings) == 0 && output != "" {
+	if len(result.Findings) == 0 && (stdout != "" || stderr != "") {
+		output := stdout
+		if output != "" && stderr != "" {
+			output += "\n" + stderr
+		} else if output == "" {
+			output = stderr
+		}
 		result.Findings = parseTextDiagnostics(adapter.name, adapter.category, output)
 	}
 	if len(result.Findings) == 0 && runErr != nil {
@@ -226,7 +230,7 @@ func (adapter CommandAdapter) Run(ctx context.Context, input RunInput, files []s
 			Tool:     adapter.name,
 			Severity: defaultSeverityForCategory(adapter.category),
 			Code:     "command-failed",
-			Message:  strings.TrimSpace(firstNonEmpty(output, runErr.Error())),
+			Message:  strings.TrimSpace(firstNonEmpty(stdout, stderr, runErr.Error())),
 			Category: adapter.category,
 		}}
 	}
@@ -526,7 +530,26 @@ func parseJSONDiagnostics(tool string, category string, output string) []Finding
 			break
 		}
 		if err != nil {
-			return nil
+			if strings.TrimSpace(output) == "" {
+				return nil
+			}
+			if len(findings) > 0 {
+				findings = append(findings, Finding{
+					Tool:     tool,
+					Severity: "error",
+					Code:     "parse-error",
+					Message:  fmt.Sprintf("failed to parse JSON output: %v", err),
+					Category: category,
+				})
+				return dedupeFindings(findings)
+			}
+			return []Finding{{
+				Tool:     tool,
+				Severity: "error",
+				Code:     "parse-error",
+				Message:  fmt.Sprintf("failed to parse JSON output: %v", err),
+				Category: category,
+			}}
 		}
 		findings = append(findings, collectJSONDiagnostics(tool, category, value)...)
 	}
