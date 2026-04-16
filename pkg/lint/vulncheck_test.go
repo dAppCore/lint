@@ -43,11 +43,8 @@ also not json
 {"finding":{"osv":"GO-2024-5678","trace":[{"package":"example.com/dep","function":"Fn"}]}}
 `
 	result, err := ParseVulnCheckJSON(stdout, "")
-	require.NoError(t, err)
-	assert.Equal(t, "example.com/app", result.Module)
-	require.Len(t, result.Findings, 1)
-	assert.Equal(t, "GO-2024-5678", result.Findings[0].ID)
-	assert.Equal(t, "Test vuln", result.Findings[0].Description)
+	require.Error(t, err)
+	assert.Nil(t, result)
 }
 
 func TestParseVulnCheckJSON_Empty(t *testing.T) {

@@ -111,7 +111,7 @@ func ParseVulnCheckJSON(stdout, stderr string) (*VulnResult, error) {
 
 		var msg govulncheckMessage
 		if err := json.Unmarshal([]byte(line), &msg); err != nil {
-			continue
+			return nil, coreerr.E("ParseVulnCheckJSON", "invalid govulncheck JSON output", err)
 		}
 
 		if msg.Config != nil {

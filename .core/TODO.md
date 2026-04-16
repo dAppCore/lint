@@ -1,1 +1,0 @@
-- @bug pkg/lint/vulncheck.go:113 — govulncheck JSON parsing silently skips malformed lines, so bad tool output can still look like a clean pass.
