@@ -29,6 +29,34 @@ func TestDetect_Good_ProjectMarkersAndFiles(t *testing.T) {
 	)
 }
 
+func TestDetect_Good_MarkerCoverage(t *testing.T) {
+	dir := t.TempDir()
+
+	files := map[string]string{
+		"go.mod":           "module example.com/test\n",
+		"composer.json":    "{}\n",
+		"package.json":     "{}\n",
+		"tsconfig.json":    "{}\n",
+		"requirements.txt": "ruff\n",
+		"pyproject.toml":   "[tool.ruff]\n",
+		"Cargo.toml":       "[package]\nname = \"test\"\n",
+		"Dockerfile.dev":   "FROM scratch\n",
+		"run.sh":           "#!/bin/sh\n",
+		"main.cpp":         "int main() { return 0; }\n",
+		"config.yaml":      "kind: Config\n",
+		"config.yml":       "kind: Config\n",
+	}
+
+	for name, content := range files {
+		require.NoError(t, os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644))
+	}
+
+	assert.Equal(t,
+		[]string{"cpp", "dockerfile", "go", "js", "php", "python", "rust", "shell", "ts", "yaml"},
+		Detect(dir),
+	)
+}
+
 func TestDetectFromFiles_Good(t *testing.T) {
 	files := []string{
 		"main.go",
@@ -45,7 +73,7 @@ func TestDetectFromFiles_Good(t *testing.T) {
 	)
 }
 
-func TestDetect_MissingPathReturnsEmptySlice(t *testing.T) {
+func TestDetect_Bad_MissingPathReturnsEmptySlice(t *testing.T) {
 	assert.Equal(t, []string{}, Detect(filepath.Join(t.TempDir(), "missing")))
 }
 
@@ -56,4 +84,18 @@ func TestDetect_Good_SkipsHiddenRootDirectory(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(hiddenDir, "main.go"), []byte("package main\n"), 0o644))
 
 	assert.Equal(t, []string{}, Detect(hiddenDir))
+}
+
+func TestDetect_Ugly_SkipsNestedHiddenAndExcludedDirectories(t *testing.T) {
+	dir := t.TempDir()
+
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "root.go"), []byte("package main\n"), 0o644))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "vendor"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "vendor", "ignored.go"), []byte("package ignored\n"), 0o644))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".core"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".core", "ignored.go"), []byte("package ignored\n"), 0o644))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "services", ".generated"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "services", ".generated", "ignored.go"), []byte("package ignored\n"), 0o644))
+
+	assert.Equal(t, []string{"go"}, Detect(dir))
 }

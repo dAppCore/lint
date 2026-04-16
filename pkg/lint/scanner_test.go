@@ -29,6 +29,9 @@ func TestDetectLanguage_Good(t *testing.T) {
 		{"noextension", ""},
 		{"file.py", "python"},
 		{"Dockerfile", "dockerfile"},
+		{"services/Dockerfile.prod", "dockerfile"},
+		{"configs/settings.yaml", "yaml"},
+		{"configs/settings.yml", "yaml"},
 	}
 
 	for _, tt := range tests {
@@ -37,6 +40,15 @@ func TestDetectLanguage_Good(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func TestDetectLanguage_Bad_UnknownExtension(t *testing.T) {
+	assert.Equal(t, "", DetectLanguage("notes.txt"))
+	assert.Equal(t, "", DetectLanguage("README"))
+}
+
+func TestDetectLanguage_Ugly_DockerfileVariant(t *testing.T) {
+	assert.Equal(t, "dockerfile", DetectLanguage("nested/Dockerfile.test"))
 }
 
 func TestScanDir_Good_FindsMatches(t *testing.T) {
@@ -207,6 +219,58 @@ func TestScanFile_Good_Python(t *testing.T) {
 	require.Len(t, findings, 1)
 	assert.Equal(t, "python-todo", findings[0].RuleID)
 	assert.Equal(t, "python", DetectLanguage(file))
+}
+
+func TestScanFile_Bad_NoMatchingLanguageRules(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "app.go")
+	err := os.WriteFile(file, []byte("package main\n"), 0o644)
+	require.NoError(t, err)
+
+	rules := []Rule{
+		{
+			ID:        "php-only",
+			Title:     "PHP TODO",
+			Severity:  "low",
+			Languages: []string{"php"},
+			Pattern:   `TODO`,
+			Fix:       "Remove TODO",
+			Detection: "regex",
+		},
+	}
+
+	s, err := NewScanner(rules)
+	require.NoError(t, err)
+
+	findings, err := s.ScanFile(file)
+	require.NoError(t, err)
+	assert.Empty(t, findings)
+}
+
+func TestScanFile_Ugly_UnsupportedExtension(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "notes.txt")
+	err := os.WriteFile(file, []byte("TODO: this is not a recognised source file\n"), 0o644)
+	require.NoError(t, err)
+
+	rules := []Rule{
+		{
+			ID:        "go-only",
+			Title:     "Go TODO",
+			Severity:  "low",
+			Languages: []string{"go"},
+			Pattern:   `TODO`,
+			Fix:       "Remove TODO",
+			Detection: "regex",
+		},
+	}
+
+	s, err := NewScanner(rules)
+	require.NoError(t, err)
+
+	findings, err := s.ScanFile(file)
+	require.NoError(t, err)
+	assert.Nil(t, findings)
 }
 
 func TestScanDir_Good_Subdirectories(t *testing.T) {

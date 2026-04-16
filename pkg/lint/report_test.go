@@ -58,6 +58,19 @@ func TestSummarise_Good_Empty(t *testing.T) {
 	assert.Empty(t, summary.BySeverity)
 }
 
+func TestSummarise_Bad_BlankSeverityDefaultsToWarning(t *testing.T) {
+	summary := Summarise([]Finding{
+		{Severity: ""},
+		{Severity: "info"},
+	})
+
+	assert.Equal(t, 2, summary.Total)
+	assert.Equal(t, 1, summary.Warnings)
+	assert.Equal(t, 1, summary.Info)
+	assert.Equal(t, 0, summary.Errors)
+	assert.True(t, summary.Passed)
+}
+
 func TestWriteJSON_Good_Roundtrip(t *testing.T) {
 	findings := sampleFindings()
 	var buf bytes.Buffer
@@ -114,6 +127,11 @@ func TestWriteJSONL_Good_Empty(t *testing.T) {
 	err := WriteJSONL(&buf, nil)
 	require.NoError(t, err)
 	assert.Empty(t, buf.String())
+}
+
+func TestWriteJSONL_Bad_PropagatesWriterErrors(t *testing.T) {
+	err := WriteJSONL(failingWriter{}, sampleFindings())
+	require.Error(t, err)
 }
 
 func TestWriteText_Good(t *testing.T) {
