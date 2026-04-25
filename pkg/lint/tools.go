@@ -2,10 +2,8 @@ package lint
 
 import (
 	"bufio"
-	"bytes"
-	"fmt"
 	"os"
-	"os/exec"
+	"os/exec" // Note: AX-6 — Toolkit.Run needs split stdout/stderr and exit codes; core.Process().Run returns combined output only.
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -13,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	core "dappco.re/go/core"
 	coreerr "dappco.re/go/core/log"
 )
 
@@ -124,9 +123,10 @@ func NewToolkit(dir string) *Toolkit {
 func (t *Toolkit) Run(name string, args ...string) (stdout, stderr string, exitCode int, err error) {
 	cmd := exec.Command(name, args...)
 	cmd.Dir = t.Dir
-	var stdoutBuf, stderrBuf bytes.Buffer
-	cmd.Stdout = &stdoutBuf
-	cmd.Stderr = &stderrBuf
+	stdoutBuf := core.NewBuilder()
+	stderrBuf := core.NewBuilder()
+	cmd.Stdout = stdoutBuf
+	cmd.Stderr = stderrBuf
 
 	err = cmd.Run()
 	stdout = stdoutBuf.String()
@@ -153,7 +153,7 @@ func (t *Toolkit) FindTrackedComments(dir string) ([]TrackedComment, error) {
 		return nil, nil
 	}
 	if err != nil && exitCode != 1 {
-		return nil, coreerr.E("Toolkit.FindTrackedComments", fmt.Sprintf("git grep failed (exit %d):\n%s", exitCode, stderr), err)
+		return nil, coreerr.E("Toolkit.FindTrackedComments", core.Sprintf("git grep failed (exit %d):\n%s", exitCode, stderr), err)
 	}
 
 	var comments []TrackedComment
@@ -194,7 +194,7 @@ func (t *Toolkit) FindTODOs(dir string) ([]TODO, error) {
 func (t *Toolkit) AuditDeps() ([]Vulnerability, error) {
 	stdout, stderr, exitCode, err := t.Run("govulncheck", "./...")
 	if err != nil && exitCode != 0 && !strings.Contains(stdout, "Vulnerability") {
-		return nil, coreerr.E("Toolkit.AuditDeps", fmt.Sprintf("govulncheck failed (exit %d):\n%s", exitCode, stderr), err)
+		return nil, coreerr.E("Toolkit.AuditDeps", core.Sprintf("govulncheck failed (exit %d):\n%s", exitCode, stderr), err)
 	}
 
 	var vulns []Vulnerability
@@ -243,7 +243,7 @@ func (t *Toolkit) AuditDeps() ([]Vulnerability, error) {
 func (t *Toolkit) DiffStat() (DiffSummary, error) {
 	stdout, stderr, exitCode, err := t.Run("git", "diff", "--stat")
 	if err != nil && exitCode != 0 {
-		return DiffSummary{}, coreerr.E("Toolkit.DiffStat", fmt.Sprintf("git diff failed (exit %d):\n%s", exitCode, stderr), err)
+		return DiffSummary{}, coreerr.E("Toolkit.DiffStat", core.Sprintf("git diff failed (exit %d):\n%s", exitCode, stderr), err)
 	}
 
 	var s DiffSummary
@@ -374,7 +374,7 @@ func (t *Toolkit) Build(targets ...string) ([]BuildResult, error) {
 func (t *Toolkit) TestCount(pkg string) (int, error) {
 	stdout, stderr, exitCode, err := t.Run("go", "test", "-list", ".*", pkg)
 	if err != nil && exitCode != 0 {
-		return 0, coreerr.E("Toolkit.TestCount", fmt.Sprintf("go test -list failed:\n%s", stderr), err)
+		return 0, coreerr.E("Toolkit.TestCount", core.Sprintf("go test -list failed:\n%s", stderr), err)
 	}
 	count := 0
 	for line := range strings.SplitSeq(strings.TrimSpace(stdout), "\n") {
@@ -392,7 +392,7 @@ func (t *Toolkit) Coverage(pkg string) ([]CoverageReport, error) {
 	}
 	stdout, stderr, exitCode, err := t.Run("go", "test", "-cover", pkg)
 	if err != nil && exitCode != 0 && !strings.Contains(stdout, "coverage:") {
-		return nil, coreerr.E("Toolkit.Coverage", fmt.Sprintf("go test -cover failed (exit %d):\n%s", exitCode, stderr), err)
+		return nil, coreerr.E("Toolkit.Coverage", core.Sprintf("go test -cover failed (exit %d):\n%s", exitCode, stderr), err)
 	}
 
 	var reports []CoverageReport
@@ -480,7 +480,7 @@ func (t *Toolkit) GocycloComplexity(threshold int) ([]ComplexFunc, error) {
 func (t *Toolkit) DepGraph(pkg string) (*Graph, error) {
 	stdout, stderr, exitCode, err := t.Run("go", "mod", "graph")
 	if err != nil && exitCode != 0 {
-		return nil, coreerr.E("Toolkit.DepGraph", fmt.Sprintf("go mod graph failed (exit %d):\n%s", exitCode, stderr), err)
+		return nil, coreerr.E("Toolkit.DepGraph", core.Sprintf("go mod graph failed (exit %d):\n%s", exitCode, stderr), err)
 	}
 
 	graph := &Graph{Edges: make(map[string][]string)}
@@ -509,9 +509,9 @@ func (t *Toolkit) DepGraph(pkg string) (*Graph, error) {
 
 // GitLog returns the last n commits from git history.
 func (t *Toolkit) GitLog(n int) ([]Commit, error) {
-	stdout, stderr, exitCode, err := t.Run("git", "log", fmt.Sprintf("-n%d", n), "--format=%H|%an|%aI|%s")
+	stdout, stderr, exitCode, err := t.Run("git", "log", core.Sprintf("-n%d", n), "--format=%H|%an|%aI|%s")
 	if err != nil && exitCode != 0 {
-		return nil, coreerr.E("Toolkit.GitLog", fmt.Sprintf("git log failed (exit %d):\n%s", exitCode, stderr), err)
+		return nil, coreerr.E("Toolkit.GitLog", core.Sprintf("git log failed (exit %d):\n%s", exitCode, stderr), err)
 	}
 
 	var commits []Commit
@@ -547,13 +547,13 @@ func (t *Toolkit) CheckPerms(dir string) ([]PermIssue, error) {
 		if mode&0o002 != 0 {
 			issues = append(issues, PermIssue{
 				File:       path,
-				Permission: fmt.Sprintf("%04o", mode),
+				Permission: core.Sprintf("%04o", mode),
 				Issue:      "World-writable",
 			})
 		} else if mode&0o020 != 0 && mode&0o002 != 0 {
 			issues = append(issues, PermIssue{
 				File:       path,
-				Permission: fmt.Sprintf("%04o", mode),
+				Permission: core.Sprintf("%04o", mode),
 				Issue:      "Group and world-writable",
 			})
 		}
