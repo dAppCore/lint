@@ -4,7 +4,9 @@ mantis-closure-audit — verify cited commit SHAs in closed Mantis tickets are
 reachable from origin/dev in their respective repos.
 
 Usage:
-  MANTIS_TOKEN=... ./mantis-closure-audit.py [--repo-root ~/Code/core] [--limit 200]
+  MANTIS_TOKEN=... ./mantis-closure-audit.py [--repo-root ROOT ...] [--limit 200]
+
+Defaults scan repo roots: ~/Code/core, ~/Code/ofm, ~/Code/lab.
 
 Reports per-ticket:
   - ticket-id, summary, project
@@ -25,6 +27,12 @@ import urllib.error
 from pathlib import Path
 
 MANTIS_BASE = "https://tasks.lthn.sh/api/rest"
+DEFAULT_REPO_ROOTS = (
+    Path("~/Code/core").expanduser(),
+    Path("~/Code/ofm").expanduser(),
+    Path("~/Code/lab").expanduser(),
+)
+REPO_SCOPES = {"core", "ofm", "lab"}
 # Match only SHAs in commit-context: prefixed by "commit", "SHA", "at",
 # or appearing in a Forge URL. Avoids false-positives like ed25519, hex
 # colour codes, etc.
@@ -35,7 +43,8 @@ SHA_RE = re.compile(
 )
 SHA_BLOCKLIST = {"ed25519", "ed448", "x25519", "x448", "secp256", "ripemd"}
 REPO_HINT_RE = re.compile(
-    r"(?:core[/-]|forge\.lthn\.[a-z]+/core/|~/Code/core/)([a-z][a-z0-9_-]*)",
+    r"(?:(?:core|ofm|lab)[/-]|forge\.lthn\.[a-z]+/(?:core|ofm|lab)/|~/Code/(?:core|ofm|lab)/)"
+    r"([a-z][a-z0-9_.-]*)",
     re.IGNORECASE,
 )
 
@@ -110,18 +119,49 @@ def extract_shas(text: str) -> list:
     return list(dict.fromkeys(found))  # dedupe preserving order
 
 
-SUMMARY_TAG_RE = re.compile(r"\[(?:core[/-])?([a-z][a-z0-9_-]*)\]", re.IGNORECASE)
+SUMMARY_TAG_RE = re.compile(
+    r"\[(?:(?:core|ofm|lab)[/-])?([a-z][a-z0-9_.-]*(?:/[a-z][a-z0-9_.-]*)?)\]",
+    re.IGNORECASE,
+)
+
+
+def discover_repos(repo_roots: list[Path]) -> dict[str, Path]:
+    """Find git repos under repo roots, keyed by repo directory name.
+
+    >>> bool(discover_repos([Path("~/Code/ofm/ofm.bot").expanduser()]))
+    True
+    """
+    repos = {}
+    for repo_root in repo_roots:
+        repo_root = repo_root.expanduser()
+        if not repo_root.exists():
+            continue
+        if (repo_root / ".git").exists():
+            repos.setdefault(repo_root.name.lower(), repo_root)
+            continue
+        for dirpath, dirnames, _filenames in os.walk(repo_root):
+            path = Path(dirpath)
+            if (path / ".git").exists():
+                repos.setdefault(path.name.lower(), path)
+                dirnames[:] = []
+                continue
+            if ".git" in dirnames:
+                dirnames.remove(".git")
+    return repos
 
 
 def guess_repo(text: str, project_name: str, summary: str = "") -> str | None:
-    """Try to identify which core/* repo a SHA refers to.
+    """Try to identify which repo a SHA refers to.
     Priority: 1) [tag] in summary, 2) explicit project name, 3) path hint in body."""
     # Strongest signal: ticket summaries are formatted like [go-cache] or [api/brotli]
     m = SUMMARY_TAG_RE.search(summary or "")
     if m:
         tag = m.group(1).lower()
+        parts = tag.split("/")
+        if len(parts) > 1 and parts[0] in REPO_SCOPES:
+            return parts[1]
         # Strip subpath like api/brotli → api
-        return tag.split("/")[0]
+        return parts[0]
     # Project name (skip the catch-all "core" project)
     if project_name and project_name.lower() not in ("core", "ops", "devops"):
         return project_name
@@ -132,10 +172,10 @@ def guess_repo(text: str, project_name: str, summary: str = "") -> str | None:
     return None
 
 
-def sha_reachable(repo_root: Path, repo: str, sha: str) -> str:
+def sha_reachable(repo_paths: dict[str, Path], repo: str, sha: str) -> str:
     """Return one of: reachable, dangling, unknown-repo."""
-    repo_path = repo_root / repo
-    if not (repo_path / ".git").exists():
+    repo_path = repo_paths.get(repo.lower())
+    if not repo_path:
         return "unknown-repo"
     # cat-file -e: SHA exists in repo
     exists = subprocess.run(
@@ -162,13 +202,13 @@ def sha_reachable(repo_root: Path, repo: str, sha: str) -> str:
 
 
 def main():
-    repo_root = Path("~/Code/core").expanduser()
+    repo_roots = []
     limit = None
     args = sys.argv[1:]
     while args:
         a = args.pop(0)
-        if a == "--repo-root":
-            repo_root = Path(args.pop(0)).expanduser()
+        if a in ("--repo-root", "--root"):
+            repo_roots.append(Path(args.pop(0)).expanduser())
         elif a == "--limit":
             limit = int(args.pop(0))
         elif a in ("-h", "--help"):
@@ -177,6 +217,10 @@ def main():
         else:
             sys.stderr.write(f"unknown arg: {a}\n")
             sys.exit(2)
+
+    if not repo_roots:
+        repo_roots = list(DEFAULT_REPO_ROOTS)
+    repo_paths = discover_repos(repo_roots)
 
     token = get_token()
     sys.stderr.write("Fetching closed Mantis tickets...\n")
@@ -211,7 +255,7 @@ def main():
                 counts["unknown-repo"] += 1
                 print(f"{tid}\t{project}\t?\t{sha}\tunknown-repo\t{summary}")
                 continue
-            status = sha_reachable(repo_root, repo, sha)
+            status = sha_reachable(repo_paths, repo, sha)
             counts[status] = counts.get(status, 0) + 1
             print(f"{tid}\t{project}\t{repo}\t{sha}\t{status}\t{summary}")
 
