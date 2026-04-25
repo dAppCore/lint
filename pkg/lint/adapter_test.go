@@ -2,8 +2,11 @@ package lint
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -12,16 +15,21 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	adapterTestCommandEnv = "LINT_ADAPTER_TEST_COMMAND"
+	adapterTestProcessEnv = "LINT_ADAPTER_TEST_PROCESS"
+)
+
+func TestMain(m *testing.M) {
+	if os.Getenv(adapterTestProcessEnv) == "1" {
+		os.Exit(runAdapterTestCommand(os.Getenv(adapterTestCommandEnv), os.Args[1:]))
+	}
+	os.Exit(m.Run())
+}
+
 func TestAdapter_CommandAdapter_Good(t *testing.T) {
 	binDir := t.TempDir()
-	writeScript(t, binDir, "demo-tool", `case "$1" in
---version|-version|version)
-  echo "demo-tool version 1.2.3" >&2
-  exit 0
-  ;;
-esac
-exit 0
-`)
+	installTestCommand(t, binDir, "demo-tool")
 	prependPath(t, binDir)
 
 	adapter := newCommandAdapter(
@@ -83,15 +91,7 @@ func TestAdapter_CommandAdapter_Bad(t *testing.T) {
 
 func TestAdapter_CommandAdapter_Ugly(t *testing.T) {
 	binDir := t.TempDir()
-	writeScript(t, binDir, "slow-tool", `case "$1" in
---version|-version|version)
-  echo "slow-tool 9.9.9"
-  exit 0
-  ;;
-esac
-sleep 1
-exit 0
-`)
+	installTestCommand(t, binDir, "slow-tool")
 	prependPath(t, binDir)
 
 	adapter := newCommandAdapter(
@@ -207,16 +207,7 @@ func TestAdapter_ParseJSONDiagnostics_Ugly(t *testing.T) {
 
 func TestAdapter_CommandAdapter_JSONStdoutIgnoresStderr(t *testing.T) {
 	binDir := t.TempDir()
-	writeScript(t, binDir, "json-tool", `case "$1" in
---version|-version|version)
-  echo "json-tool 1.0.0"
-  exit 0
-  ;;
-esac
-printf '%s\n' '[{"location":{"path":"src/main.go","start":{"line":12,"column":3}},"message":{"text":"boom"},"rule_id":"X1","severity":"warn"}]'
-echo "debug noise" >&2
-exit 0
-`)
+	installTestCommand(t, binDir, "json-tool")
 	prependPath(t, binDir)
 
 	adapter := newCommandAdapter(
@@ -351,13 +342,100 @@ func TestAdapter_CatalogAdapter_Ugly(t *testing.T) {
 	assert.Empty(t, result.Findings)
 }
 
-func writeScript(t *testing.T, dir, name, body string) string {
+func installTestCommand(t *testing.T, dir, name string) string {
 	t.Helper()
 
-	path := filepath.Join(dir, name)
-	content := "#!/bin/sh\n" + body
-	require.NoError(t, os.WriteFile(path, []byte(content), 0o755))
+	t.Setenv(adapterTestCommandEnv, name)
+	t.Setenv(adapterTestProcessEnv, "1")
+
+	path := filepath.Join(dir, testCommandFilename(name))
+	require.NoError(t, linkOrCopyFile(os.Args[0], path))
 	return path
+}
+
+func testCommandFilename(name string) string {
+	if runtime.GOOS == "windows" {
+		return name + ".exe"
+	}
+	return name
+}
+
+func linkOrCopyFile(source, target string) error {
+	if err := os.Link(source, target); err == nil {
+		return nil
+	}
+
+	input, err := os.Open(source)
+	if err != nil {
+		return err
+	}
+	defer input.Close()
+
+	info, err := input.Stat()
+	if err != nil {
+		return err
+	}
+
+	output, err := os.Create(target)
+	if err != nil {
+		return err
+	}
+
+	_, copyErr := io.Copy(output, input)
+	closeErr := output.Close()
+	if copyErr != nil {
+		return copyErr
+	}
+	if closeErr != nil {
+		return closeErr
+	}
+	if runtime.GOOS == "windows" {
+		return nil
+	}
+	return os.Chmod(target, info.Mode().Perm())
+}
+
+func runAdapterTestCommand(name string, args []string) int {
+	if isVersionCommand(args) {
+		switch name {
+		case "demo-tool":
+			fmt.Fprintln(os.Stderr, "demo-tool version 1.2.3")
+			return 0
+		case "slow-tool":
+			fmt.Fprintln(os.Stdout, "slow-tool 9.9.9")
+			return 0
+		case "json-tool":
+			fmt.Fprintln(os.Stdout, "json-tool 1.0.0")
+			return 0
+		}
+	}
+
+	switch name {
+	case "demo-tool":
+		return 0
+	case "slow-tool":
+		time.Sleep(time.Second)
+		return 0
+	case "json-tool":
+		fmt.Fprintln(os.Stdout, `[{"location":{"path":"src/main.go","start":{"line":12,"column":3}},"message":{"text":"boom"},"rule_id":"X1","severity":"warn"}]`)
+		fmt.Fprintln(os.Stderr, "debug noise")
+		return 0
+	default:
+		fmt.Fprintf(os.Stderr, "unknown test command %q\n", name)
+		return 2
+	}
+}
+
+func isVersionCommand(args []string) bool {
+	if len(args) == 0 {
+		return false
+	}
+	switch args[0] {
+	case "--version", "-version", "version":
+		return true
+	default:
+		return false
+	}
 }
 
 func prependPath(t *testing.T, dir string) {
