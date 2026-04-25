@@ -1,10 +1,9 @@
 package lint
 
 import (
-	"bytes"
 	"regexp"
-	"strings"
 
+	core "dappco.re/go/core"
 	coreerr "dappco.re/go/core/log"
 )
 
@@ -74,7 +73,7 @@ func NewMatcher(rules []Rule) (*Matcher, error) {
 // Lines matching a rule's exclude pattern are skipped.
 // The filename is also checked against exclude patterns (e.g. _test.go).
 func (m *Matcher) Match(filename string, content []byte) []Finding {
-	lines := bytes.Split(content, []byte("\n"))
+	lines := core.Split(string(content), "\n")
 	var findings []Finding
 
 	for _, cr := range m.rules {
@@ -84,14 +83,12 @@ func (m *Matcher) Match(filename string, content []byte) []Finding {
 		}
 
 		for i, line := range lines {
-			lineStr := string(line)
-
-			if !cr.pattern.MatchString(lineStr) {
+			if !cr.pattern.MatchString(line) {
 				continue
 			}
 
 			// Skip if the line matches the exclude pattern.
-			if cr.exclude != nil && cr.exclude.MatchString(lineStr) {
+			if cr.exclude != nil && cr.exclude.MatchString(line) {
 				continue
 			}
 
@@ -101,7 +98,7 @@ func (m *Matcher) Match(filename string, content []byte) []Finding {
 				Severity: cr.rule.Severity,
 				File:     filename,
 				Line:     i + 1,
-				Match:    strings.TrimSpace(lineStr),
+				Match:    core.Trim(line),
 				Fix:      cr.rule.Fix,
 			})
 		}
