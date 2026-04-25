@@ -2,10 +2,10 @@ package lint
 
 import (
 	"io/fs"
-	"path/filepath"
 	"slices"
-	"strings"
+	"strings" // Note: AX-6 — strings.Compare has no core equivalent.
 
+	core "dappco.re/go/core"
 	coreio "dappco.re/go/core/io"
 	coreerr "dappco.re/go/core/log"
 )
@@ -34,10 +34,10 @@ func LoadDir(dir string) (*Catalog, error) {
 
 	var rules []Rule
 	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".yaml") {
+		if entry.IsDir() || !core.HasSuffix(entry.Name(), ".yaml") {
 			continue
 		}
-		raw, err := coreio.Local.Read(filepath.Join(dir, entry.Name()))
+		raw, err := coreio.Local.Read(core.JoinPath(dir, entry.Name()))
 		if err != nil {
 			return nil, coreerr.E("Catalog.LoadDir", "reading "+entry.Name(), err)
 		}
@@ -61,7 +61,7 @@ func LoadFS(fsys fs.FS, dir string) (*Catalog, error) {
 
 	var rules []Rule
 	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".yaml") {
+		if entry.IsDir() || !core.HasSuffix(entry.Name(), ".yaml") {
 			continue
 		}
 		data, err := fs.ReadFile(fsys, dir+"/"+entry.Name())
