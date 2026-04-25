@@ -5,9 +5,9 @@ import (
 	"go/parser"
 	"go/token"
 	"os"
-	"path/filepath"
-	"strings"
+	"path/filepath" // Note: AX-6 — Walk and SkipDir do not have core equivalents.
 
+	core "dappco.re/go/core"
 	coreio "dappco.re/go/core/io"
 	coreerr "dappco.re/go/core/log"
 )
@@ -67,12 +67,12 @@ func AnalyseComplexity(cfg ComplexityConfig) ([]ComplexityResult, error) {
 		}
 		if fi.IsDir() {
 			name := fi.Name()
-			if name == "vendor" || strings.HasPrefix(name, ".") {
+			if name == "vendor" || core.HasPrefix(name, ".") {
 				return filepath.SkipDir
 			}
 			return nil
 		}
-		if !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+		if !core.HasSuffix(path, ".go") || core.HasSuffix(path, "_test.go") {
 			return nil
 		}
 		fileResults, err := analyseFile(path, cfg.Threshold)
