@@ -374,7 +374,9 @@ func newCatalogCommand() *cli.Command {
 		})
 
 		for _, rule := range rules {
-			fmt.Fprintf(command.OutOrStdout(), "%-14s [%-8s] %s\n", rule.ID, rule.Severity, rule.Title)
+			if _, err := fmt.Fprintf(command.OutOrStdout(), "%-14s [%-8s] %s\n", rule.ID, rule.Severity, rule.Title); err != nil {
+				return err
+			}
 		}
 		if _, err := fmt.Fprintf(os.Stderr, "\n%d rule(s)\n", len(rules)); err != nil {
 			return err
