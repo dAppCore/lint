@@ -3,15 +3,14 @@ package lint
 import (
 	"bufio"
 	"cmp"
-	"encoding/json"
 	"math"
 	"os"
 	"regexp"
 	"slices"
 	"strconv"
-	"strings"
 	"time"
 
+	"dappco.re/go/core"
 	coreio "dappco.re/go/core/io"
 	coreerr "dappco.re/go/core/log"
 )
@@ -60,10 +59,11 @@ func (s *CoverageStore) Append(snap CoverageSnapshot) error {
 
 	snapshots = append(snapshots, snap)
 
-	data, err := json.MarshalIndent(snapshots, "", "  ")
-	if err != nil {
-		return coreerr.E("CoverageStore.Append", "marshal snapshots", err)
+	r := core.JSONMarshal(snapshots)
+	if !r.OK {
+		return coreerr.E("CoverageStore.Append", "marshal snapshots", r.Value.(error))
 	}
+	data := r.Value.([]byte)
 
 	if err := coreio.Local.Write(s.Path, string(data)); err != nil {
 		return coreerr.E("CoverageStore.Append", "write "+s.Path, err)
@@ -79,8 +79,8 @@ func (s *CoverageStore) Load() ([]CoverageSnapshot, error) {
 	}
 
 	var snapshots []CoverageSnapshot
-	if err := json.Unmarshal([]byte(raw), &snapshots); err != nil {
-		return nil, coreerr.E("CoverageStore.Load", "parse "+s.Path, err)
+	if r := core.JSONUnmarshal([]byte(raw), &snapshots); !r.OK {
+		return nil, coreerr.E("CoverageStore.Load", "parse "+s.Path, r.Value.(error))
 	}
 	return snapshots, nil
 }
@@ -120,28 +120,29 @@ func ParseCoverProfile(data string) (CoverageSnapshot, error) {
 	}
 	packages := make(map[string]*pkgStats)
 
-	scanner := bufio.NewScanner(strings.NewReader(data))
+	scanner := bufio.NewScanner(core.NewReader(data))
 	for scanner.Scan() {
 		line := scanner.Text()
-		if strings.HasPrefix(line, "mode:") {
+		if core.HasPrefix(line, "mode:") {
 			continue
 		}
 
-		parts := strings.Fields(line)
+		parts := coverageFields(line)
 		if len(parts) != 3 {
 			continue
 		}
 
 		filePath := parts[0]
-		colonIdx := strings.Index(filePath, ":")
-		if colonIdx < 0 {
+		fileParts := core.Split(filePath, ":")
+		if len(fileParts) < 2 {
 			continue
 		}
-		file := filePath[:colonIdx]
+		file := fileParts[0]
 
 		pkg := file
-		if lastSlash := strings.LastIndex(file, "/"); lastSlash >= 0 {
-			pkg = file[:lastSlash]
+		fileSegments := core.Split(file, "/")
+		if len(fileSegments) > 1 {
+			pkg = core.Join("/", fileSegments[:len(fileSegments)-1]...)
 		}
 
 		stmts, err := strconv.Atoi(parts[1])
@@ -190,7 +191,7 @@ func ParseCoverOutput(output string) (CoverageSnapshot, error) {
 	}
 
 	re := regexp.MustCompile(`ok\s+(\S+)\s+.*coverage:\s+([\d.]+)%`)
-	scanner := bufio.NewScanner(strings.NewReader(output))
+	scanner := bufio.NewScanner(core.NewReader(output))
 
 	totalPct := 0.0
 	count := 0
@@ -210,6 +211,17 @@ func ParseCoverOutput(output string) (CoverageSnapshot, error) {
 	}
 
 	return snap, nil
+}
+
+func coverageFields(line string) []string {
+	scanner := bufio.NewScanner(core.NewReader(line))
+	scanner.Split(bufio.ScanWords)
+
+	fields := make([]string, 0, 3)
+	for scanner.Scan() {
+		fields = append(fields, scanner.Text())
+	}
+	return fields
 }
 
 // CompareCoverage computes the difference between two snapshots.
