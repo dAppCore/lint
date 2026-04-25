@@ -9,10 +9,10 @@ import (
 	"sort"
 	"strings"
 
-	"forge.lthn.ai/core/cli/pkg/cli"
-	coreerr "forge.lthn.ai/core/go-log"
-	cataloglint "forge.lthn.ai/core/lint"
-	lintpkg "forge.lthn.ai/core/lint/pkg/lint"
+	cataloglint "dappco.re/go/lint"
+	lintpkg "dappco.re/go/lint/pkg/lint"
+	"dappco.re/go/cli/pkg/cli"
+	coreerr "dappco.re/go/log"
 )
 
 func main() {
@@ -265,14 +265,18 @@ func newCheckCommand() *cli.Command {
 		if language != "" {
 			rules = catalog.ForLanguage(language)
 			if len(rules) == 0 {
-				fmt.Fprintf(os.Stderr, "no rules for language %q\n", language)
+				if _, err := fmt.Fprintf(os.Stderr, "no rules for language %q\n", language); err != nil {
+					return err
+				}
 				return nil
 			}
 		}
 		if severity != "" {
 			filtered := (&lintpkg.Catalog{Rules: rules}).AtSeverity(severity)
 			if len(filtered) == 0 {
-				fmt.Fprintf(os.Stderr, "no rules at severity %q or above\n", severity)
+				if _, err := fmt.Fprintf(os.Stderr, "no rules at severity %q or above\n", severity); err != nil {
+					return err
+				}
 				return nil
 			}
 			rules = filtered
@@ -323,9 +327,13 @@ func newCheckCommand() *cli.Command {
 			}
 			return lintpkg.WriteReportSARIF(command.OutOrStdout(), report)
 		default:
-			lintpkg.WriteText(command.OutOrStdout(), findings)
+			if err := lintpkg.WriteText(command.OutOrStdout(), findings); err != nil {
+				return err
+			}
 			if format == "text" && len(findings) > 0 {
-				writeCatalogSummary(command.OutOrStdout(), findings)
+				if err := writeCatalogSummary(command.OutOrStdout(), findings); err != nil {
+					return err
+				}
 			}
 			return nil
 		}
@@ -368,7 +376,9 @@ func newCatalogCommand() *cli.Command {
 		for _, rule := range rules {
 			fmt.Fprintf(command.OutOrStdout(), "%-14s [%-8s] %s\n", rule.ID, rule.Severity, rule.Title)
 		}
-		fmt.Fprintf(os.Stderr, "\n%d rule(s)\n", len(rules))
+		if _, err := fmt.Fprintf(os.Stderr, "\n%d rule(s)\n", len(rules)); err != nil {
+			return err
+		}
 		return nil
 	})
 	cli.StringFlag(listCmd, &listLanguage, "lang", "l", "", "Filter by language")
@@ -405,11 +415,9 @@ func writeReport(writer io.Writer, output string, report lintpkg.Report) error {
 	case "json":
 		return lintpkg.WriteReportJSON(writer, report)
 	case "text":
-		lintpkg.WriteReportText(writer, report)
-		return nil
+		return lintpkg.WriteReportText(writer, report)
 	case "github":
-		lintpkg.WriteReportGitHub(writer, report)
-		return nil
+		return lintpkg.WriteReportGitHub(writer, report)
 	case "sarif":
 		return lintpkg.WriteReportSARIF(writer, report)
 	default:
@@ -423,9 +431,11 @@ func writeIndentedJSON(writer io.Writer, value any) error {
 	return encoder.Encode(value)
 }
 
-func writeCatalogSummary(writer io.Writer, findings []lintpkg.Finding) {
+func writeCatalogSummary(writer io.Writer, findings []lintpkg.Finding) error {
 	summary := lintpkg.Summarise(findings)
-	fmt.Fprintf(writer, "\n%d finding(s)", summary.Total)
+	if _, err := fmt.Fprintf(writer, "\n%d finding(s)", summary.Total); err != nil {
+		return err
+	}
 
 	orderedSeverities := []string{"critical", "high", "medium", "low", "info", "error", "warning"}
 	seen := make(map[string]bool, len(summary.BySeverity))
@@ -457,7 +467,12 @@ func writeCatalogSummary(writer io.Writer, findings []lintpkg.Finding) {
 	}
 
 	if len(parts) > 0 {
-		fmt.Fprintf(writer, " (%s)", strings.Join(parts, ", "))
+		if _, err := fmt.Fprintf(writer, " (%s)", strings.Join(parts, ", ")); err != nil {
+			return err
+		}
 	}
-	fmt.Fprintln(writer)
+	if _, err := fmt.Fprintln(writer); err != nil {
+		return err
+	}
+	return nil
 }

@@ -3,6 +3,7 @@ package lint
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 
@@ -55,6 +56,19 @@ func TestSummarise_Good_Empty(t *testing.T) {
 	summary := Summarise(nil)
 	assert.Equal(t, 0, summary.Total)
 	assert.Empty(t, summary.BySeverity)
+}
+
+func TestSummarise_Bad_BlankSeverityDefaultsToWarning(t *testing.T) {
+	summary := Summarise([]Finding{
+		{Severity: ""},
+		{Severity: "info"},
+	})
+
+	assert.Equal(t, 2, summary.Total)
+	assert.Equal(t, 1, summary.Warnings)
+	assert.Equal(t, 1, summary.Info)
+	assert.Equal(t, 0, summary.Errors)
+	assert.True(t, summary.Passed)
 }
 
 func TestWriteJSON_Good_Roundtrip(t *testing.T) {
@@ -115,10 +129,16 @@ func TestWriteJSONL_Good_Empty(t *testing.T) {
 	assert.Empty(t, buf.String())
 }
 
+func TestWriteJSONL_Bad_PropagatesWriterErrors(t *testing.T) {
+	err := WriteJSONL(failingWriter{}, sampleFindings())
+	require.Error(t, err)
+}
+
 func TestWriteText_Good(t *testing.T) {
 	findings := sampleFindings()
 	var buf bytes.Buffer
-	WriteText(&buf, findings)
+	err := WriteText(&buf, findings)
+	require.NoError(t, err)
 
 	output := buf.String()
 	assert.Contains(t, output, "store/query.go:42")
@@ -131,14 +151,15 @@ func TestWriteText_Good(t *testing.T) {
 
 func TestWriteText_Good_Empty(t *testing.T) {
 	var buf bytes.Buffer
-	WriteText(&buf, nil)
+	err := WriteText(&buf, nil)
+	require.NoError(t, err)
 	assert.Empty(t, buf.String())
 }
 
 func TestWriteReportGitHub_Good_MapsInfoToNotice(t *testing.T) {
 	var buf bytes.Buffer
 
-	WriteReportGitHub(&buf, Report{
+	err := WriteReportGitHub(&buf, Report{
 		Findings: []Finding{{
 			Tool:     "demo",
 			File:     "example.go",
@@ -149,8 +170,21 @@ func TestWriteReportGitHub_Good_MapsInfoToNotice(t *testing.T) {
 			Message:  "explanation",
 		}},
 	})
+	require.NoError(t, err)
 
 	assert.Contains(t, buf.String(), "::notice file=example.go,line=7,col=3::[demo] explanation (demo-rule)")
+}
+
+func TestWriteText_Bad_PropagatesWriterErrors(t *testing.T) {
+	err := WriteText(failingWriter{}, sampleFindings())
+	require.Error(t, err)
+}
+
+func TestWriteReportGitHub_Bad_PropagatesWriterErrors(t *testing.T) {
+	err := WriteReportGitHub(failingWriter{}, Report{
+		Findings: sampleFindings(),
+	})
+	require.Error(t, err)
 }
 
 func TestWriteReportSARIF_Good_MapsInfoToNote(t *testing.T) {
@@ -175,4 +209,62 @@ func TestWriteReportSARIF_Good_MapsInfoToNote(t *testing.T) {
 	runs := decoded["runs"].([]any)
 	results := runs[0].(map[string]any)["results"].([]any)
 	assert.Equal(t, "note", results[0].(map[string]any)["level"])
+}
+
+func TestWriteReportJSON_Good_Roundtrip(t *testing.T) {
+	var buf bytes.Buffer
+
+	err := WriteReportJSON(&buf, Report{
+		Project:   "demo",
+		Languages: []string{"go"},
+		Findings: []Finding{{
+			Tool:     "demo",
+			File:     "example.go",
+			Line:     7,
+			Column:   3,
+			Severity: "warning",
+			Code:     "demo-rule",
+			Message:  "explanation",
+		}},
+		Summary: Summary{Total: 1, Warnings: 1, Passed: true},
+	})
+	require.NoError(t, err)
+
+	var decoded Report
+	require.NoError(t, json.Unmarshal(buf.Bytes(), &decoded))
+	assert.Equal(t, "demo", decoded.Project)
+	assert.Equal(t, []string{"go"}, decoded.Languages)
+	require.Len(t, decoded.Findings, 1)
+	assert.Equal(t, "demo-rule", decoded.Findings[0].Code)
+	assert.Equal(t, 1, decoded.Summary.Total)
+	assert.Equal(t, 1, decoded.Summary.Warnings)
+}
+
+func TestWriteReportText_Good_IncludesSummary(t *testing.T) {
+	var buf bytes.Buffer
+
+	err := WriteReportText(&buf, Report{
+		Findings: sampleFindings(),
+		Summary:  Summarise(sampleFindings()),
+	})
+	require.NoError(t, err)
+
+	output := buf.String()
+	assert.Contains(t, output, "store/query.go:42")
+	assert.Contains(t, output, "3 finding(s):")
+	assert.Contains(t, output, "0 error(s), 3 warning(s), 0 info")
+}
+
+func TestWriteReportText_Bad_PropagatesWriterErrors(t *testing.T) {
+	err := WriteReportText(failingWriter{}, Report{
+		Findings: sampleFindings(),
+		Summary:  Summarise(sampleFindings()),
+	})
+	require.Error(t, err)
+}
+
+type failingWriter struct{}
+
+func (failingWriter) Write([]byte) (int, error) {
+	return 0, errors.New("write failed")
 }

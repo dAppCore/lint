@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	coreerr "forge.lthn.ai/core/go-log"
+	coreerr "dappco.re/go/log"
 )
 
 // ToolFinding represents a single issue found by an external tool (e.g. go vet).

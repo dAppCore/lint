@@ -10,7 +10,7 @@ import (
 	"sync"
 	"testing"
 
-	lintpkg "forge.lthn.ai/core/lint/pkg/lint"
+	lintpkg "dappco.re/go/lint/pkg/lint"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -44,9 +44,24 @@ func Run() {
 
 	var report lintpkg.Report
 	require.NoError(t, json.Unmarshal([]byte(stdout), &report))
-	require.Len(t, report.Findings, 1)
-	assert.Equal(t, "go-cor-003", report.Findings[0].Code)
-	assert.Equal(t, 1, report.Summary.Total)
+	require.NotEmpty(t, report.Findings)
+	assert.GreaterOrEqual(t, report.Summary.Total, 2)
+	assert.Greater(t, report.Summary.Info, 0)
+	assert.Contains(t, report.Summary.BySeverity, "info")
+	assert.Contains(t, report.Summary.BySeverity, "warning")
+
+	var hasCatalogFinding bool
+	var hasMissingToolFinding bool
+	for _, finding := range report.Findings {
+		switch finding.Code {
+		case "go-cor-003":
+			hasCatalogFinding = true
+		case "missing-tool":
+			hasMissingToolFinding = true
+		}
+	}
+	assert.True(t, hasCatalogFinding)
+	assert.True(t, hasMissingToolFinding)
 	assert.False(t, report.Summary.Passed)
 }
 
@@ -74,8 +89,13 @@ func helper() error { return nil }
 
 	var report lintpkg.Report
 	require.NoError(t, json.Unmarshal([]byte(stdout), &report))
-	assert.Empty(t, report.Findings)
-	assert.Equal(t, 0, report.Summary.Total)
+	require.NotEmpty(t, report.Findings)
+	assert.Equal(t, 6, report.Summary.Total)
+	assert.Equal(t, 6, report.Summary.Info)
+	for _, finding := range report.Findings {
+		assert.Equal(t, "missing-tool", finding.Code)
+		assert.Equal(t, "info", finding.Severity)
+	}
 	assert.True(t, report.Summary.Passed)
 }
 
@@ -115,8 +135,13 @@ schedules:
 
 	var report lintpkg.Report
 	require.NoError(t, json.Unmarshal([]byte(stdout), &report))
-	assert.Empty(t, report.Findings)
-	assert.Equal(t, 0, report.Summary.Total)
+	require.NotEmpty(t, report.Findings)
+	assert.Equal(t, 6, report.Summary.Total)
+	assert.Equal(t, 6, report.Summary.Info)
+	for _, finding := range report.Findings {
+		assert.Equal(t, "missing-tool", finding.Code)
+		assert.Equal(t, "info", finding.Severity)
+	}
 	assert.True(t, report.Summary.Passed)
 }
 

@@ -7,7 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	coreerr "forge.lthn.ai/core/go-log"
+	coreerr "dappco.re/go/log"
 )
 
 // RectorOptions configures Rector code refactoring.

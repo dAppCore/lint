@@ -1,21 +1,21 @@
-module forge.lthn.ai/core/lint
+module dappco.re/go/lint
 
 go 1.26.0
 
 require (
-	forge.lthn.ai/core/cli v0.3.7
-	forge.lthn.ai/core/go-i18n v0.1.7
-	forge.lthn.ai/core/go-io v0.1.7
-	forge.lthn.ai/core/go-log v0.0.4
-	forge.lthn.ai/core/go-process v0.2.9
-	forge.lthn.ai/core/go-scm v0.3.6
+	dappco.re/go/cli v0.8.0-alpha.1
+	dappco.re/go/i18n v0.8.0-alpha.1
+	dappco.re/go/io v0.8.0-alpha.1
+	dappco.re/go/log v0.8.0-alpha.1
+	dappco.re/go/process v0.8.0-alpha.1
+	dappco.re/go/scm v0.8.0-alpha.1
 	github.com/stretchr/testify v1.11.1
 	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
-	forge.lthn.ai/core/go v0.3.3 // indirect
-	forge.lthn.ai/core/go-inference v0.1.7 // indirect
+	dappco.re/go/core v0.8.0-alpha.1 // indirect
+	dappco.re/go/inference v0.8.0-alpha.1 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/charmbracelet/bubbletea v1.3.10 // indirect
 	github.com/charmbracelet/colorprofile v0.4.3 // indirect

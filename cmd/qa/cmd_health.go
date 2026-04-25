@@ -13,11 +13,11 @@ import (
 	"slices"
 	"strings"
 
-	"forge.lthn.ai/core/cli/pkg/cli"
-	"forge.lthn.ai/core/go-i18n"
-	"forge.lthn.ai/core/go-io"
-	"forge.lthn.ai/core/go-log"
-	"forge.lthn.ai/core/go-scm/repos"
+	"dappco.re/go/cli/pkg/cli"
+	"dappco.re/go/i18n"
+	"dappco.re/go/io"
+	"dappco.re/go/log"
+	"dappco.re/go/scm/repos"
 )
 
 // Health command flags.

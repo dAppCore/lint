@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	coreio "forge.lthn.ai/core/go-io"
-	coreerr "forge.lthn.ai/core/go-log"
+	coreio "dappco.re/go/io"
+	coreerr "dappco.re/go/log"
 )
 
 const (
@@ -144,6 +144,9 @@ func (service *Service) Run(ctx context.Context, input RunInput) (Report, error)
 	var toolRuns []ToolRun
 
 	for _, adapter := range selectedAdapters {
+		if err := ctx.Err(); err != nil {
+			break
+		}
 		if input.Hook && !adapter.Fast() {
 			toolRuns = append(toolRuns, ToolRun{
 				Name:     adapter.Name(),

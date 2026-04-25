@@ -62,3 +62,26 @@ func TestResolveRunOutputFormat_Good_ExplicitOutputBypassesConfigLoading(t *test
 	require.NoError(t, err)
 	assert.Equal(t, "sarif", format)
 }
+
+func TestResolveRunOutputFormat_Bad_BrokenConfig(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".core"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".core", "lint.yaml"), []byte("{not: yaml"), 0o644))
+
+	_, err := ResolveRunOutputFormat(RunInput{
+		Path: dir,
+	})
+	assert.Error(t, err)
+}
+
+func TestResolveRunOutputFormat_Ugly_MissingSchedule(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".core"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".core", "lint.yaml"), []byte("output: text\n"), 0o644))
+
+	_, err := ResolveRunOutputFormat(RunInput{
+		Path:     dir,
+		Schedule: "nightly",
+	})
+	assert.Error(t, err)
+}

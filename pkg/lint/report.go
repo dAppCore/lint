@@ -75,7 +75,7 @@ func WriteJSONL(w io.Writer, findings []Finding) error {
 // WriteText writes findings in a human-readable format.
 //
 //	lint.WriteText(os.Stdout, findings)
-func WriteText(w io.Writer, findings []Finding) {
+func WriteText(w io.Writer, findings []Finding) error {
 	for _, finding := range findings {
 		message := finding.Message
 		if message == "" {
@@ -85,8 +85,11 @@ func WriteText(w io.Writer, findings []Finding) {
 		if code == "" {
 			code = finding.RuleID
 		}
-		fmt.Fprintf(w, "%s:%d [%s] %s (%s)\n", finding.File, finding.Line, finding.Severity, message, code)
+		if _, err := fmt.Fprintf(w, "%s:%d [%s] %s (%s)\n", finding.File, finding.Line, finding.Severity, message, code); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 // WriteReportJSON writes the RFC report document as pretty-printed JSON.
@@ -101,15 +104,18 @@ func WriteReportJSON(w io.Writer, report Report) error {
 // WriteReportText writes report findings followed by a short summary.
 //
 //	lint.WriteReportText(os.Stdout, report)
-func WriteReportText(w io.Writer, report Report) {
-	WriteText(w, report.Findings)
-	fmt.Fprintf(w, "\n%d finding(s): %d error(s), %d warning(s), %d info\n", report.Summary.Total, report.Summary.Errors, report.Summary.Warnings, report.Summary.Info)
+func WriteReportText(w io.Writer, report Report) error {
+	if err := WriteText(w, report.Findings); err != nil {
+		return err
+	}
+	_, err := fmt.Fprintf(w, "\n%d finding(s): %d error(s), %d warning(s), %d info\n", report.Summary.Total, report.Summary.Errors, report.Summary.Warnings, report.Summary.Info)
+	return err
 }
 
 // WriteReportGitHub writes GitHub Actions annotation lines.
 //
 //	lint.WriteReportGitHub(os.Stdout, report)
-func WriteReportGitHub(w io.Writer, report Report) {
+func WriteReportGitHub(w io.Writer, report Report) error {
 	for _, finding := range report.Findings {
 		level := githubAnnotationLevel(finding.Severity)
 
@@ -132,8 +138,11 @@ func WriteReportGitHub(w io.Writer, report Report) {
 		if code == "" {
 			code = finding.RuleID
 		}
-		fmt.Fprintf(w, "::%s%s::[%s] %s (%s)\n", level, location, finding.Tool, message, code)
+		if _, err := fmt.Fprintf(w, "::%s%s::[%s] %s (%s)\n", level, location, finding.Tool, message, code); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 // WriteReportSARIF writes a minimal SARIF document for code scanning tools.

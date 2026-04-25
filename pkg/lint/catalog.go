@@ -6,8 +6,8 @@ import (
 	"slices"
 	"strings"
 
-	coreio "forge.lthn.ai/core/go-io"
-	coreerr "forge.lthn.ai/core/go-log"
+	coreio "dappco.re/go/io"
+	coreerr "dappco.re/go/log"
 )
 
 // severityOrder maps severity names to numeric ranks for threshold comparison.

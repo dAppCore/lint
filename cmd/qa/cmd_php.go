@@ -20,9 +20,9 @@ import (
 	"sort"
 	"strings"
 
-	"forge.lthn.ai/core/cli/pkg/cli"
-	"forge.lthn.ai/core/lint/pkg/detect"
-	"forge.lthn.ai/core/lint/pkg/php"
+	"dappco.re/go/cli/pkg/cli"
+	"dappco.re/go/lint/pkg/detect"
+	"dappco.re/go/lint/pkg/php"
 )
 
 // Severity styles for security output.

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os/exec"
 	"path/filepath"
@@ -12,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	coreerr "forge.lthn.ai/core/go-log"
+	coreerr "dappco.re/go/log"
 )
 
 // Adapter wraps one lint tool and normalises its output to Finding values.
@@ -166,6 +167,18 @@ func (adapter CommandAdapter) Run(ctx context.Context, input RunInput, files []s
 	if !ok {
 		result.Tool.Status = "skipped"
 		result.Tool.Duration = "0s"
+		missingName := firstNonEmpty(adapter.Command(), adapter.name)
+		if missingName == "" {
+			missingName = adapter.name
+		}
+		result.Findings = []Finding{{
+			Tool:     adapter.name,
+			Severity: "info",
+			Code:     "missing-tool",
+			Message:  fmt.Sprintf("%s is not installed", missingName),
+			Category: adapter.category,
+		}}
+		result.Tool.Findings = len(result.Findings)
 		return result
 	}
 
@@ -176,6 +189,8 @@ func (adapter CommandAdapter) Run(ctx context.Context, input RunInput, files []s
 
 	args := adapter.buildArgs(input.Path, files)
 	stdout, stderr, exitCode, runErr := runCommand(runContext, input.Path, binary, args)
+	stdout = strings.TrimSpace(stdout)
+	stderr = strings.TrimSpace(stderr)
 
 	result.Tool.Duration = time.Since(startedAt).Round(time.Millisecond).String()
 
@@ -184,19 +199,30 @@ func (adapter CommandAdapter) Run(ctx context.Context, input RunInput, files []s
 		return result
 	}
 
-	output := strings.TrimSpace(stdout)
-	if strings.TrimSpace(stderr) != "" {
-		if output != "" {
-			output += "\n" + strings.TrimSpace(stderr)
+	if err := runContext.Err(); err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			result.Tool.Status = "timeout"
 		} else {
-			output = strings.TrimSpace(stderr)
+			result.Tool.Status = "canceled"
 		}
+		return result
 	}
 
-	if adapter.parseOutput != nil && output != "" {
-		result.Findings = adapter.parseOutput(adapter.name, adapter.category, output)
+	if adapter.parseOutput != nil {
+		if stdout != "" {
+			result.Findings = append(result.Findings, adapter.parseOutput(adapter.name, adapter.category, stdout)...)
+		}
+		if len(result.Findings) == 0 && stderr != "" {
+			result.Findings = append(result.Findings, adapter.parseOutput(adapter.name, adapter.category, stderr)...)
+		}
 	}
-	if len(result.Findings) == 0 && output != "" {
+	if len(result.Findings) == 0 && (stdout != "" || stderr != "") {
+		output := stdout
+		if output != "" && stderr != "" {
+			output += "\n" + stderr
+		} else if output == "" {
+			output = stderr
+		}
 		result.Findings = parseTextDiagnostics(adapter.name, adapter.category, output)
 	}
 	if len(result.Findings) == 0 && runErr != nil {
@@ -204,7 +230,7 @@ func (adapter CommandAdapter) Run(ctx context.Context, input RunInput, files []s
 			Tool:     adapter.name,
 			Severity: defaultSeverityForCategory(adapter.category),
 			Code:     "command-failed",
-			Message:  strings.TrimSpace(firstNonEmpty(output, runErr.Error())),
+			Message:  strings.TrimSpace(firstNonEmpty(stdout, stderr, runErr.Error())),
 			Category: adapter.category,
 		}}
 	}
@@ -287,7 +313,7 @@ func (CatalogAdapter) Category() string { return "correctness" }
 
 func (CatalogAdapter) Fast() bool { return true }
 
-func (CatalogAdapter) Run(_ context.Context, input RunInput, files []string) AdapterResult {
+func (CatalogAdapter) Run(ctx context.Context, input RunInput, files []string) AdapterResult {
 	startedAt := time.Now()
 	result := AdapterResult{
 		Tool: ToolRun{
@@ -333,6 +359,9 @@ func (CatalogAdapter) Run(_ context.Context, input RunInput, files []string) Ada
 	var findings []Finding
 	if len(files) > 0 {
 		for _, file := range files {
+			if err := ctx.Err(); err != nil {
+				break
+			}
 			scanPath := file
 			if !filepath.IsAbs(scanPath) {
 				scanPath = filepath.Join(input.Path, file)
@@ -344,7 +373,20 @@ func (CatalogAdapter) Run(_ context.Context, input RunInput, files []string) Ada
 			findings = append(findings, fileFindings...)
 		}
 	} else {
+		if ctx.Err() != nil {
+			result.Tool.Status = "canceled"
+			result.Tool.Duration = time.Since(startedAt).Round(time.Millisecond).String()
+			return result
+		}
 		findings, _ = scanner.ScanDir(input.Path)
+	}
+
+	if err := ctx.Err(); err != nil {
+		result.Tool.Status = "canceled"
+		result.Tool.Duration = time.Since(startedAt).Round(time.Millisecond).String()
+		result.Tool.Findings = len(findings)
+		result.Findings = findings
+		return result
 	}
 
 	for index := range findings {
@@ -488,7 +530,26 @@ func parseJSONDiagnostics(tool string, category string, output string) []Finding
 			break
 		}
 		if err != nil {
-			return nil
+			if strings.TrimSpace(output) == "" {
+				return nil
+			}
+			if len(findings) > 0 {
+				findings = append(findings, Finding{
+					Tool:     tool,
+					Severity: "error",
+					Code:     "parse-error",
+					Message:  fmt.Sprintf("failed to parse JSON output: %v", err),
+					Category: category,
+				})
+				return dedupeFindings(findings)
+			}
+			return []Finding{{
+				Tool:     tool,
+				Severity: "error",
+				Code:     "parse-error",
+				Message:  fmt.Sprintf("failed to parse JSON output: %v", err),
+				Category: category,
+			}}
 		}
 		findings = append(findings, collectJSONDiagnostics(tool, category, value)...)
 	}

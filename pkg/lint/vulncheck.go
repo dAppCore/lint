@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 
-	coreerr "forge.lthn.ai/core/go-log"
+	coreerr "dappco.re/go/log"
 )
 
 // VulnFinding represents a single vulnerability found by govulncheck.
@@ -111,7 +111,7 @@ func ParseVulnCheckJSON(stdout, stderr string) (*VulnResult, error) {
 
 		var msg govulncheckMessage
 		if err := json.Unmarshal([]byte(line), &msg); err != nil {
-			continue
+			return nil, coreerr.E("ParseVulnCheckJSON", "invalid govulncheck JSON output", err)
 		}
 
 		if msg.Config != nil {

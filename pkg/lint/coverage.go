@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	coreio "forge.lthn.ai/core/go-io"
-	coreerr "forge.lthn.ai/core/go-log"
+	coreio "dappco.re/go/io"
+	coreerr "dappco.re/go/log"
 )
 
 // CoverageSnapshot represents a point-in-time coverage measurement.

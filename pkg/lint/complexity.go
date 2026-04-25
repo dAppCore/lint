@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	coreio "forge.lthn.ai/core/go-io"
-	coreerr "forge.lthn.ai/core/go-log"
+	coreio "dappco.re/go/io"
+	coreerr "dappco.re/go/log"
 )
 
 // ComplexityConfig controls cyclomatic complexity analysis.
