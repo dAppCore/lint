@@ -1,10 +1,10 @@
 package lint
 
 import (
-	"fmt"
 	"regexp"
 	"slices"
 
+	core "dappco.re/go/core"
 	coreerr "dappco.re/go/core/log"
 	"gopkg.in/yaml.v3"
 )
@@ -42,7 +42,7 @@ func (r *Rule) Validate() error {
 		return coreerr.E("Rule.Validate", "rule "+r.ID+": severity must not be empty", nil)
 	}
 	if !slices.Contains(validSeverities, r.Severity) {
-		return coreerr.E("Rule.Validate", fmt.Sprintf("rule %s: severity %q is not valid (want one of %v)", r.ID, r.Severity, validSeverities), nil)
+		return coreerr.E("Rule.Validate", core.Sprintf("rule %s: severity %q is not valid (want one of %v)", r.ID, r.Severity, validSeverities), nil)
 	}
 	if len(r.Languages) == 0 {
 		return coreerr.E("Rule.Validate", "rule "+r.ID+": languages must not be empty", nil)

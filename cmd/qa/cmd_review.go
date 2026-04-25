@@ -9,13 +9,12 @@ package qa
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"os/exec"
+	"io"
+	"os"
 	"sort"
-	"strings"
 	"time"
 
+	core "dappco.re/go/core"
 	"dappco.re/go/core/cli/pkg/cli"
 	"dappco.re/go/core/i18n"
 	"dappco.re/go/core/log"
@@ -122,7 +121,7 @@ func addReviewCommand(parent *cli.Command) {
 
 func runReview() error {
 	// Check gh is available
-	if _, err := exec.LookPath("gh"); err != nil {
+	if result := (core.App{}).Find("gh", "GitHub CLI"); !result.OK {
 		return log.E("qa.review", i18n.T("error.gh_not_found"), nil)
 	}
 
@@ -155,15 +154,15 @@ func runReview() error {
 			fetchErrors = append(fetchErrors, ReviewFetchError{
 				Repo:  repoFullName,
 				Scope: "mine",
-				Error: strings.TrimSpace(err.Error()),
+				Error: core.Trim(err.Error()),
 			})
 			if !reviewJSON {
-				cli.Warnf("failed to fetch your PRs for %s: %s", repoFullName, strings.TrimSpace(err.Error()))
+				cli.Warnf("failed to fetch your PRs for %s: %s", repoFullName, core.Trim(err.Error()))
 			}
 		} else {
 			sort.Slice(prs, func(i, j int) bool {
 				if prs[i].Number == prs[j].Number {
-					return strings.Compare(prs[i].Title, prs[j].Title) < 0
+					return prs[i].Title < prs[j].Title
 				}
 				return prs[i].Number < prs[j].Number
 			})
@@ -179,15 +178,15 @@ func runReview() error {
 			fetchErrors = append(fetchErrors, ReviewFetchError{
 				Repo:  repoFullName,
 				Scope: "requested",
-				Error: strings.TrimSpace(err.Error()),
+				Error: core.Trim(err.Error()),
 			})
 			if !reviewJSON {
-				cli.Warnf("failed to fetch review requested PRs for %s: %s", repoFullName, strings.TrimSpace(err.Error()))
+				cli.Warnf("failed to fetch review requested PRs for %s: %s", repoFullName, core.Trim(err.Error()))
 			}
 		} else {
 			sort.Slice(prs, func(i, j int) bool {
 				if prs[i].Number == prs[j].Number {
-					return strings.Compare(prs[i].Title, prs[j].Title) < 0
+					return prs[i].Title < prs[j].Title
 				}
 				return prs[i].Number < prs[j].Number
 			})
@@ -208,11 +207,11 @@ func runReview() error {
 	}
 
 	if reviewJSON {
-		data, err := json.MarshalIndent(output, "", "  ")
-		if err != nil {
-			return err
+		result := core.JSONMarshal(output)
+		if !result.OK {
+			return resultError(result, "qa.review.json")
 		}
-		cli.Print("%s\n", string(data))
+		cli.Print("%s\n", string(result.Value.([]byte)))
 		if successfulFetches == 0 && len(fetchErrors) > 0 {
 			return cli.Err("failed to fetch pull requests for %s", repoFullName)
 		}
@@ -286,21 +285,116 @@ func fetchPRs(ctx context.Context, repo, search string) ([]PullRequest, error) {
 		args = append(args, "--repo", repo)
 	}
 
-	cmd := exec.CommandContext(ctx, "gh", args...)
-	output, err := cmd.Output()
+	output, stderr, err := runReviewCommand(ctx, "gh", args...)
 	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			return nil, log.E("qa.fetchPRs", strings.TrimSpace(string(exitErr.Stderr)), nil)
+		message := core.Trim(stderr)
+		if message == "" {
+			message = core.Trim(err.Error())
 		}
-		return nil, err
+		return nil, log.E("qa.fetchPRs", message, nil)
 	}
 
 	var prs []PullRequest
-	if err := json.Unmarshal(output, &prs); err != nil {
-		return nil, err
+	result := core.JSONUnmarshal(output, &prs)
+	if !result.OK {
+		return nil, resultError(result, "qa.fetchPRs.json")
 	}
 
 	return prs, nil
+}
+
+type reviewCommandReadResult struct {
+	data []byte
+	err  error
+}
+
+type reviewCommandWaitResult struct {
+	state *os.ProcessState
+	err   error
+}
+
+func runReviewCommand(ctx context.Context, command string, args ...string) ([]byte, string, error) {
+	appResult := (core.App{}).Find(command, command)
+	if !appResult.OK {
+		return nil, "", resultError(appResult, "qa.review.find")
+	}
+	app := appResult.Value.(*core.App)
+
+	stdoutReader, stdoutWriter, err := os.Pipe()
+	if err != nil {
+		return nil, "", err
+	}
+	defer stdoutReader.Close()
+
+	stderrReader, stderrWriter, err := os.Pipe()
+	if err != nil {
+		stdoutWriter.Close()
+		return nil, "", err
+	}
+	defer stderrReader.Close()
+
+	process, err := os.StartProcess(app.Path, append([]string{command}, args...), &os.ProcAttr{
+		Files: []*os.File{os.Stdin, stdoutWriter, stderrWriter},
+		Env:   os.Environ(),
+	})
+	stdoutWriter.Close()
+	stderrWriter.Close()
+	if err != nil {
+		return nil, "", err
+	}
+
+	stdoutDone := make(chan reviewCommandReadResult, 1)
+	stderrDone := make(chan reviewCommandReadResult, 1)
+	waitDone := make(chan reviewCommandWaitResult, 1)
+
+	go readReviewCommandOutput(stdoutReader, stdoutDone)
+	go readReviewCommandOutput(stderrReader, stderrDone)
+	go func() {
+		state, waitErr := process.Wait()
+		waitDone <- reviewCommandWaitResult{state: state, err: waitErr}
+	}()
+
+	var waitResult reviewCommandWaitResult
+	select {
+	case waitResult = <-waitDone:
+	case <-ctx.Done():
+		_ = process.Kill()
+		waitResult = <-waitDone
+	}
+
+	stdoutResult := <-stdoutDone
+	stderrResult := <-stderrDone
+	stderr := string(stderrResult.data)
+
+	if stdoutResult.err != nil {
+		return stdoutResult.data, stderr, stdoutResult.err
+	}
+	if stderrResult.err != nil {
+		return stdoutResult.data, stderr, stderrResult.err
+	}
+	if ctx.Err() != nil {
+		return stdoutResult.data, stderr, ctx.Err()
+	}
+	if waitResult.err != nil {
+		return stdoutResult.data, stderr, waitResult.err
+	}
+	if waitResult.state != nil && !waitResult.state.Success() {
+		return stdoutResult.data, stderr, core.E("qa.review.run", core.Sprintf("%s exited with status %d", command, waitResult.state.ExitCode()), nil)
+	}
+
+	return stdoutResult.data, stderr, nil
+}
+
+func readReviewCommandOutput(reader *os.File, done chan<- reviewCommandReadResult) {
+	data, err := io.ReadAll(reader)
+	done <- reviewCommandReadResult{data: data, err: err}
+}
+
+func resultError(result core.Result, operation string) error {
+	if err, ok := result.Value.(error); ok {
+		return err
+	}
+	return core.E(operation, core.Sprintf("core result failed: %v", result.Value), nil)
 }
 
 // printPRStatus prints a PR with its merge status
@@ -321,7 +415,7 @@ func printPRStatus(pr PullRequest) {
 // printPRForReview prints a PR that needs review
 func printPRForReview(pr PullRequest) {
 	// Show PR info with stats
-	stats := fmt.Sprintf("+%d/-%d, %d files",
+	stats := core.Sprintf("+%d/-%d, %d files",
 		pr.Additions, pr.Deletions, pr.ChangedFiles)
 
 	cli.Print("  %s #%d %s\n",
@@ -381,7 +475,7 @@ func analyzePRStatus(pr PullRequest) (status string, style *cli.AnsiStyle, actio
 	if ciFailed {
 		if len(failedChecks) > 0 {
 			sort.Strings(failedChecks)
-			return "✗", errorStyle, fmt.Sprintf("CI failed: %s", failedChecks[0])
+			return "✗", errorStyle, core.Sprintf("CI failed: %s", failedChecks[0])
 		}
 		return "✗", errorStyle, "CI failed"
 	}

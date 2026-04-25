@@ -1,11 +1,10 @@
 package lint
 
 import (
-	"io/fs"
 	"os"
-	"path/filepath"
 	"slices"
-	"strings"
+
+	core "dappco.re/go/core"
 )
 
 var projectLanguageByExtension = map[string]string{
@@ -52,23 +51,29 @@ func Detect(path string) []string {
 		return []string{}
 	}
 
-	_ = filepath.WalkDir(path, func(currentPath string, entry fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return nil
-		}
+	walkDetectedProject(path, path, seen)
 
+	return sortedDetectedLanguages(seen)
+}
+
+func walkDetectedProject(root string, current string, seen map[string]bool) {
+	entries, err := os.ReadDir(current)
+	if err != nil {
+		return
+	}
+
+	for _, entry := range entries {
+		currentPath := core.JoinPath(current, entry.Name())
 		if entry.IsDir() {
-			if currentPath != path && IsExcludedDir(entry.Name()) {
-				return filepath.SkipDir
+			if currentPath != root && IsExcludedDir(entry.Name()) {
+				continue
 			}
-			return nil
+			walkDetectedProject(root, currentPath, seen)
+			continue
 		}
 
 		recordDetectedPath(seen, currentPath)
-		return nil
-	})
-
-	return sortedDetectedLanguages(seen)
+	}
 }
 
 func detectFromFiles(files []string) []string {
@@ -80,7 +85,7 @@ func detectFromFiles(files []string) []string {
 }
 
 func recordDetectedPath(seen map[string]bool, path string) {
-	name := filepath.Base(path)
+	name := core.PathBase(path)
 	matchedMarker := false
 
 	switch {
@@ -102,7 +107,7 @@ func recordDetectedPath(seen map[string]bool, path string) {
 	case name == "Cargo.toml":
 		seen["rust"] = true
 		matchedMarker = true
-	case strings.HasPrefix(name, "Dockerfile"):
+	case core.HasPrefix(name, "Dockerfile"):
 		seen["dockerfile"] = true
 		matchedMarker = true
 	}
@@ -111,7 +116,7 @@ func recordDetectedPath(seen map[string]bool, path string) {
 		return
 	}
 
-	if lang, ok := projectLanguageByExtension[strings.ToLower(filepath.Ext(name))]; ok {
+	if lang, ok := projectLanguageByExtension[core.Lower(core.PathExt(name))]; ok {
 		seen[lang] = true
 	}
 }
