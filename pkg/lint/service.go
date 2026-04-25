@@ -4,11 +4,14 @@ import (
 	"context"
 	"io/fs"
 	"os"
+	// Note: AX-6 — filepath.WalkDir, filepath.SkipDir, filepath.Rel, and filepath.Abs have no core equivalents.
 	"path/filepath"
 	"slices"
+	// Note: AX-6 — strings.Compare, strings.Index, and strings.TrimRight have no core equivalents.
 	"strings"
 	"time"
 
+	core "dappco.re/go/core"
 	coreio "dappco.re/go/core/io"
 	coreerr "dappco.re/go/core/log"
 )
@@ -223,15 +226,15 @@ func (service *Service) WriteDefaultConfig(projectPath string, force bool) (stri
 		projectPath = "."
 	}
 
-	targetPath := filepath.Join(projectPath, DefaultConfigPath)
+	targetPath := core.JoinPath(projectPath, DefaultConfigPath)
 	if !force {
 		if _, err := os.Stat(targetPath); err == nil {
 			return "", coreerr.E("Service.WriteDefaultConfig", targetPath+" already exists", nil)
 		}
 	}
 
-	if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
-		return "", coreerr.E("Service.WriteDefaultConfig", "mkdir "+filepath.Dir(targetPath), err)
+	if err := os.MkdirAll(core.PathDir(targetPath), 0o755); err != nil {
+		return "", coreerr.E("Service.WriteDefaultConfig", "mkdir "+core.PathDir(targetPath), err)
 	}
 
 	content, err := DefaultConfigYAML()
@@ -259,7 +262,7 @@ func (service *Service) InstallHook(projectPath string) error {
 
 	raw, readErr := coreio.Local.Read(hookPath)
 	if readErr == nil {
-		if strings.Contains(raw, hookStartMarker) {
+		if core.Contains(raw, hookStartMarker) {
 			return nil
 		}
 
@@ -271,8 +274,8 @@ func (service *Service) InstallHook(projectPath string) error {
 		}
 	}
 
-	if err := os.MkdirAll(filepath.Dir(hookPath), 0o755); err != nil {
-		return coreerr.E("Service.InstallHook", "mkdir "+filepath.Dir(hookPath), err)
+	if err := os.MkdirAll(core.PathDir(hookPath), 0o755); err != nil {
+		return coreerr.E("Service.InstallHook", "mkdir "+core.PathDir(hookPath), err)
 	}
 	if err := coreio.Local.Write(hookPath, content); err != nil {
 		return coreerr.E("Service.InstallHook", "write "+hookPath, err)
@@ -309,7 +312,7 @@ func (service *Service) RemoveHook(projectPath string) error {
 
 	endIndex += len(hookEndMarker)
 	content := strings.TrimRight(raw[:startIndex]+raw[endIndex:], "\n")
-	if strings.TrimSpace(content) == "" {
+	if core.Trim(content) == "" {
 		if err := os.Remove(hookPath); err != nil && !os.IsNotExist(err) {
 			return coreerr.E("Service.RemoveHook", "remove "+hookPath, err)
 		}
@@ -385,12 +388,12 @@ func (service *Service) stagedFiles(projectPath string) ([]string, error) {
 	toolkit := NewToolkit(projectPath)
 	stdout, stderr, exitCode, err := toolkit.Run("git", "diff", "--cached", "--name-only")
 	if err != nil && exitCode != 0 {
-		return nil, coreerr.E("Service.stagedFiles", "git diff --cached --name-only: "+strings.TrimSpace(stderr), err)
+		return nil, coreerr.E("Service.stagedFiles", "git diff --cached --name-only: "+core.Trim(stderr), err)
 	}
 
 	var files []string
-	for line := range strings.SplitSeq(strings.TrimSpace(stdout), "\n") {
-		line = strings.TrimSpace(line)
+	for _, line := range core.Split(core.Trim(stdout), "\n") {
+		line = core.Trim(line)
 		if line == "" {
 			continue
 		}
@@ -409,8 +412,8 @@ func collectConfiguredFiles(projectPath string, paths []string, excludes []strin
 		}
 
 		absolutePath := path
-		if !filepath.IsAbs(absolutePath) {
-			absolutePath = filepath.Join(projectPath, path)
+		if !core.PathIsAbs(absolutePath) {
+			absolutePath = core.JoinPath(projectPath, path)
 		}
 
 		info, err := os.Stat(absolutePath)
@@ -423,10 +426,10 @@ func collectConfiguredFiles(projectPath string, paths []string, excludes []strin
 
 		addFile := func(candidate string) {
 			relativePath := relativeConfiguredPath(projectPath, candidate)
-			if hasHiddenDirectory(relativePath) || hasHiddenDirectory(filepath.ToSlash(filepath.Clean(candidate))) {
+			if hasHiddenDirectory(relativePath) || hasHiddenDirectory(cleanSlashPath(candidate)) {
 				return
 			}
-			if matchesConfiguredExclude(relativePath, excludes) || matchesConfiguredExclude(filepath.ToSlash(filepath.Clean(candidate)), excludes) {
+			if matchesConfiguredExclude(relativePath, excludes) || matchesConfiguredExclude(cleanSlashPath(candidate), excludes) {
 				return
 			}
 			if seen[relativePath] {
@@ -447,7 +450,7 @@ func collectConfiguredFiles(projectPath string, paths []string, excludes []strin
 			}
 			if entry.IsDir() {
 				relativeDir := relativeConfiguredPath(projectPath, currentPath)
-				if matchesConfiguredExclude(relativeDir, excludes) || matchesConfiguredExclude(filepath.ToSlash(filepath.Clean(currentPath)), excludes) {
+				if matchesConfiguredExclude(relativeDir, excludes) || matchesConfiguredExclude(cleanSlashPath(currentPath), excludes) {
 					return filepath.SkipDir
 				}
 				if currentPath != absolutePath && IsExcludedDir(entry.Name()) {
@@ -467,14 +470,18 @@ func collectConfiguredFiles(projectPath string, paths []string, excludes []strin
 	return files, nil
 }
 
+func cleanSlashPath(path string) string {
+	return core.CleanPath(core.Replace(path, "\\", "/"), "/")
+}
+
 func relativeConfiguredPath(projectPath string, candidate string) string {
 	relativePath := candidate
 	if projectPath != "" {
-		if rel, relErr := filepath.Rel(projectPath, candidate); relErr == nil && rel != "" && !strings.HasPrefix(rel, "..") {
+		if rel, relErr := filepath.Rel(projectPath, candidate); relErr == nil && rel != "" && !core.HasPrefix(rel, "..") {
 			relativePath = rel
 		}
 	}
-	return filepath.ToSlash(filepath.Clean(relativePath))
+	return cleanSlashPath(relativePath)
 }
 
 func matchesConfiguredExclude(candidate string, excludes []string) bool {
@@ -482,17 +489,17 @@ func matchesConfiguredExclude(candidate string, excludes []string) bool {
 		return false
 	}
 
-	normalisedCandidate := filepath.ToSlash(filepath.Clean(candidate))
+	normalisedCandidate := cleanSlashPath(candidate)
 	for _, exclude := range excludes {
-		normalisedExclude := filepath.ToSlash(filepath.Clean(strings.TrimSpace(exclude)))
+		normalisedExclude := cleanSlashPath(core.Trim(exclude))
 		if normalisedExclude == "." || normalisedExclude == "" {
 			continue
 		}
-		normalisedExclude = strings.TrimSuffix(normalisedExclude, "/")
+		normalisedExclude = core.TrimSuffix(normalisedExclude, "/")
 		if normalisedCandidate == normalisedExclude {
 			return true
 		}
-		if strings.HasPrefix(normalisedCandidate, normalisedExclude+"/") {
+		if core.HasPrefix(normalisedCandidate, normalisedExclude+"/") {
 			return true
 		}
 	}
@@ -504,11 +511,11 @@ func hasHiddenDirectory(candidate string) bool {
 		return false
 	}
 
-	for _, segment := range strings.Split(filepath.ToSlash(filepath.Clean(candidate)), "/") {
+	for _, segment := range core.Split(cleanSlashPath(candidate), "/") {
 		if segment == "" || segment == "." || segment == ".." {
 			continue
 		}
-		if strings.HasPrefix(segment, ".") {
+		if core.HasPrefix(segment, ".") {
 			return true
 		}
 	}
@@ -615,17 +622,17 @@ func hookFilePath(projectPath string) (string, error) {
 	toolkit := NewToolkit(projectPath)
 	stdout, stderr, exitCode, err := toolkit.Run("git", "rev-parse", "--git-dir")
 	if err != nil && exitCode != 0 {
-		return "", coreerr.E("hookFilePath", "git rev-parse --git-dir: "+strings.TrimSpace(stderr), err)
+		return "", coreerr.E("hookFilePath", "git rev-parse --git-dir: "+core.Trim(stderr), err)
 	}
 
-	gitDir := strings.TrimSpace(stdout)
+	gitDir := core.Trim(stdout)
 	if gitDir == "" {
 		return "", coreerr.E("hookFilePath", "git directory is empty", nil)
 	}
-	if !filepath.IsAbs(gitDir) {
-		gitDir = filepath.Join(projectPath, gitDir)
+	if !core.PathIsAbs(gitDir) {
+		gitDir = core.JoinPath(projectPath, gitDir)
 	}
-	return filepath.Join(gitDir, "hooks", "pre-commit"), nil
+	return core.JoinPath(gitDir, "hooks", "pre-commit"), nil
 }
 
 func hookScriptBlock(appended bool) string {
@@ -665,10 +672,10 @@ func normaliseReportFindings(findings []Finding, projectPath string) []Finding {
 			finding.Severity = normaliseSeverity(finding.Severity)
 		}
 		if finding.File != "" && projectPath != "" {
-			if relativePath, err := filepath.Rel(projectPath, finding.File); err == nil && relativePath != "" && !strings.HasPrefix(relativePath, "..") {
-				finding.File = filepath.ToSlash(relativePath)
+			if relativePath, err := filepath.Rel(projectPath, finding.File); err == nil && relativePath != "" && !core.HasPrefix(relativePath, "..") {
+				finding.File = cleanSlashPath(relativePath)
 			} else {
-				finding.File = filepath.ToSlash(finding.File)
+				finding.File = cleanSlashPath(finding.File)
 			}
 		}
 		normalised = append(normalised, finding)
@@ -679,9 +686,9 @@ func normaliseReportFindings(findings []Finding, projectPath string) []Finding {
 func projectName(path string) string {
 	absolutePath, err := filepath.Abs(path)
 	if err != nil {
-		return filepath.Base(path)
+		return core.PathBase(path)
 	}
-	return filepath.Base(absolutePath)
+	return core.PathBase(absolutePath)
 }
 
 func dedupeStrings(values []string) []string {
@@ -707,7 +714,7 @@ func hasAdapter(adapters []Adapter, name string) bool {
 }
 
 func passesThreshold(summary Summary, threshold string) bool {
-	switch strings.ToLower(strings.TrimSpace(threshold)) {
+	switch core.Lower(core.Trim(threshold)) {
 	case "", "error":
 		return summary.Errors == 0
 	case "warning":
