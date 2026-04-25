@@ -2,10 +2,10 @@ package lint
 
 import (
 	"io/fs"
-	"path/filepath"
+	"path/filepath" // Note: AX-6 — WalkDir and Rel do not have core equivalents.
 	"slices"
-	"strings"
 
+	core "dappco.re/go/core"
 	coreio "dappco.re/go/core/io"
 	coreerr "dappco.re/go/core/log"
 )
@@ -45,12 +45,12 @@ var defaultExcludes = []string{
 //	lint.DetectLanguage("main.go")
 //	lint.DetectLanguage("Dockerfile")
 func DetectLanguage(filename string) string {
-	base := filepath.Base(filename)
-	if strings.HasPrefix(base, "Dockerfile") {
+	base := core.PathBase(filename)
+	if core.HasPrefix(base, "Dockerfile") {
 		return "dockerfile"
 	}
 
-	ext := filepath.Ext(base)
+	ext := core.PathExt(base)
 	if lang, ok := extensionMap[ext]; ok {
 		return lang
 	}
@@ -58,13 +58,13 @@ func DetectLanguage(filename string) string {
 }
 
 func shouldSkipTraversalRoot(path string) bool {
-	cleanedPath := filepath.Clean(path)
+	cleanedPath := core.CleanPath(path, "/")
 	if cleanedPath == "." {
 		return false
 	}
 
-	base := filepath.Base(cleanedPath)
-	if base == "." || base == string(filepath.Separator) {
+	base := core.PathBase(cleanedPath)
+	if base == "." || base == "/" {
 		return false
 	}
 
@@ -107,7 +107,7 @@ func (s *Scanner) ScanDir(root string) ([]Finding, error) {
 		if d.IsDir() {
 			name := d.Name()
 			if IsExcludedDir(name) {
-				return filepath.SkipDir
+				return fs.SkipDir
 			}
 			return nil
 		}
@@ -162,7 +162,7 @@ func (s *Scanner) ScanFile(path string) ([]Finding, error) {
 	}
 	content := []byte(raw)
 
-	lang := DetectLanguage(filepath.Base(path))
+	lang := DetectLanguage(core.PathBase(path))
 	if lang == "" {
 		return nil, nil
 	}
@@ -210,5 +210,5 @@ func languagesFromRules(rules []Rule) []string {
 
 // IsExcludedDir checks whether a directory name should be skipped.
 func IsExcludedDir(name string) bool {
-	return slices.Contains(defaultExcludes, name) || strings.HasPrefix(name, ".")
+	return slices.Contains(defaultExcludes, name) || core.HasPrefix(name, ".")
 }
