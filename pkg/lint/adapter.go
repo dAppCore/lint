@@ -1,18 +1,15 @@
 package lint
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
+	core "dappco.re/go/core"
 	coreerr "dappco.re/go/core/log"
 )
 
@@ -194,13 +191,13 @@ func (adapter CommandAdapter) Run(ctx context.Context, input RunInput, files []s
 
 	result.Tool.Duration = time.Since(startedAt).Round(time.Millisecond).String()
 
-	if errors.Is(runContext.Err(), context.DeadlineExceeded) {
+	if core.Is(runContext.Err(), context.DeadlineExceeded) {
 		result.Tool.Status = "timeout"
 		return result
 	}
 
 	if err := runContext.Err(); err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
+		if core.Is(err, context.DeadlineExceeded) {
 			result.Tool.Status = "timeout"
 		} else {
 			result.Tool.Status = "canceled"
@@ -476,10 +473,10 @@ func runCommand(ctx context.Context, workingDir string, binary string, args []st
 		command.Dir = workingDir
 	}
 
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	command.Stdout = &stdout
-	command.Stderr = &stderr
+	stdout := core.NewBuilder()
+	stderr := core.NewBuilder()
+	command.Stdout = stdout
+	command.Stderr = stderr
 
 	err := command.Run()
 	if err == nil {
@@ -487,7 +484,7 @@ func runCommand(ctx context.Context, workingDir string, binary string, args []st
 	}
 
 	var exitErr *exec.ExitError
-	if errors.As(err, &exitErr) {
+	if core.As(err, &exitErr) {
 		return stdout.String(), stderr.String(), exitErr.ExitCode(), err
 	}
 
@@ -520,41 +517,118 @@ func parseGovulncheckDiagnostics(tool string, category string, output string) []
 }
 
 func parseJSONDiagnostics(tool string, category string, output string) []Finding {
-	decoder := json.NewDecoder(strings.NewReader(output))
 	var findings []Finding
+	trimmed := strings.TrimSpace(output)
+	if trimmed == "" {
+		return nil
+	}
 
-	for {
+	segments, trailing := topLevelJSONSegments(trimmed)
+	if len(segments) == 0 {
 		var value any
-		err := decoder.Decode(&value)
-		if errors.Is(err, io.EOF) {
-			break
+		r := core.JSONUnmarshal([]byte(trimmed), &value)
+		if !r.OK {
+			return []Finding{jsonParseFinding(tool, category, r.Value)}
 		}
-		if err != nil {
-			if strings.TrimSpace(output) == "" {
-				return nil
-			}
-			if len(findings) > 0 {
-				findings = append(findings, Finding{
-					Tool:     tool,
-					Severity: "error",
-					Code:     "parse-error",
-					Message:  fmt.Sprintf("failed to parse JSON output: %v", err),
-					Category: category,
-				})
-				return dedupeFindings(findings)
-			}
-			return []Finding{{
-				Tool:     tool,
-				Severity: "error",
-				Code:     "parse-error",
-				Message:  fmt.Sprintf("failed to parse JSON output: %v", err),
-				Category: category,
-			}}
+		return dedupeFindings(collectJSONDiagnostics(tool, category, value))
+	}
+
+	for _, segment := range segments {
+		var value any
+		r := core.JSONUnmarshal([]byte(segment), &value)
+		if !r.OK {
+			findings = append(findings, jsonParseFinding(tool, category, r.Value))
+			return dedupeFindings(findings)
+		}
+		findings = append(findings, collectJSONDiagnostics(tool, category, value)...)
+	}
+
+	if trailing != "" {
+		var value any
+		r := core.JSONUnmarshal([]byte(trailing), &value)
+		if !r.OK {
+			findings = append(findings, jsonParseFinding(tool, category, r.Value))
+			return dedupeFindings(findings)
 		}
 		findings = append(findings, collectJSONDiagnostics(tool, category, value)...)
 	}
 
 	return dedupeFindings(findings)
+}
+
+func topLevelJSONSegments(output string) ([]string, string) {
+	var segments []string
+	start := -1
+	depth := 0
+	inString := false
+	escaped := false
+
+	for index, current := range output {
+		if inString {
+			switch {
+			case escaped:
+				escaped = false
+			case current == '\\':
+				escaped = true
+			case current == '"':
+				inString = false
+			}
+			continue
+		}
+
+		switch current {
+		case '"':
+			if depth > 0 {
+				inString = true
+			}
+		case '{', '[':
+			if depth == 0 {
+				start = index
+			}
+			depth++
+		case '}', ']':
+			if depth == 0 {
+				return segments, strings.TrimSpace(output[index:])
+			}
+			depth--
+			if depth == 0 && start >= 0 {
+				segments = append(segments, output[start:index+1])
+				start = -1
+			}
+		default:
+			if depth == 0 && len(segments) == 0 && !isJSONWhitespace(current) {
+				return nil, output
+			}
+			if depth == 0 && len(segments) > 0 && !isJSONWhitespace(current) {
+				return segments, strings.TrimSpace(output[index:])
+			}
+		}
+	}
+
+	if depth != 0 && start >= 0 {
+		return segments, strings.TrimSpace(output[start:])
+	}
+
+	return segments, ""
+}
+
+func isJSONWhitespace(value rune) bool {
+	switch value {
+	case ' ', '\n', '\r', '\t':
+		return true
+	default:
+		return false
+	}
+}
+
+func jsonParseFinding(tool string, category string, err any) Finding {
+	return Finding{
+		Tool:     tool,
+		Severity: "error",
+		Code:     "parse-error",
+		Message:  fmt.Sprintf("failed to parse JSON output: %v", err),
+		Category: category,
+	}
 }
 
 func collectJSONDiagnostics(tool string, category string, value any) []Finding {
@@ -759,8 +833,6 @@ func firstStringPath(fields map[string]any, paths ...[]string) string {
 				if strings.TrimSpace(typed) != "" {
 					return strings.TrimSpace(typed)
 				}
-			case json.Number:
-				return typed.String()
 			}
 		}
 	}
@@ -777,9 +849,6 @@ func firstIntPath(fields map[string]any, paths ...[]string) int {
 				return int(typed)
 			case float64:
 				return int(typed)
-			case json.Number:
-				parsed, _ := typed.Int64()
-				return int(parsed)
 			case string:
 				parsed, err := strconv.Atoi(strings.TrimSpace(typed))
 				if err == nil {
