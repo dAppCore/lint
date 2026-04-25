@@ -2,8 +2,8 @@ package lint
 
 import (
 	"os"
-	"path/filepath"
 
+	core "dappco.re/go/core"
 	coreio "dappco.re/go/core/io"
 	coreerr "dappco.re/go/core/log"
 	"gopkg.in/yaml.v3"
@@ -130,12 +130,12 @@ func ResolveConfigPath(projectPath string, override string) string {
 		projectPath = "."
 	}
 	if override == "" {
-		return filepath.Join(projectPath, DefaultConfigPath)
+		return core.CleanPath(core.JoinPath(projectPath, DefaultConfigPath), "/")
 	}
-	if filepath.IsAbs(override) {
+	if core.PathIsAbs(override) {
 		return override
 	}
-	return filepath.Join(projectPath, override)
+	return core.CleanPath(core.JoinPath(projectPath, override), "/")
 }
 
 // LoadProjectConfig reads `.core/lint.yaml` if present, otherwise returns the default config.
