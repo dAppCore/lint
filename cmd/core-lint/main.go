@@ -360,8 +360,11 @@ func newCatalogCommand() *cli.Command {
 		if listLanguage != "" {
 			rules = catalog.ForLanguage(listLanguage)
 		}
+		stdout := command.OutOrStdout()
 		if len(rules) == 0 {
-			fmt.Fprintln(command.OutOrStdout(), "No rules found.")
+			if _, err := fmt.Fprintln(stdout, "No rules found."); err != nil {
+				return err
+			}
 			return nil
 		}
 
@@ -374,7 +377,9 @@ func newCatalogCommand() *cli.Command {
 		})
 
 		for _, rule := range rules {
-			fmt.Fprintf(command.OutOrStdout(), "%-14s [%-8s] %s\n", rule.ID, rule.Severity, rule.Title)
+			if _, err := fmt.Fprintf(stdout, "%-14s [%-8s] %s\n", rule.ID, rule.Severity, rule.Title); err != nil {
+				return err
+			}
 		}
 		if _, err := fmt.Fprintf(os.Stderr, "\n%d rule(s)\n", len(rules)); err != nil {
 			return err
