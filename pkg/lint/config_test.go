@@ -57,17 +57,19 @@ func TestConfig_DefaultConfigYAML_Good(t *testing.T) {
 }
 
 func TestConfig_ResolveConfigPath_Good(t *testing.T) {
-	assert.Equal(t, "/repo/.core/lint.yaml", ResolveConfigPath("/repo", ""))
-	assert.Equal(t, "/repo/config/lint.yaml", ResolveConfigPath("/repo", "config/lint.yaml"))
+	repo := filepath.Join(string(filepath.Separator), "repo")
+	assert.Equal(t, filepath.Join(repo, ".core", "lint.yaml"), ResolveConfigPath(repo, ""))
+	assert.Equal(t, filepath.Join(repo, "config", "lint.yaml"), ResolveConfigPath(repo, filepath.Join("config", "lint.yaml")))
 }
 
 func TestConfig_ResolveConfigPath_Bad(t *testing.T) {
-	assert.Equal(t, ".core/lint.yaml", ResolveConfigPath("", ""))
+	assert.Equal(t, filepath.Join(".core", "lint.yaml"), ResolveConfigPath("", ""))
 }
 
 func TestConfig_ResolveConfigPath_Ugly(t *testing.T) {
 	absolute := filepath.Join(t.TempDir(), "nested", "lint.yaml")
-	assert.Equal(t, absolute, ResolveConfigPath("/repo", absolute))
+	repo := filepath.Join(string(filepath.Separator), "repo")
+	assert.Equal(t, absolute, ResolveConfigPath(repo, absolute))
 }
 
 func TestConfig_LoadProjectConfig_Good(t *testing.T) {

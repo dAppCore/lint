@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -353,6 +354,10 @@ func TestAdapter_CatalogAdapter_Ugly(t *testing.T) {
 
 func writeScript(t *testing.T, dir, name, body string) string {
 	t.Helper()
+
+	if runtime.GOOS == "windows" {
+		t.Skip("test fixtures use POSIX shell scripts; not portable to Windows")
+	}
 
 	path := filepath.Join(dir, name)
 	content := "#!/bin/sh\n" + body
