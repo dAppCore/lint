@@ -1,21 +1,21 @@
-module dappco.re/go/core/lint
+module dappco.re/go/lint
 
 go 1.26.0
 
 require (
-	forge.lthn.ai/core/cli v0.3.7
-	forge.lthn.ai/core/go-i18n v0.1.7
-	forge.lthn.ai/core/go-io v0.1.7
-	forge.lthn.ai/core/go-log v0.0.4
-	forge.lthn.ai/core/go-process v0.2.9
-	forge.lthn.ai/core/go-scm v0.3.6
+	dappco.re/go/core/cli v0.5.2
+	dappco.re/go/core/i18n v0.2.3
+	dappco.re/go/core/io v0.4.2
+	dappco.re/go/core/log v0.1.2
+	dappco.re/go/core/process v0.5.1
+	dappco.re/go/core/scm v0.6.1
 	github.com/stretchr/testify v1.11.1
 	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
-	forge.lthn.ai/core/go v0.3.3 // indirect
-	forge.lthn.ai/core/go-inference v0.1.6 // indirect
+	dappco.re/go/core v0.8.0-alpha.1 // indirect
+	dappco.re/go/core/inference v0.3.0 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/charmbracelet/bubbletea v1.3.10 // indirect
 	github.com/charmbracelet/colorprofile v0.4.3 // indirect
@@ -40,7 +40,7 @@ require (
 	github.com/spf13/cobra v1.10.2 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
-	golang.org/x/sys v0.42.0 // indirect
-	golang.org/x/term v0.41.0 // indirect
-	golang.org/x/text v0.35.0 // indirect
+	golang.org/x/sys v0.43.0 // indirect
+	golang.org/x/term v0.42.0 // indirect
+	golang.org/x/text v0.36.0 // indirect
 )

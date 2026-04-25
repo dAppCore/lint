@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"slices"
 
-	coreerr "forge.lthn.ai/core/go-log"
+	coreerr "dappco.re/go/core/log"
 	"gopkg.in/yaml.v3"
 )
 

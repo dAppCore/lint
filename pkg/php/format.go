@@ -8,7 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	coreerr "forge.lthn.ai/core/go-log"
+	coreerr "dappco.re/go/core/log"
 )
 
 // fileExists reports whether the named file or directory exists.

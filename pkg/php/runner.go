@@ -3,7 +3,7 @@ package php
 import (
 	"path/filepath"
 
-	process "forge.lthn.ai/core/go-process"
+	process "dappco.re/go/core/process"
 )
 
 // QARunner builds process run specs for PHP QA checks.

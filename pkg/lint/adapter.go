@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	coreerr "forge.lthn.ai/core/go-log"
+	coreerr "dappco.re/go/core/log"
 )
 
 // Adapter wraps one lint tool and normalises its output to Finding values.

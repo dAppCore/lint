@@ -8,7 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	coreerr "forge.lthn.ai/core/go-log"
+	coreerr "dappco.re/go/core/log"
 )
 
 // AnalyseOptions configures PHP static analysis.

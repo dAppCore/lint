@@ -11,9 +11,9 @@
 package qa
 
 import (
-	"forge.lthn.ai/core/cli/pkg/cli"
-	"forge.lthn.ai/core/go-i18n"
-	"dappco.re/go/core/lint/locales"
+	"dappco.re/go/core/cli/pkg/cli"
+	"dappco.re/go/core/i18n"
+	"dappco.re/go/lint/locales"
 )
 
 func init() {

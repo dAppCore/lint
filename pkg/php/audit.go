@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"slices"
 
-	coreerr "forge.lthn.ai/core/go-log"
+	coreerr "dappco.re/go/core/log"
 )
 
 // AuditOptions configures dependency security auditing.

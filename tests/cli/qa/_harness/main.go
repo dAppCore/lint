@@ -1,8 +1,8 @@
 package main
 
 import (
-	"forge.lthn.ai/core/cli/pkg/cli"
-	_ "dappco.re/go/core/lint/cmd/qa"
+	"dappco.re/go/core/cli/pkg/cli"
+	_ "dappco.re/go/lint/cmd/qa"
 )
 
 func main() {

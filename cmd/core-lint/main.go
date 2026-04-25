@@ -9,10 +9,10 @@ import (
 	"sort"
 	"strings"
 
-	cataloglint "dappco.re/go/core/lint"
-	lintpkg "dappco.re/go/core/lint/pkg/lint"
-	"forge.lthn.ai/core/cli/pkg/cli"
-	coreerr "forge.lthn.ai/core/go-log"
+	"dappco.re/go/core/cli/pkg/cli"
+	coreerr "dappco.re/go/core/log"
+	cataloglint "dappco.re/go/lint"
+	lintpkg "dappco.re/go/lint/pkg/lint"
 )
 
 func main() {
