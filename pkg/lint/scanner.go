@@ -1,6 +1,7 @@
 package lint
 
 import (
+	"context"
 	"io/fs"
 	"path/filepath"
 	"slices"
@@ -91,7 +92,18 @@ func NewScanner(rules []Rule) (*Scanner, error) {
 
 // ScanDir walks the directory tree rooted at root, scanning each recognised file.
 // Directories in the exclude list are skipped entirely.
+//
+//	findings, err := scanner.ScanDir("./pkg")
 func (s *Scanner) ScanDir(root string) ([]Finding, error) {
+	return s.ScanDirContext(context.Background(), root)
+}
+
+// ScanDirContext is the cancellable variant of ScanDir. It honours ctx
+// cancellation between files; long traversals on large monorepos can be
+// aborted by a cancelled or timed-out context.
+//
+//	findings, err := scanner.ScanDirContext(ctx, "./pkg")
+func (s *Scanner) ScanDirContext(ctx context.Context, root string) ([]Finding, error) {
 	var findings []Finding
 
 	if shouldSkipTraversalRoot(root) {
@@ -101,6 +113,10 @@ func (s *Scanner) ScanDir(root string) ([]Finding, error) {
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
+		}
+
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return ctxErr
 		}
 
 		// Skip excluded directories and hidden directories.

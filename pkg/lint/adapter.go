@@ -209,10 +209,14 @@ func (adapter CommandAdapter) Run(ctx context.Context, input RunInput, files []s
 	}
 
 	if adapter.parseOutput != nil {
+		// Parse stdout and stderr independently. A malformed stdout (parser silently
+		// returns nil) must not suppress legitimate diagnostics on stderr — both
+		// streams can carry findings and are surfaced regardless of the other's
+		// parse outcome.
 		if stdout != "" {
 			result.Findings = append(result.Findings, adapter.parseOutput(adapter.name, adapter.category, stdout)...)
 		}
-		if len(result.Findings) == 0 && stderr != "" {
+		if stderr != "" {
 			result.Findings = append(result.Findings, adapter.parseOutput(adapter.name, adapter.category, stderr)...)
 		}
 	}
@@ -378,7 +382,7 @@ func (CatalogAdapter) Run(ctx context.Context, input RunInput, files []string) A
 			result.Tool.Duration = time.Since(startedAt).Round(time.Millisecond).String()
 			return result
 		}
-		findings, _ = scanner.ScanDir(input.Path)
+		findings, _ = scanner.ScanDirContext(ctx, input.Path)
 	}
 
 	if err := ctx.Err(); err != nil {
