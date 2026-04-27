@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	core "dappco.re/go/core"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
@@ -59,16 +60,16 @@ func TestConfig_DefaultConfigYAML_Good(t *testing.T) {
 func TestConfig_ResolveConfigPath_Good(t *testing.T) {
 	projectPath := t.TempDir()
 
-	assert.Equal(t, filepath.Join(projectPath, ".core", "lint.yaml"), ResolveConfigPath(projectPath, ""))
+	assert.Equal(t, core.CleanPath(filepath.Join(projectPath, ".core", "lint.yaml"), "/"), ResolveConfigPath(projectPath, ""))
 	assert.Equal(
 		t,
-		filepath.Join(projectPath, "config", "lint.yaml"),
+		core.CleanPath(filepath.Join(projectPath, "config", "lint.yaml"), "/"),
 		ResolveConfigPath(projectPath, filepath.Join("config", "lint.yaml")),
 	)
 }
 
 func TestConfig_ResolveConfigPath_Bad(t *testing.T) {
-	assert.Equal(t, filepath.Join(".core", "lint.yaml"), ResolveConfigPath("", ""))
+	assert.Equal(t, core.CleanPath(filepath.Join(".core", "lint.yaml"), "/"), ResolveConfigPath("", ""))
 }
 
 func TestConfig_ResolveConfigPath_Ugly(t *testing.T) {

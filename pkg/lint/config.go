@@ -1,8 +1,6 @@
 package lint
 
 import (
-	"os"
-
 	core "dappco.re/go/core"
 	coreio "dappco.re/go/core/io"
 	coreerr "dappco.re/go/core/log"
@@ -148,7 +146,7 @@ func LoadProjectConfig(projectPath string, override string) (LintConfig, string,
 
 	_, err := coreio.Local.Stat(path)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if isNotExistError(err) {
 			return config, "", nil
 		}
 		return config, "", coreerr.E("LoadProjectConfig", "stat "+path, err)

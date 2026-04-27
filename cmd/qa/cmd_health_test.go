@@ -215,10 +215,10 @@ esac
 		require.NoError(t, command.RunE(command, nil))
 	})
 
-	assert.Contains(t, output, "cmd.qa.health.summary")
+	assert.Contains(t, output, "CI Health")
 	assert.Contains(t, output, "alpha")
 	assert.Contains(t, output, "beta")
-	assert.Contains(t, output, "cmd.qa.health.fetch_error")
+	assert.Contains(t, output, "Failed to fetch workflow status")
 	assert.NotContains(t, output, "no CI")
 }
 

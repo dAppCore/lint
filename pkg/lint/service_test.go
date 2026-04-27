@@ -590,11 +590,9 @@ func TestServiceRun_Good_StopsDispatchingAfterContextCancel(t *testing.T) {
 		Lang:   "php",
 		FailOn: "warning",
 	})
-	require.NoError(t, err)
-
-	require.Len(t, report.Tools, 1)
-	assert.Equal(t, "first", report.Tools[0].Name)
+	require.ErrorIs(t, err, context.Canceled)
 	assert.False(t, secondRan)
+	assert.Empty(t, report.Tools)
 	assert.Empty(t, report.Findings)
 }
 

@@ -64,7 +64,7 @@ func LoadFS(fsys fs.FS, dir string) (*Catalog, error) {
 		if entry.IsDir() || !core.HasSuffix(entry.Name(), ".yaml") {
 			continue
 		}
-		data, err := fs.ReadFile(fsys, dir+"/"+entry.Name())
+		data, err := fs.ReadFile(fsys, core.JoinPath(dir, entry.Name()))
 		if err != nil {
 			return nil, coreerr.E("Catalog.LoadFS", "reading embedded "+entry.Name(), err)
 		}

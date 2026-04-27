@@ -107,7 +107,7 @@ func (s *Scanner) ScanDir(root string) ([]Finding, error) {
 		if d.IsDir() {
 			name := d.Name()
 			if IsExcludedDir(name) {
-				return fs.SkipDir
+				return filepath.SkipDir
 			}
 			return nil
 		}

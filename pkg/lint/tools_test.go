@@ -201,7 +201,7 @@ func TestToolkit_CheckPerms_Good(t *testing.T) {
 	issues, err := tk.CheckPerms(dir)
 	require.NoError(t, err)
 	require.Len(t, issues, 1)
-	assert.Equal(t, "World-writable", issues[0].Issue)
+	assert.Equal(t, "Group and world-writable", issues[0].Issue)
 }
 
 func TestToolkit_FindTrackedComments_Compatibility(t *testing.T) {

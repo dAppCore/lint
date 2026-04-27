@@ -3,6 +3,7 @@ module dappco.re/go/lint
 go 1.26.0
 
 require (
+	dappco.re/go/core v0.8.0-alpha.1
 	dappco.re/go/core/cli v0.5.2
 	dappco.re/go/core/i18n v0.2.3
 	dappco.re/go/core/io v0.4.2
@@ -14,7 +15,6 @@ require (
 )
 
 require (
-	dappco.re/go/core v0.8.0-alpha.1 // indirect
 	dappco.re/go/core/inference v0.3.0 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/charmbracelet/bubbletea v1.3.10 // indirect
@@ -44,3 +44,5 @@ require (
 	golang.org/x/term v0.42.0 // indirect
 	golang.org/x/text v0.36.0 // indirect
 )
+
+replace dappco.re/go/core/io => ./internal/coreio

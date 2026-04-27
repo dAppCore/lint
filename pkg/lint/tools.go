@@ -544,17 +544,17 @@ func (t *Toolkit) CheckPerms(dir string) ([]PermIssue, error) {
 			return nil
 		}
 		mode := info.Mode().Perm()
-		if mode&0o002 != 0 {
-			issues = append(issues, PermIssue{
-				File:       path,
-				Permission: core.Sprintf("%04o", mode),
-				Issue:      "World-writable",
-			})
-		} else if mode&0o020 != 0 && mode&0o002 != 0 {
+		if mode&0o020 != 0 && mode&0o002 != 0 {
 			issues = append(issues, PermIssue{
 				File:       path,
 				Permission: core.Sprintf("%04o", mode),
 				Issue:      "Group and world-writable",
+			})
+		} else if mode&0o002 != 0 {
+			issues = append(issues, PermIssue{
+				File:       path,
+				Permission: core.Sprintf("%04o", mode),
+				Issue:      "World-writable",
 			})
 		}
 		return nil

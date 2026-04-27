@@ -35,7 +35,7 @@ func TestBuildSpecs_Fmt_WithPint(t *testing.T) {
 	require.Len(t, specs, 1)
 	assert.Equal(t, "fmt", specs[0].Name)
 	assert.Contains(t, specs[0].Args, "--test")
-	assert.Equal(t, []string{"audit"}, specs[0].After)
+	assert.Empty(t, specs[0].After)
 }
 
 func TestBuildSpecs_Fmt_Fix(t *testing.T) {
@@ -68,7 +68,7 @@ func TestBuildSpecs_Stan_WithPHPStan(t *testing.T) {
 	require.Len(t, specs, 1)
 	assert.Equal(t, "stan", specs[0].Name)
 	assert.Contains(t, specs[0].Args, "--no-progress")
-	assert.Equal(t, []string{"fmt"}, specs[0].After)
+	assert.Empty(t, specs[0].After)
 }
 
 func TestBuildSpecs_Stan_NotDetected(t *testing.T) {
@@ -88,7 +88,7 @@ func TestBuildSpecs_Psalm_WithPsalm(t *testing.T) {
 	specs := runner.BuildSpecs([]string{"psalm"})
 	require.Len(t, specs, 1)
 	assert.Equal(t, "psalm", specs[0].Name)
-	assert.Equal(t, []string{"stan"}, specs[0].After)
+	assert.Empty(t, specs[0].After)
 }
 
 func TestBuildSpecs_Psalm_Fix(t *testing.T) {
@@ -113,7 +113,7 @@ func TestBuildSpecs_Test_Pest(t *testing.T) {
 	specs := runner.BuildSpecs([]string{"test"})
 	require.Len(t, specs, 1)
 	assert.Equal(t, "test", specs[0].Name)
-	assert.Equal(t, []string{"stan"}, specs[0].After)
+	assert.Empty(t, specs[0].After)
 }
 
 func TestBuildSpecs_Test_PHPUnit(t *testing.T) {
@@ -138,7 +138,7 @@ func TestBuildSpecs_Test_WithPsalmDep(t *testing.T) {
 	runner := NewQARunner(dir, false)
 	specs := runner.BuildSpecs([]string{"test"})
 	require.Len(t, specs, 1)
-	assert.Equal(t, []string{"psalm"}, specs[0].After)
+	assert.Empty(t, specs[0].After)
 }
 
 func TestBuildSpecs_Test_NoRunner(t *testing.T) {
@@ -159,7 +159,7 @@ func TestBuildSpecs_Rector(t *testing.T) {
 	require.Len(t, specs, 1)
 	assert.True(t, specs[0].AllowFailure)
 	assert.Contains(t, specs[0].Args, "--dry-run")
-	assert.Equal(t, []string{"test"}, specs[0].After)
+	assert.Empty(t, specs[0].After)
 }
 
 func TestBuildSpecs_Rector_Fix(t *testing.T) {
@@ -184,7 +184,7 @@ func TestBuildSpecs_Infection(t *testing.T) {
 	specs := runner.BuildSpecs([]string{"infection"})
 	require.Len(t, specs, 1)
 	assert.True(t, specs[0].AllowFailure)
-	assert.Equal(t, []string{"test"}, specs[0].After)
+	assert.Empty(t, specs[0].After)
 }
 
 func TestBuildSpecs_Unknown(t *testing.T) {
@@ -203,6 +203,9 @@ func TestBuildSpecs_Multiple(t *testing.T) {
 	runner := NewQARunner(dir, false)
 	specs := runner.BuildSpecs([]string{"audit", "fmt", "stan"})
 	assert.Len(t, specs, 3)
+	assert.Empty(t, specs[0].After)
+	assert.Equal(t, []string{"audit"}, specs[1].After)
+	assert.Equal(t, []string{"fmt"}, specs[2].After)
 }
 
 func TestQACheckRunResult_GetIssueMessage(t *testing.T) {

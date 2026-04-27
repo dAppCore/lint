@@ -91,7 +91,7 @@ esac
 	assert.Equal(t, "alpha", issue.RepoName)
 	assert.Equal(t, 10, issue.Priority)
 	assert.Equal(t, "needs_response", issue.Category)
-	assert.Equal(t, "@carol cmd.qa.issues.hint.needs_response", issue.ActionHint)
+	assert.Equal(t, "@carol awaiting response", issue.ActionHint)
 	assert.Contains(t, output, `"repo_name"`)
 	assert.Contains(t, output, `"action_hint"`)
 	assert.NotContains(t, output, `"RepoName"`)

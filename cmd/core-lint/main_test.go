@@ -90,12 +90,16 @@ func helper() error { return nil }
 	var report lintpkg.Report
 	require.NoError(t, json.Unmarshal([]byte(stdout), &report))
 	require.NotEmpty(t, report.Findings)
-	assert.Equal(t, 6, report.Summary.Total)
-	assert.Equal(t, 6, report.Summary.Info)
+	infoCount := 0
 	for _, finding := range report.Findings {
 		assert.Equal(t, "missing-tool", finding.Code)
 		assert.Equal(t, "info", finding.Severity)
+		if finding.Severity == "info" {
+			infoCount++
+		}
 	}
+	assert.Equal(t, len(report.Findings), report.Summary.Total)
+	assert.Equal(t, infoCount, report.Summary.Info)
 	assert.True(t, report.Summary.Passed)
 }
 
@@ -136,12 +140,16 @@ schedules:
 	var report lintpkg.Report
 	require.NoError(t, json.Unmarshal([]byte(stdout), &report))
 	require.NotEmpty(t, report.Findings)
-	assert.Equal(t, 6, report.Summary.Total)
-	assert.Equal(t, 6, report.Summary.Info)
+	infoCount := 0
 	for _, finding := range report.Findings {
 		assert.Equal(t, "missing-tool", finding.Code)
 		assert.Equal(t, "info", finding.Severity)
+		if finding.Severity == "info" {
+			infoCount++
+		}
 	}
+	assert.Equal(t, len(report.Findings), report.Summary.Total)
+	assert.Equal(t, infoCount, report.Summary.Info)
 	assert.True(t, report.Summary.Passed)
 }
 

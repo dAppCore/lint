@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-nested-core-audit - verify whether nested /Users/snider/Code/core/core/*
-subdirectories are safe candidates for review-only deletion.
+nested-core-audit - verify whether nested duplicate core subdirectories are
+safe candidates for review-only deletion.
 
 Usage:
   python3 scripts/nested-core-audit.py
@@ -33,8 +33,12 @@ from pathlib import Path
 from typing import Iterable
 
 
-DEFAULT_PARENT_ROOT = Path("/Users/snider/Code/core")
-DEFAULT_NESTED_ROOT = DEFAULT_PARENT_ROOT / "core"
+DEFAULT_PARENT_ROOT = Path(
+    os.environ.get("NESTED_CORE_PARENT_ROOT", "~/Code/core")
+).expanduser()
+DEFAULT_NESTED_ROOT = Path(
+    os.environ.get("NESTED_CORE_NESTED_ROOT", str(DEFAULT_PARENT_ROOT / "core"))
+).expanduser()
 CHUNK_SIZE = 1024 * 1024
 
 
@@ -478,8 +482,7 @@ def subdir_record(
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Read-only audit for nested /Users/snider/Code/core/core "
-            "duplicate subdirectories."
+            "Read-only audit for nested duplicate core subdirectories."
         ),
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
@@ -521,6 +524,33 @@ def main(argv: list[str]) -> int:
                 "code": "nested_root_missing",
                 "nested_root": str(nested_root),
                 "message": "nested root does not exist or is not a directory",
+            }
+        )
+        emit(
+            {
+                "type": "summary",
+                "nested_root": str(nested_root),
+                "parent_root": str(parent_root),
+                "total_subdirs_scanned": 0,
+                "subdirs_with_uncommitted_changes": [],
+                "subdirs_with_unpushed_commits": [],
+                "subdirs_with_git_check_errors": [],
+                "subdirs_unique_to_nested": {},
+                "subdirs_with_content_mismatches": {},
+                "subdirs_safe_to_delete": [],
+                "root_unique_nested_files": [],
+                "root_content_mismatches": [],
+            }
+        )
+        return 1
+
+    if not parent_root.exists() or not parent_root.is_dir():
+        emit(
+            {
+                "type": "error",
+                "code": "parent_root_missing",
+                "parent_root": str(parent_root),
+                "message": "parent root does not exist or is not a directory",
             }
         )
         emit(

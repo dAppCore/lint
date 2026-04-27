@@ -26,7 +26,30 @@ func (r *QARunner) BuildSpecs(checks []string) []process.RunSpec {
 			specs = append(specs, *spec)
 		}
 	}
+	filterSpecDependencies(specs)
 	return specs
+}
+
+// filterSpecDependencies drops dependencies for checks that were not requested.
+func filterSpecDependencies(specs []process.RunSpec) {
+	available := make(map[string]struct{}, len(specs))
+	for _, spec := range specs {
+		available[spec.Name] = struct{}{}
+	}
+
+	for index := range specs {
+		filtered := specs[index].After[:0]
+		for _, dependency := range specs[index].After {
+			if _, ok := available[dependency]; ok {
+				filtered = append(filtered, dependency)
+			}
+		}
+		if len(filtered) == 0 {
+			specs[index].After = nil
+			continue
+		}
+		specs[index].After = filtered
+	}
 }
 
 // buildSpec creates a RunSpec for a single check.

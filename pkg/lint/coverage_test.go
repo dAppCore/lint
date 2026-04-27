@@ -1,7 +1,7 @@
 package lint
 
 import (
-	"os"
+	"io/fs"
 	"path/filepath"
 	"testing"
 
@@ -170,5 +170,5 @@ func TestCoverageStore_Latest(t *testing.T) {
 func TestCoverageStore_LoadNotExist(t *testing.T) {
 	store := NewCoverageStore("/nonexistent/path.json")
 	_, err := store.Load()
-	assert.True(t, os.IsNotExist(err))
+	assert.ErrorIs(t, err, fs.ErrNotExist)
 }

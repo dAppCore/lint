@@ -11,6 +11,12 @@ tasks:
 
           go build -trimpath -ldflags="-s -w" -o bin/core-lint ../../../../cmd/core-lint
 
+          type_out=""
+          taint_out=""
+          clean_out=""
+          cleanup() { rm -f "${type_out:-}" "${taint_out:-}" "${clean_out:-}" 2>/dev/null || true; }
+          trap cleanup EXIT
+
           # Stub phpstan + psalm binaries that emit canned JSON for each fixture.
           export PATH="$PWD/fixtures/bin:$PATH"
 

@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"cmp"
 	"math"
-	"os"
 	"regexp"
 	"slices"
 	"strconv"
@@ -53,7 +52,7 @@ func NewCoverageStore(path string) *CoverageStore {
 // Append adds a snapshot to the store.
 func (s *CoverageStore) Append(snap CoverageSnapshot) error {
 	snapshots, err := s.Load()
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil && !isNotExistError(err) {
 		return coreerr.E("CoverageStore.Append", "load snapshots", err)
 	}
 
@@ -89,7 +88,7 @@ func (s *CoverageStore) Load() ([]CoverageSnapshot, error) {
 func (s *CoverageStore) Latest() (*CoverageSnapshot, error) {
 	snapshots, err := s.Load()
 	if err != nil {
-		if os.IsNotExist(err) {
+		if isNotExistError(err) {
 			return nil, nil
 		}
 		return nil, err

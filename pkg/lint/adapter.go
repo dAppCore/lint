@@ -191,11 +191,6 @@ func (adapter CommandAdapter) Run(ctx context.Context, input RunInput, files []s
 
 	result.Tool.Duration = time.Since(startedAt).Round(time.Millisecond).String()
 
-	if core.Is(runContext.Err(), context.DeadlineExceeded) {
-		result.Tool.Status = "timeout"
-		return result
-	}
-
 	if err := runContext.Err(); err != nil {
 		if core.Is(err, context.DeadlineExceeded) {
 			result.Tool.Status = "timeout"
@@ -209,9 +204,13 @@ func (adapter CommandAdapter) Run(ctx context.Context, input RunInput, files []s
 		if stdout != "" {
 			result.Findings = append(result.Findings, adapter.parseOutput(adapter.name, adapter.category, stdout)...)
 		}
-		if len(result.Findings) == 0 && stderr != "" {
-			result.Findings = append(result.Findings, adapter.parseOutput(adapter.name, adapter.category, stderr)...)
+		if stderr != "" {
+			stderrFindings := adapter.parseOutput(adapter.name, adapter.category, stderr)
+			if !(hasNonParseErrorFinding(result.Findings) && onlyParseErrorFindings(stderrFindings)) {
+				result.Findings = append(result.Findings, stderrFindings...)
+			}
 		}
+		result.Findings = dedupeFindings(result.Findings)
 	}
 	if len(result.Findings) == 0 && (stdout != "" || stderr != "") {
 		output := stdout
@@ -908,6 +907,27 @@ func dedupeFindings(findings []Finding) []Finding {
 		deduped = append(deduped, finding)
 	}
 	return deduped
+}
+
+func hasNonParseErrorFinding(findings []Finding) bool {
+	for _, finding := range findings {
+		if finding.Code != "parse-error" {
+			return true
+		}
+	}
+	return false
+}
+
+func onlyParseErrorFindings(findings []Finding) bool {
+	if len(findings) == 0 {
+		return false
+	}
+	for _, finding := range findings {
+		if finding.Code != "parse-error" {
+			return false
+		}
+	}
+	return true
 }
 
 func filterRulesByTag(rules []Rule, tag string) []Rule {

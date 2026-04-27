@@ -148,7 +148,7 @@ func (service *Service) Run(ctx context.Context, input RunInput) (Report, error)
 
 	for _, adapter := range selectedAdapters {
 		if err := ctx.Err(); err != nil {
-			break
+			return Report{}, err
 		}
 		if input.Hook && !adapter.Fast() {
 			toolRuns = append(toolRuns, ToolRun{
@@ -298,7 +298,7 @@ func (service *Service) RemoveHook(projectPath string) error {
 
 	raw, err := coreio.Local.Read(hookPath)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if isNotExistError(err) {
 			return nil
 		}
 		return coreerr.E("Service.RemoveHook", "read "+hookPath, err)

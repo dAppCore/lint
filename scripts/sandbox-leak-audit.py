@@ -30,6 +30,7 @@ import os
 import re
 import shlex
 import subprocess
+import sys
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
@@ -166,11 +167,14 @@ def repo_label(repo: Path) -> str:
         return str(repo)
 
 
+def run_git_cmd(args: list[str]) -> subprocess.CompletedProcess[str]:
+    """Run git against repo paths discovered by this local audit."""
+    return subprocess.run(args, capture_output=True, text=True)  # noqa: S603,S607
+
+
 def has_head(repo: Path) -> bool:
-    proc = subprocess.run(
+    proc = run_git_cmd(
         ["git", "-C", str(repo), "rev-parse", "--verify", "HEAD"],
-        capture_output=True,
-        text=True,
     )
     return proc.returncode == 0
 
@@ -189,7 +193,7 @@ def git_grep(repo: Path, scan_worktree: bool) -> tuple[int, str, str]:
     if not scan_worktree:
         cmd.append("HEAD")
     cmd.extend(["--", *PATHSPECS])
-    proc = subprocess.run(cmd, capture_output=True, text=True)
+    proc = run_git_cmd(cmd)
     return proc.returncode, proc.stdout, proc.stderr
 
 
@@ -260,13 +264,18 @@ def suggested_ticket_command(payload: dict) -> str:
     return f"printf '%s\\n' {shlex.quote(payload_json)} | python3 scripts/mantis-filer.py --stdin-json"
 
 
+def sed_in_place_args() -> list[str]:
+    """Return sed in-place arguments for the platform that generates the stub."""
+    if sys.platform == "darwin" or "bsd" in sys.platform:
+        return ["sed", "-i", "''"]
+    return ["sed", "-i"]
+
+
 def fix_stub_command(repo_path: Path, file_name: str) -> str:
     path = repo_path / file_name
     return " ".join(
-        [
-            "sed",
-            "-i",
-            "''",
+        sed_in_place_args()
+        + [
             "-e",
             shlex.quote(f"s#{LEAK_PATHS[0]}#<REVIEWED_HOST_PATH>/#g"),
             "-e",
@@ -413,4 +422,4 @@ if __name__ == "__main__":
     try:
         raise SystemExit(main())
     except BrokenPipeError:
-        raise SystemExit(0)
+        raise SystemExit(0) from None

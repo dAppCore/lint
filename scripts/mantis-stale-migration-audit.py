@@ -25,6 +25,7 @@ import json
 import os
 import re
 import shlex
+import socket
 import subprocess
 import sys
 import tempfile
@@ -179,16 +180,32 @@ def get_token() -> str:
     return tok
 
 
+def log_mantis_fetch_error(path: str, exc: Exception, body: bytes | None = None) -> None:
+    """Report a non-fatal Mantis fetch failure without aborting the audit."""
+    suffix = ""
+    if body:
+        suffix = f": {body[:200].decode(errors='replace')}"
+    sys.stderr.write(f"WARN: failed to fetch {path}: {exc}{suffix}\n")
+
+
 def mantis_get(token: str, path: str) -> dict:
     req = urllib.request.Request(
         f"{MANTIS_BASE}{path}",
         headers={"Authorization": token, "Accept": "application/json"},
     )
+    body: bytes | None = None
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            return json.loads(resp.read())
+        with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310
+            body = resp.read()
+            return json.loads(body)
     except urllib.error.HTTPError as e:
-        sys.stderr.write(f"HTTP {e.code} on {path}: {e.read()[:200].decode()}\n")
+        log_mantis_fetch_error(path, e, e.read())
+        return {}
+    except (urllib.error.URLError, socket.timeout, json.JSONDecodeError) as e:
+        log_mantis_fetch_error(path, e, body)
+        return {}
+    except Exception as e:
+        log_mantis_fetch_error(path, e, body)
         return {}
 
 
@@ -632,7 +649,7 @@ def run_audit(args: argparse.Namespace) -> int:
 
     sys.stderr.write("Fetching new Mantis tickets...\n")
     tickets = fetch_new(token, page_size=args.page_size, page_cap=args.page_cap)
-    if args.limit:
+    if args.limit is not None:
         tickets = tickets[: args.limit]
     sys.stderr.write(f"Got {len(tickets)} new tickets; discovered {len(repos)} repos\n")
 

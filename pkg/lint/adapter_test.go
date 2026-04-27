@@ -89,6 +89,54 @@ func TestAdapter_CommandAdapter_Bad(t *testing.T) {
 	assert.Equal(t, 1, result.Tool.Findings)
 }
 
+func TestAdapter_CommandAdapter_ParsesStdoutAndStderr(t *testing.T) {
+	binDir := t.TempDir()
+	installTestCommand(t, binDir, "mixed-output-tool")
+	prependPath(t, binDir)
+
+	adapter := newCommandAdapter(
+		"mixed-output-tool",
+		[]string{"mixed-output-tool"},
+		[]string{"go"},
+		"security",
+		"",
+		false,
+		true,
+		func(_ string, _ []string) []string {
+			return []string{"scan"}
+		},
+		parseJSONDiagnostics,
+	).(CommandAdapter)
+
+	result := adapter.Run(context.Background(), RunInput{Path: t.TempDir()}, nil)
+	if result.Tool.Status != "failed" {
+		t.Fatalf("status = %q, want failed", result.Tool.Status)
+	}
+	if len(result.Findings) != 2 {
+		t.Fatalf("findings = %d, want 2: %#v", len(result.Findings), result.Findings)
+	}
+	if result.Tool.Findings != 2 {
+		t.Fatalf("tool findings = %d, want 2", result.Tool.Findings)
+	}
+
+	var foundParseError bool
+	var foundStderrFinding bool
+	for _, finding := range result.Findings {
+		if finding.Code == "parse-error" {
+			foundParseError = true
+		}
+		if finding.Code == "S1" && finding.File == "src/secret.go" {
+			foundStderrFinding = true
+		}
+	}
+	if !foundParseError {
+		t.Fatal("missing stdout parse-error finding")
+	}
+	if !foundStderrFinding {
+		t.Fatal("missing stderr diagnostic finding")
+	}
+}
+
 func TestAdapter_CommandAdapter_Ugly(t *testing.T) {
 	binDir := t.TempDir()
 	installTestCommand(t, binDir, "slow-tool")
@@ -407,6 +455,9 @@ func runAdapterTestCommand(name string, args []string) int {
 		case "json-tool":
 			fmt.Fprintln(os.Stdout, "json-tool 1.0.0")
 			return 0
+		case "mixed-output-tool":
+			fmt.Fprintln(os.Stdout, "mixed-output-tool 1.0.0")
+			return 0
 		}
 	}
 
@@ -420,6 +471,10 @@ func runAdapterTestCommand(name string, args []string) int {
 		fmt.Fprintln(os.Stdout, `[{"location":{"path":"src/main.go","start":{"line":12,"column":3}},"message":{"text":"boom"},"rule_id":"X1","severity":"warn"}]`)
 		fmt.Fprintln(os.Stderr, "debug noise")
 		return 0
+	case "mixed-output-tool":
+		fmt.Fprintln(os.Stdout, "debug banner")
+		fmt.Fprintln(os.Stderr, `[{"location":{"path":"src/secret.go","start":{"line":9,"column":2}},"message":{"text":"secret leaked"},"rule_id":"S1","severity":"error"}]`)
+		return 1
 	default:
 		fmt.Fprintf(os.Stderr, "unknown test command %q\n", name)
 		return 2
