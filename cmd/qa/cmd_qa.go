@@ -17,7 +17,8 @@ import (
 )
 
 func init() {
-	cli.RegisterCommands(AddQACommands, locales.FS)
+	i18n.RegisterLocales(locales.FS, ".")
+	cli.RegisterCommands(AddQACommands)
 }
 
 // Style aliases from shared package

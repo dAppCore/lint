@@ -21,6 +21,7 @@ import (
 
 	"dappco.re/go/core/cli/pkg/cli"
 	"dappco.re/go/core/i18n"
+	coreio "dappco.re/go/core/io"
 )
 
 // Docblock command flags
@@ -260,7 +261,7 @@ func expandPatterns(patterns []string) ([]string, error) {
 
 // hasGoFiles checks if a directory contains Go files.
 func hasGoFiles(dir string) bool {
-	entries, err := os.ReadDir(dir)
+	entries, err := coreio.Local.List(dir)
 	if err != nil {
 		return false
 	}
