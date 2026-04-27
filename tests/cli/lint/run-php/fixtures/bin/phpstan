@@ -1,0 +1,31 @@
+#!/usr/bin/env sh
+#
+# Stub phpstan binary for fixture-driven tests. Emits canned JSON depending
+# on the working directory, so the lint adapter can be verified end-to-end
+# without requiring a real PHP toolchain in CI.
+#
+#   ./phpstan analyse --error-format=json .
+
+set -e
+
+# Handle the `phpstan --version` probe sent by core-lint to capture the tool
+# version. Emit a stable string so probe output never lands as a finding.
+if [ "${1:-}" = "--version" ] || [ "${1:-}" = "-V" ]; then
+    printf 'PHPStan stub 0.0.1 (fixture)\n'
+    exit 0
+fi
+
+# Detect which fixture is being analysed (stubs are invoked with `--no-progress`
+# style flags; we ignore them and key off the working directory's basename).
+fixture="$(basename "$PWD")"
+
+case "${fixture}" in
+    type-error)
+        printf '%s\n' '{"totals":{"errors":1,"file_errors":1},"files":{"BrokenService.php":{"errors":1,"messages":[{"message":"Method Fixtures\\\\TypeError\\\\BrokenService::compute() should return int but returns string.","line":18,"identifier":"return.type","ignorable":true}]}}}'
+        exit 1
+        ;;
+    clean|*)
+        # Empty output + 0 exit: adapter records status=passed with no findings.
+        exit 0
+        ;;
+esac

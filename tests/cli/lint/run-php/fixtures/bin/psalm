@@ -1,0 +1,30 @@
+#!/usr/bin/env sh
+#
+# Stub psalm binary for fixture-driven tests. Emits canned JSON depending
+# on the working directory, so the lint adapter can be verified end-to-end
+# without requiring a real PHP toolchain in CI.
+#
+#   ./psalm --output-format=json .
+
+set -e
+
+if [ "${1:-}" = "--version" ] || [ "${1:-}" = "-V" ]; then
+    printf 'Psalm stub 0.0.1 (fixture)\n'
+    exit 0
+fi
+
+fixture="$(basename "$PWD")"
+
+case "${fixture}" in
+    taint-flow)
+        printf '%s\n' '[{"severity":"error","line_from":18,"line_to":18,"type":"TaintedSql","message":"Detected tainted SQL flow from $_GET to PDO::query","file_name":"TaintedQuery.php","file_path":"TaintedQuery.php","snippet":"$this->pdo->query(\"SELECT * FROM users WHERE id = {$id}\")","selected_text":"$id","from":260,"to":263,"snippet_from":240,"snippet_to":300,"column_from":67,"column_to":70}]'
+        exit 1
+        ;;
+    type-error)
+        printf '%s\n' '[{"severity":"error","line_from":18,"line_to":18,"type":"InvalidReturnType","message":"Method Fixtures\\\\TypeError\\\\BrokenService::compute returns string, not int","file_name":"BrokenService.php","file_path":"BrokenService.php"}]'
+        exit 1
+        ;;
+    clean|*)
+        exit 0
+        ;;
+esac

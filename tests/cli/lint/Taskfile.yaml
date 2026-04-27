@@ -10,4 +10,5 @@ tasks:
       - task -d tools test
       - task -d init test
       - task -d run test
+      - task -d run-php test
 

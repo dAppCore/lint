@@ -1,0 +1,4 @@
+lint:
+  php:
+    - phpstan
+    - psalm
