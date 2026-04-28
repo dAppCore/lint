@@ -2,16 +2,13 @@ package php
 
 import (
 	"context"
+	. "dappco.re/go"
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-func TestAuditResult_Fields(t *testing.T) {
+func TestAuditResult_Fields(t *T) {
 	result := AuditResult{
 		Tool:            "composer",
 		Vulnerabilities: 2,
@@ -21,17 +18,17 @@ func TestAuditResult_Fields(t *testing.T) {
 		},
 	}
 
-	assert.Equal(t, "composer", result.Tool)
-	assert.Equal(t, 2, result.Vulnerabilities)
-	assert.Len(t, result.Advisories, 2)
-	assert.Equal(t, "vendor/pkg", result.Advisories[0].Package)
-	assert.Equal(t, "high", result.Advisories[0].Severity)
-	assert.Equal(t, "RCE", result.Advisories[0].Title)
-	assert.Equal(t, "https://example.com/1", result.Advisories[0].URL)
-	assert.Equal(t, []string{"CVE-2025-0001"}, result.Advisories[0].Identifiers)
+	AssertEqual(t, "composer", result.Tool)
+	AssertEqual(t, 2, result.Vulnerabilities)
+	AssertLen(t, result.Advisories, 2)
+	AssertEqual(t, "vendor/pkg", result.Advisories[0].Package)
+	AssertEqual(t, "high", result.Advisories[0].Severity)
+	AssertEqual(t, "RCE", result.Advisories[0].Title)
+	AssertEqual(t, "https://example.com/1", result.Advisories[0].URL)
+	AssertEqual(t, []string{"CVE-2025-0001"}, result.Advisories[0].Identifiers)
 }
 
-func TestAuditAdvisory_Fields(t *testing.T) {
+func TestAuditAdvisory_Fields(t *T) {
 	adv := AuditAdvisory{
 		Package:     "laravel/framework",
 		Severity:    "critical",
@@ -40,14 +37,14 @@ func TestAuditAdvisory_Fields(t *testing.T) {
 		Identifiers: []string{"CVE-2025-9999", "GHSA-xxxx"},
 	}
 
-	assert.Equal(t, "laravel/framework", adv.Package)
-	assert.Equal(t, "critical", adv.Severity)
-	assert.Equal(t, "SQL Injection", adv.Title)
-	assert.Equal(t, "https://example.com/advisory", adv.URL)
-	assert.Equal(t, []string{"CVE-2025-9999", "GHSA-xxxx"}, adv.Identifiers)
+	AssertEqual(t, "laravel/framework", adv.Package)
+	AssertEqual(t, "critical", adv.Severity)
+	AssertEqual(t, "SQL Injection", adv.Title)
+	AssertEqual(t, "https://example.com/advisory", adv.URL)
+	AssertEqual(t, []string{"CVE-2025-9999", "GHSA-xxxx"}, adv.Identifiers)
 }
 
-func TestSortAuditAdvisories_Good(t *testing.T) {
+func TestSortAuditAdvisories_Good(t *T) {
 	advisories := []AuditAdvisory{
 		{Package: "vendor/package-b", Title: "Zulu"},
 		{Package: "vendor/package-a", Title: "Beta"},
@@ -56,16 +53,16 @@ func TestSortAuditAdvisories_Good(t *testing.T) {
 
 	sortAuditAdvisories(advisories)
 
-	require.Len(t, advisories, 3)
-	assert.Equal(t, "vendor/package-a", advisories[0].Package)
-	assert.Equal(t, "Beta", advisories[0].Title)
-	assert.Equal(t, "vendor/package-b", advisories[1].Package)
-	assert.Equal(t, "Alpha", advisories[1].Title)
-	assert.Equal(t, "vendor/package-b", advisories[2].Package)
-	assert.Equal(t, "Zulu", advisories[2].Title)
+	RequireLen(t, advisories, 3)
+	AssertEqual(t, "vendor/package-a", advisories[0].Package)
+	AssertEqual(t, "Beta", advisories[0].Title)
+	AssertEqual(t, "vendor/package-b", advisories[1].Package)
+	AssertEqual(t, "Alpha", advisories[1].Title)
+	AssertEqual(t, "vendor/package-b", advisories[2].Package)
+	AssertEqual(t, "Zulu", advisories[2].Title)
 }
 
-func TestRunComposerAudit_ParsesJSON(t *testing.T) {
+func TestRunComposerAudit_ParsesJSON(t *T) {
 	// Test the JSON parsing of composer audit output by verifying
 	// the struct can be populated from JSON matching composer's format.
 	composerOutput := `{
@@ -105,7 +102,7 @@ func TestRunComposerAudit_ParsesJSON(t *testing.T) {
 	}
 
 	err := json.Unmarshal([]byte(composerOutput), &auditData)
-	require.NoError(t, err)
+	RequireNoError(t, err)
 
 	// Simulate the same parsing logic as runComposerAudit
 	result := AuditResult{Tool: "composer"}
@@ -122,20 +119,20 @@ func TestRunComposerAudit_ParsesJSON(t *testing.T) {
 	sortAuditAdvisories(result.Advisories)
 	result.Vulnerabilities = len(result.Advisories)
 
-	assert.Equal(t, "composer", result.Tool)
-	assert.Equal(t, 3, result.Vulnerabilities)
-	assert.Len(t, result.Advisories, 3)
-	assert.Equal(t, "vendor/package-a", result.Advisories[0].Package)
-	assert.Equal(t, "Remote Code Execution", result.Advisories[0].Title)
-	assert.Equal(t, "https://example.com/advisory/1", result.Advisories[0].URL)
-	assert.Equal(t, []string{"CVE-2025-1234"}, result.Advisories[0].Identifiers)
-	assert.Equal(t, "vendor/package-b", result.Advisories[1].Package)
-	assert.Equal(t, "Cross-Site Scripting", result.Advisories[1].Title)
-	assert.Equal(t, "vendor/package-b", result.Advisories[2].Package)
-	assert.Equal(t, "Open Redirect", result.Advisories[2].Title)
+	AssertEqual(t, "composer", result.Tool)
+	AssertEqual(t, 3, result.Vulnerabilities)
+	AssertLen(t, result.Advisories, 3)
+	AssertEqual(t, "vendor/package-a", result.Advisories[0].Package)
+	AssertEqual(t, "Remote Code Execution", result.Advisories[0].Title)
+	AssertEqual(t, "https://example.com/advisory/1", result.Advisories[0].URL)
+	AssertEqual(t, []string{"CVE-2025-1234"}, result.Advisories[0].Identifiers)
+	AssertEqual(t, "vendor/package-b", result.Advisories[1].Package)
+	AssertEqual(t, "Cross-Site Scripting", result.Advisories[1].Title)
+	AssertEqual(t, "vendor/package-b", result.Advisories[2].Package)
+	AssertEqual(t, "Open Redirect", result.Advisories[2].Title)
 }
 
-func TestNpmAuditJSON_ParsesCorrectly(t *testing.T) {
+func TestNpmAuditJSON_ParsesCorrectly(t *T) {
 	// Test npm audit JSON parsing logic
 	npmOutput := `{
 		"metadata": {
@@ -168,7 +165,7 @@ func TestNpmAuditJSON_ParsesCorrectly(t *testing.T) {
 	}
 
 	err := json.Unmarshal([]byte(npmOutput), &auditData)
-	require.NoError(t, err)
+	RequireNoError(t, err)
 
 	result := AuditResult{Tool: "npm"}
 	result.Vulnerabilities = auditData.Metadata.Vulnerabilities.Total
@@ -180,16 +177,16 @@ func TestNpmAuditJSON_ParsesCorrectly(t *testing.T) {
 	}
 	sortAuditAdvisories(result.Advisories)
 
-	assert.Equal(t, "npm", result.Tool)
-	assert.Equal(t, 2, result.Vulnerabilities)
-	assert.Len(t, result.Advisories, 2)
-	assert.Equal(t, "lodash", result.Advisories[0].Package)
-	assert.Equal(t, "high", result.Advisories[0].Severity)
-	assert.Equal(t, "minimist", result.Advisories[1].Package)
-	assert.Equal(t, "low", result.Advisories[1].Severity)
+	AssertEqual(t, "npm", result.Tool)
+	AssertEqual(t, 2, result.Vulnerabilities)
+	AssertLen(t, result.Advisories, 2)
+	AssertEqual(t, "lodash", result.Advisories[0].Package)
+	AssertEqual(t, "high", result.Advisories[0].Severity)
+	AssertEqual(t, "minimist", result.Advisories[1].Package)
+	AssertEqual(t, "low", result.Advisories[1].Severity)
 }
 
-func TestRunAudit_SkipsNpmWithoutPackageJSON(t *testing.T) {
+func TestRunAudit_SkipsNpmWithoutPackageJSON(t *T) {
 	// Create a temp directory with no package.json
 	dir := t.TempDir()
 
@@ -202,16 +199,16 @@ func TestRunAudit_SkipsNpmWithoutPackageJSON(t *testing.T) {
 	})
 
 	// No error from RunAudit itself (individual tool errors are in AuditResult.Error)
-	assert.NoError(t, err)
-	assert.Len(t, results, 1, "should only have composer result when no package.json")
-	assert.Equal(t, "composer", results[0].Tool)
+	AssertNoError(t, err)
+	AssertLen(t, results, 1, "should only have composer result when no package.json")
+	AssertEqual(t, "composer", results[0].Tool)
 }
 
-func TestRunAudit_IncludesNpmWithPackageJSON(t *testing.T) {
+func TestRunAudit_IncludesNpmWithPackageJSON(t *T) {
 	// Create a temp directory with a package.json
 	dir := t.TempDir()
 	err := os.WriteFile(filepath.Join(dir, "package.json"), []byte(`{"name":"test"}`), 0644)
-	require.NoError(t, err)
+	RequireNoError(t, err)
 
 	results, runErr := RunAudit(context.Background(), AuditOptions{
 		Dir:    dir,
@@ -219,24 +216,24 @@ func TestRunAudit_IncludesNpmWithPackageJSON(t *testing.T) {
 	})
 
 	// No error from RunAudit itself
-	assert.NoError(t, runErr)
-	assert.Len(t, results, 2, "should have both composer and npm results when package.json exists")
-	assert.Equal(t, "composer", results[0].Tool)
-	assert.Equal(t, "npm", results[1].Tool)
+	AssertNoError(t, runErr)
+	AssertLen(t, results, 2, "should have both composer and npm results when package.json exists")
+	AssertEqual(t, "composer", results[0].Tool)
+	AssertEqual(t, "npm", results[1].Tool)
 }
 
-func TestAuditOptions_Defaults(t *testing.T) {
+func TestAuditOptions_Defaults(t *T) {
 	opts := AuditOptions{}
-	assert.Empty(t, opts.Dir)
-	assert.False(t, opts.JSON)
-	assert.False(t, opts.Fix)
-	assert.Nil(t, opts.Output)
+	AssertEmpty(t, opts.Dir)
+	AssertFalse(t, opts.JSON)
+	AssertFalse(t, opts.Fix)
+	AssertNil(t, opts.Output)
 }
 
-func TestAuditResult_ZeroValue(t *testing.T) {
+func TestAuditResult_ZeroValue(t *T) {
 	result := AuditResult{}
-	assert.Empty(t, result.Tool)
-	assert.Equal(t, 0, result.Vulnerabilities)
-	assert.Nil(t, result.Advisories)
-	assert.NoError(t, result.Error)
+	AssertEmpty(t, result.Tool)
+	AssertEqual(t, 0, result.Vulnerabilities)
+	AssertNil(t, result.Advisories)
+	AssertNoError(t, result.Error)
 }

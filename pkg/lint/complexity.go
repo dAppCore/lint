@@ -9,7 +9,6 @@ import (
 
 	core "dappco.re/go"
 	coreio "dappco.re/go/io"
-	coreerr "dappco.re/go/log"
 )
 
 // ComplexityConfig controls cyclomatic complexity analysis.
@@ -49,7 +48,7 @@ func AnalyseComplexity(cfg ComplexityConfig) ([]ComplexityResult, error) {
 
 	info, err := coreio.Local.Stat(cfg.Path)
 	if err != nil {
-		return nil, coreerr.E("AnalyseComplexity", "stat "+cfg.Path, err)
+		return nil, core.E("AnalyseComplexity", "stat "+cfg.Path, err)
 	}
 
 	if !info.IsDir() {
@@ -83,7 +82,7 @@ func AnalyseComplexity(cfg ComplexityConfig) ([]ComplexityResult, error) {
 		return nil
 	})
 	if err != nil {
-		return nil, coreerr.E("AnalyseComplexity", "walk "+cfg.Path, err)
+		return nil, core.E("AnalyseComplexity", "walk "+cfg.Path, err)
 	}
 
 	return results, nil
@@ -99,7 +98,7 @@ func AnalyseComplexitySource(src string, filename string, threshold int) ([]Comp
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, filename, src, parser.ParseComments)
 	if err != nil {
-		return nil, coreerr.E("AnalyseComplexitySource", "parse "+filename, err)
+		return nil, core.E("AnalyseComplexitySource", "parse "+filename, err)
 	}
 
 	var results []ComplexityResult
@@ -134,7 +133,7 @@ func AnalyseComplexitySource(src string, filename string, threshold int) ([]Comp
 func analyseFile(path string, threshold int) ([]ComplexityResult, error) {
 	src, err := coreio.Local.Read(path)
 	if err != nil {
-		return nil, coreerr.E("analyseFile", "read "+path, err)
+		return nil, core.E("analyseFile", "read "+path, err)
 	}
 	return AnalyseComplexitySource(src, path, threshold)
 }

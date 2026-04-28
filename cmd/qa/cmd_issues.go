@@ -16,10 +16,10 @@ import (
 	"strings"
 	"time"
 
+	core "dappco.re/go"
 	"dappco.re/go/cli/pkg/cli"
 	"dappco.re/go/i18n"
 	"dappco.re/go/io"
-	"dappco.re/go/log"
 	"dappco.re/go/scm/repos"
 )
 
@@ -117,7 +117,7 @@ func addIssuesCommand(parent *cli.Command) {
 func runQAIssues() error {
 	// Check gh is available
 	if _, err := exec.LookPath("gh"); err != nil {
-		return log.E("qa.issues", i18n.T("error.gh_not_found"), nil)
+		return core.E("qa.issues", i18n.T("error.gh_not_found"), nil)
 	}
 
 	// Load registry
@@ -129,12 +129,12 @@ func runQAIssues() error {
 	} else {
 		registryPath, findErr := repos.FindRegistry(io.Local)
 		if findErr != nil {
-			return log.E("qa.issues", i18n.T("error.registry_not_found"), nil)
+			return core.E("qa.issues", i18n.T("error.registry_not_found"), nil)
 		}
 		reg, err = repos.LoadRegistry(io.Local, registryPath)
 	}
 	if err != nil {
-		return log.E("qa.issues", "failed to load registry", err)
+		return core.E("qa.issues", "failed to load registry", err)
 	}
 
 	// Fetch issues from all repos
@@ -235,7 +235,7 @@ func fetchQAIssues(org, repoName string, limit int) ([]Issue, error) {
 	output, err := cmd.Output()
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
-			return nil, log.E("qa.fetchQAIssues", strings.TrimSpace(string(exitErr.Stderr)), nil)
+			return nil, core.E("qa.fetchQAIssues", strings.TrimSpace(string(exitErr.Stderr)), nil)
 		}
 		return nil, err
 	}

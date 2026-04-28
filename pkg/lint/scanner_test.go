@@ -1,15 +1,12 @@
 package lint
 
 import (
+	core "dappco.re/go"
 	"os"
 	"path/filepath"
-	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-func TestDetectLanguage_Good(t *testing.T) {
+func TestDetectLanguage_Good(t *core.T) {
 	tests := []struct {
 		filename string
 		want     string
@@ -35,29 +32,29 @@ func TestDetectLanguage_Good(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.filename, func(t *testing.T) {
+		t.Run(tt.filename, func(t *core.T) {
 			got := DetectLanguage(tt.filename)
-			assert.Equal(t, tt.want, got)
+			core.AssertEqual(t, tt.want, got)
 		})
 	}
 }
 
-func TestDetectLanguage_Bad_UnknownExtension(t *testing.T) {
-	assert.Equal(t, "", DetectLanguage("notes.txt"))
-	assert.Equal(t, "", DetectLanguage("README"))
+func TestDetectLanguage_Bad_UnknownExtension(t *core.T) {
+	core.AssertEqual(t, "", DetectLanguage("notes.txt"))
+	core.AssertEqual(t, "", DetectLanguage("README"))
 }
 
-func TestDetectLanguage_Ugly_DockerfileVariant(t *testing.T) {
-	assert.Equal(t, "dockerfile", DetectLanguage("nested/Dockerfile.test"))
+func TestDetectLanguage_Ugly_DockerfileVariant(t *core.T) {
+	core.AssertEqual(t, "dockerfile", DetectLanguage("nested/Dockerfile.test"))
 }
 
-func TestScanDir_Good_FindsMatches(t *testing.T) {
+func TestScanDir_Good_FindsMatches(t *core.T) {
 	dir := t.TempDir()
 
 	// Create a Go file with a TODO.
 	goFile := filepath.Join(dir, "main.go")
 	err := os.WriteFile(goFile, []byte("package main\n\n// TODO: fix this\nfunc main() {}\n"), 0o644)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	rules := []Rule{
 		{
@@ -72,47 +69,47 @@ func TestScanDir_Good_FindsMatches(t *testing.T) {
 	}
 
 	s, err := NewScanner(rules)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	findings, err := s.ScanDir(dir)
-	require.NoError(t, err)
-	require.Len(t, findings, 1)
-	assert.Equal(t, "test-001", findings[0].RuleID)
-	assert.Equal(t, 3, findings[0].Line)
+	core.RequireNoError(t, err)
+	RequireLen(t, findings, 1)
+	core.AssertEqual(t, "test-001", findings[0].RuleID)
+	core.AssertEqual(t, 3, findings[0].Line)
 }
 
-func TestScanDir_Good_ExcludesVendor(t *testing.T) {
+func TestScanDir_Good_ExcludesVendor(t *core.T) {
 	dir := t.TempDir()
 
 	// Create vendor directory with a matching file.
 	vendorDir := filepath.Join(dir, "vendor")
-	require.NoError(t, os.MkdirAll(vendorDir, 0o755))
+	core.RequireNoError(t, os.MkdirAll(vendorDir, 0o755))
 	err := os.WriteFile(filepath.Join(vendorDir, "lib.go"), []byte("// TODO: vendor code\n"), 0o644)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	// Create node_modules directory with a matching file.
 	nodeDir := filepath.Join(dir, "node_modules")
-	require.NoError(t, os.MkdirAll(nodeDir, 0o755))
+	core.RequireNoError(t, os.MkdirAll(nodeDir, 0o755))
 	err = os.WriteFile(filepath.Join(nodeDir, "index.js"), []byte("// TODO: node code\n"), 0o644)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	// Create .git directory with a matching file.
 	gitDir := filepath.Join(dir, ".git")
-	require.NoError(t, os.MkdirAll(gitDir, 0o755))
+	core.RequireNoError(t, os.MkdirAll(gitDir, 0o755))
 	err = os.WriteFile(filepath.Join(gitDir, "config"), []byte("// TODO: git\n"), 0o644)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	// Create testdata directory with a matching file.
 	testdataDir := filepath.Join(dir, "testdata")
-	require.NoError(t, os.MkdirAll(testdataDir, 0o755))
+	core.RequireNoError(t, os.MkdirAll(testdataDir, 0o755))
 	err = os.WriteFile(filepath.Join(testdataDir, "sample.go"), []byte("// TODO: testdata\n"), 0o644)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	// Create .core directory with a matching file.
 	coreDir := filepath.Join(dir, ".core")
-	require.NoError(t, os.MkdirAll(coreDir, 0o755))
+	core.RequireNoError(t, os.MkdirAll(coreDir, 0o755))
 	err = os.WriteFile(filepath.Join(coreDir, "build.go"), []byte("// TODO: build\n"), 0o644)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	rules := []Rule{
 		{
@@ -127,23 +124,23 @@ func TestScanDir_Good_ExcludesVendor(t *testing.T) {
 	}
 
 	s, err := NewScanner(rules)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	findings, err := s.ScanDir(dir)
-	require.NoError(t, err)
-	assert.Empty(t, findings, "should not find matches in excluded directories")
+	core.RequireNoError(t, err)
+	core.AssertEmpty(t, findings, "should not find matches in excluded directories")
 }
 
-func TestScanDir_Good_LanguageFiltering(t *testing.T) {
+func TestScanDir_Good_LanguageFiltering(t *core.T) {
 	dir := t.TempDir()
 
 	// Create Go file with a match.
 	err := os.WriteFile(filepath.Join(dir, "main.go"), []byte("// TODO: go\n"), 0o644)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	// Create PHP file with a match — rule only targets Go.
 	err = os.WriteFile(filepath.Join(dir, "index.php"), []byte("// TODO: php\n"), 0o644)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	rules := []Rule{
 		{
@@ -158,19 +155,19 @@ func TestScanDir_Good_LanguageFiltering(t *testing.T) {
 	}
 
 	s, err := NewScanner(rules)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	findings, err := s.ScanDir(dir)
-	require.NoError(t, err)
-	require.Len(t, findings, 1)
-	assert.Contains(t, findings[0].File, "main.go")
+	core.RequireNoError(t, err)
+	RequireLen(t, findings, 1)
+	core.AssertContains(t, findings[0].File, "main.go")
 }
 
-func TestScanFile_Good(t *testing.T) {
+func TestScanFile_Good(t *core.T) {
 	dir := t.TempDir()
 	file := filepath.Join(dir, "test.go")
 	err := os.WriteFile(file, []byte("package main\n\npanic(\"boom\")\n"), 0o644)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	rules := []Rule{
 		{
@@ -185,19 +182,19 @@ func TestScanFile_Good(t *testing.T) {
 	}
 
 	s, err := NewScanner(rules)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	findings, err := s.ScanFile(file)
-	require.NoError(t, err)
-	require.Len(t, findings, 1)
-	assert.Equal(t, "test-panic", findings[0].RuleID)
+	core.RequireNoError(t, err)
+	RequireLen(t, findings, 1)
+	core.AssertEqual(t, "test-panic", findings[0].RuleID)
 }
 
-func TestScanFile_Good_Python(t *testing.T) {
+func TestScanFile_Good_Python(t *core.T) {
 	dir := t.TempDir()
 	file := filepath.Join(dir, "app.py")
 	err := os.WriteFile(file, []byte("print('hello')\n# TODO: fix\n"), 0o644)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	rules := []Rule{
 		{
@@ -212,20 +209,20 @@ func TestScanFile_Good_Python(t *testing.T) {
 	}
 
 	s, err := NewScanner(rules)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	findings, err := s.ScanFile(file)
-	require.NoError(t, err)
-	require.Len(t, findings, 1)
-	assert.Equal(t, "python-todo", findings[0].RuleID)
-	assert.Equal(t, "python", DetectLanguage(file))
+	core.RequireNoError(t, err)
+	RequireLen(t, findings, 1)
+	core.AssertEqual(t, "python-todo", findings[0].RuleID)
+	core.AssertEqual(t, "python", DetectLanguage(file))
 }
 
-func TestScanFile_Bad_NoMatchingLanguageRules(t *testing.T) {
+func TestScanFile_Bad_NoMatchingLanguageRules(t *core.T) {
 	dir := t.TempDir()
 	file := filepath.Join(dir, "app.go")
 	err := os.WriteFile(file, []byte("package main\n"), 0o644)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	rules := []Rule{
 		{
@@ -240,18 +237,18 @@ func TestScanFile_Bad_NoMatchingLanguageRules(t *testing.T) {
 	}
 
 	s, err := NewScanner(rules)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	findings, err := s.ScanFile(file)
-	require.NoError(t, err)
-	assert.Empty(t, findings)
+	core.RequireNoError(t, err)
+	core.AssertEmpty(t, findings)
 }
 
-func TestScanFile_Ugly_UnsupportedExtension(t *testing.T) {
+func TestScanFile_Ugly_UnsupportedExtension(t *core.T) {
 	dir := t.TempDir()
 	file := filepath.Join(dir, "notes.txt")
 	err := os.WriteFile(file, []byte("TODO: this is not a recognised source file\n"), 0o644)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	rules := []Rule{
 		{
@@ -266,21 +263,21 @@ func TestScanFile_Ugly_UnsupportedExtension(t *testing.T) {
 	}
 
 	s, err := NewScanner(rules)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	findings, err := s.ScanFile(file)
-	require.NoError(t, err)
-	assert.Nil(t, findings)
+	core.RequireNoError(t, err)
+	core.AssertNil(t, findings)
 }
 
-func TestScanDir_Good_Subdirectories(t *testing.T) {
+func TestScanDir_Good_Subdirectories(t *core.T) {
 	dir := t.TempDir()
 
 	// Create a nested file.
 	subDir := filepath.Join(dir, "pkg", "store")
-	require.NoError(t, os.MkdirAll(subDir, 0o755))
+	core.RequireNoError(t, os.MkdirAll(subDir, 0o755))
 	err := os.WriteFile(filepath.Join(subDir, "db.go"), []byte("// TODO: deep\n"), 0o644)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	rules := []Rule{
 		{
@@ -295,18 +292,18 @@ func TestScanDir_Good_Subdirectories(t *testing.T) {
 	}
 
 	s, err := NewScanner(rules)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	findings, err := s.ScanDir(dir)
-	require.NoError(t, err)
-	require.Len(t, findings, 1)
+	core.RequireNoError(t, err)
+	RequireLen(t, findings, 1)
 }
 
-func TestScanDir_Good_SkipsHiddenRootDirectory(t *testing.T) {
+func TestScanDir_Good_SkipsHiddenRootDirectory(t *core.T) {
 	dir := t.TempDir()
 	hiddenDir := filepath.Join(dir, ".git")
-	require.NoError(t, os.MkdirAll(hiddenDir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(hiddenDir, "main.go"), []byte("// TODO: hidden\n"), 0o644))
+	core.RequireNoError(t, os.MkdirAll(hiddenDir, 0o755))
+	core.RequireNoError(t, os.WriteFile(filepath.Join(hiddenDir, "main.go"), []byte("// TODO: hidden\n"), 0o644))
 
 	rules := []Rule{
 		{
@@ -321,18 +318,18 @@ func TestScanDir_Good_SkipsHiddenRootDirectory(t *testing.T) {
 	}
 
 	s, err := NewScanner(rules)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	findings, err := s.ScanDir(hiddenDir)
-	require.NoError(t, err)
-	assert.Empty(t, findings)
+	core.RequireNoError(t, err)
+	core.AssertEmpty(t, findings)
 }
 
-func TestScanDir_Good_SkipsHiddenNestedDirectory(t *testing.T) {
+func TestScanDir_Good_SkipsHiddenNestedDirectory(t *core.T) {
 	dir := t.TempDir()
 	hiddenDir := filepath.Join(dir, "services", ".generated")
-	require.NoError(t, os.MkdirAll(hiddenDir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(hiddenDir, "main.go"), []byte("// TODO: hidden\n"), 0o644))
+	core.RequireNoError(t, os.MkdirAll(hiddenDir, 0o755))
+	core.RequireNoError(t, os.WriteFile(filepath.Join(hiddenDir, "main.go"), []byte("// TODO: hidden\n"), 0o644))
 
 	rules := []Rule{
 		{
@@ -347,14 +344,14 @@ func TestScanDir_Good_SkipsHiddenNestedDirectory(t *testing.T) {
 	}
 
 	s, err := NewScanner(rules)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	findings, err := s.ScanDir(dir)
-	require.NoError(t, err)
-	assert.Empty(t, findings)
+	core.RequireNoError(t, err)
+	core.AssertEmpty(t, findings)
 }
 
-func TestScanDir_Bad_NonexistentDir(t *testing.T) {
+func TestScanDir_Bad_NonexistentDir(t *core.T) {
 	rules := []Rule{
 		{
 			ID:        "test-001",
@@ -368,8 +365,8 @@ func TestScanDir_Bad_NonexistentDir(t *testing.T) {
 	}
 
 	s, err := NewScanner(rules)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	_, err = s.ScanDir("/nonexistent/path")
-	assert.Error(t, err)
+	core.AssertError(t, err)
 }

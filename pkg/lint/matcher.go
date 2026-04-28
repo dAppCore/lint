@@ -4,7 +4,6 @@ import (
 	"regexp"
 
 	core "dappco.re/go"
-	coreerr "dappco.re/go/log"
 )
 
 // Finding represents a single match of a rule against a source file.
@@ -48,14 +47,14 @@ func NewMatcher(rules []Rule) (*Matcher, error) {
 
 		pat, err := regexp.Compile(r.Pattern)
 		if err != nil {
-			return nil, coreerr.E("NewMatcher", "compiling pattern for rule "+r.ID, err)
+			return nil, core.E("NewMatcher", "compiling pattern for rule "+r.ID, err)
 		}
 
 		var excl *regexp.Regexp
 		if r.ExcludePattern != "" {
 			excl, err = regexp.Compile(r.ExcludePattern)
 			if err != nil {
-				return nil, coreerr.E("NewMatcher", "compiling exclude pattern for rule "+r.ID, err)
+				return nil, core.E("NewMatcher", "compiling exclude pattern for rule "+r.ID, err)
 			}
 		}
 

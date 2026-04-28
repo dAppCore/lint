@@ -17,7 +17,6 @@ import (
 	core "dappco.re/go"
 	"dappco.re/go/cli/pkg/cli"
 	"dappco.re/go/i18n"
-	"dappco.re/go/log"
 )
 
 // Review command flags
@@ -122,7 +121,7 @@ func addReviewCommand(parent *cli.Command) {
 func runReview() error {
 	// Check gh is available
 	if result := (core.App{}).Find("gh", "GitHub CLI"); !result.OK {
-		return log.E("qa.review", i18n.T("error.gh_not_found"), nil)
+		return core.E("qa.review", i18n.T("error.gh_not_found"), nil)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -134,7 +133,7 @@ func runReview() error {
 		var err error
 		repoFullName, err = detectRepoFromGit()
 		if err != nil {
-			return log.E("qa.review", i18n.T("cmd.qa.review.error.no_repo"), nil)
+			return core.E("qa.review", i18n.T("cmd.qa.review.error.no_repo"), nil)
 		}
 	}
 
@@ -291,7 +290,7 @@ func fetchPRs(ctx context.Context, repo, search string) ([]PullRequest, error) {
 		if message == "" {
 			message = core.Trim(err.Error())
 		}
-		return nil, log.E("qa.fetchPRs", message, nil)
+		return nil, core.E("qa.fetchPRs", message, nil)
 	}
 
 	var prs []PullRequest

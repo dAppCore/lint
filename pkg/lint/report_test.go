@@ -2,13 +2,10 @@ package lint
 
 import (
 	"bytes"
+	core "dappco.re/go"
 	"encoding/json"
 	"errors"
 	"strings"
-	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func sampleFindings() []Finding {
@@ -43,120 +40,120 @@ func sampleFindings() []Finding {
 	}
 }
 
-func TestSummarise_Good(t *testing.T) {
+func TestSummarise_Good(t *core.T) {
 	findings := sampleFindings()
 	summary := Summarise(findings)
 
-	assert.Equal(t, 3, summary.Total)
-	assert.Equal(t, 2, summary.BySeverity["high"])
-	assert.Equal(t, 1, summary.BySeverity["medium"])
+	core.AssertEqual(t, 3, summary.Total)
+	core.AssertEqual(t, 2, summary.BySeverity["high"])
+	core.AssertEqual(t, 1, summary.BySeverity["medium"])
 }
 
-func TestSummarise_Good_Empty(t *testing.T) {
+func TestSummarise_Good_Empty(t *core.T) {
 	summary := Summarise(nil)
-	assert.Equal(t, 0, summary.Total)
-	assert.Empty(t, summary.BySeverity)
+	core.AssertEqual(t, 0, summary.Total)
+	core.AssertEmpty(t, summary.BySeverity)
 }
 
-func TestSummarise_Bad_BlankSeverityDefaultsToWarning(t *testing.T) {
+func TestSummarise_Bad_BlankSeverityDefaultsToWarning(t *core.T) {
 	summary := Summarise([]Finding{
 		{Severity: ""},
 		{Severity: "info"},
 	})
 
-	assert.Equal(t, 2, summary.Total)
-	assert.Equal(t, 1, summary.Warnings)
-	assert.Equal(t, 1, summary.Info)
-	assert.Equal(t, 0, summary.Errors)
-	assert.True(t, summary.Passed)
+	core.AssertEqual(t, 2, summary.Total)
+	core.AssertEqual(t, 1, summary.Warnings)
+	core.AssertEqual(t, 1, summary.Info)
+	core.AssertEqual(t, 0, summary.Errors)
+	core.AssertTrue(t, summary.Passed)
 }
 
-func TestWriteJSON_Good_Roundtrip(t *testing.T) {
+func TestWriteJSON_Good_Roundtrip(t *core.T) {
 	findings := sampleFindings()
 	var buf bytes.Buffer
 	err := WriteJSON(&buf, findings)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	var decoded []Finding
 	err = json.Unmarshal(buf.Bytes(), &decoded)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
-	assert.Len(t, decoded, 3)
-	assert.Equal(t, "go-sec-001", decoded[0].RuleID)
-	assert.Equal(t, 42, decoded[0].Line)
-	assert.Equal(t, "handler.go", decoded[1].File)
+	core.AssertLen(t, decoded, 3)
+	core.AssertEqual(t, "go-sec-001", decoded[0].RuleID)
+	core.AssertEqual(t, 42, decoded[0].Line)
+	core.AssertEqual(t, "handler.go", decoded[1].File)
 }
 
-func TestWriteJSON_Good_PrettyPrinted(t *testing.T) {
+func TestWriteJSON_Good_PrettyPrinted(t *core.T) {
 	findings := sampleFindings()
 	var buf bytes.Buffer
 	err := WriteJSON(&buf, findings)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	// Pretty-printed JSON should contain indentation.
-	assert.Contains(t, buf.String(), "  ")
-	assert.Contains(t, buf.String(), "\n")
+	core.AssertContains(t, buf.String(), "  ")
+	core.AssertContains(t, buf.String(), "\n")
 }
 
-func TestWriteJSON_Good_Empty(t *testing.T) {
+func TestWriteJSON_Good_Empty(t *core.T) {
 	var buf bytes.Buffer
 	err := WriteJSON(&buf, nil)
-	require.NoError(t, err)
-	assert.Equal(t, "[]\n", buf.String())
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, "[]\n", buf.String())
 }
 
-func TestWriteJSONL_Good_LineCount(t *testing.T) {
+func TestWriteJSONL_Good_LineCount(t *core.T) {
 	findings := sampleFindings()
 	var buf bytes.Buffer
 	err := WriteJSONL(&buf, findings)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	lines := strings.Split(strings.TrimSpace(buf.String()), "\n")
-	assert.Len(t, lines, 3)
+	core.AssertLen(t, lines, 3)
 
 	// Each line should be valid JSON.
 	for _, line := range lines {
 		var f Finding
 		err := json.Unmarshal([]byte(line), &f)
-		require.NoError(t, err)
+		core.RequireNoError(t, err)
 	}
 }
 
-func TestWriteJSONL_Good_Empty(t *testing.T) {
+func TestWriteJSONL_Good_Empty(t *core.T) {
 	var buf bytes.Buffer
 	err := WriteJSONL(&buf, nil)
-	require.NoError(t, err)
-	assert.Empty(t, buf.String())
+	core.RequireNoError(t, err)
+	core.AssertEmpty(t, buf.String())
 }
 
-func TestWriteJSONL_Bad_PropagatesWriterErrors(t *testing.T) {
+func TestWriteJSONL_Bad_PropagatesWriterErrors(t *core.T) {
 	err := WriteJSONL(failingWriter{}, sampleFindings())
-	require.Error(t, err)
+	RequireError(t, err)
 }
 
-func TestWriteText_Good(t *testing.T) {
+func TestWriteText_Good(t *core.T) {
 	findings := sampleFindings()
 	var buf bytes.Buffer
 	err := WriteText(&buf, findings)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	output := buf.String()
-	assert.Contains(t, output, "store/query.go:42")
-	assert.Contains(t, output, "[high]")
-	assert.Contains(t, output, "SQL injection")
-	assert.Contains(t, output, "go-sec-001")
-	assert.Contains(t, output, "handler.go:17")
-	assert.Contains(t, output, "[medium]")
+	core.AssertContains(t, output, "store/query.go:42")
+	core.AssertContains(t, output, "[high]")
+	core.AssertContains(t, output, "SQL injection")
+	core.AssertContains(t, output, "go-sec-001")
+	core.AssertContains(t, output, "handler.go:17")
+	core.AssertContains(t, output, "[medium]")
 }
 
-func TestWriteText_Good_Empty(t *testing.T) {
+func TestWriteText_Good_Empty(t *core.T) {
 	var buf bytes.Buffer
 	err := WriteText(&buf, nil)
-	require.NoError(t, err)
-	assert.Empty(t, buf.String())
+	core.RequireNoError(t, err)
+	core.AssertEmpty(t, buf.String())
 }
 
-func TestWriteReportGitHub_Good_MapsInfoToNotice(t *testing.T) {
+func TestWriteReportGitHub_Good_MapsInfoToNotice(t *core.T) {
 	var buf bytes.Buffer
 
 	err := WriteReportGitHub(&buf, Report{
@@ -170,24 +167,24 @@ func TestWriteReportGitHub_Good_MapsInfoToNotice(t *testing.T) {
 			Message:  "explanation",
 		}},
 	})
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
-	assert.Contains(t, buf.String(), "::notice file=example.go,line=7,col=3::[demo] explanation (demo-rule)")
+	core.AssertContains(t, buf.String(), "::notice file=example.go,line=7,col=3::[demo] explanation (demo-rule)")
 }
 
-func TestWriteText_Bad_PropagatesWriterErrors(t *testing.T) {
+func TestWriteText_Bad_PropagatesWriterErrors(t *core.T) {
 	err := WriteText(failingWriter{}, sampleFindings())
-	require.Error(t, err)
+	RequireError(t, err)
 }
 
-func TestWriteReportGitHub_Bad_PropagatesWriterErrors(t *testing.T) {
+func TestWriteReportGitHub_Bad_PropagatesWriterErrors(t *core.T) {
 	err := WriteReportGitHub(failingWriter{}, Report{
 		Findings: sampleFindings(),
 	})
-	require.Error(t, err)
+	RequireError(t, err)
 }
 
-func TestWriteReportSARIF_Good_MapsInfoToNote(t *testing.T) {
+func TestWriteReportSARIF_Good_MapsInfoToNote(t *core.T) {
 	var buf bytes.Buffer
 
 	err := WriteReportSARIF(&buf, Report{
@@ -201,17 +198,17 @@ func TestWriteReportSARIF_Good_MapsInfoToNote(t *testing.T) {
 			Message:  "explanation",
 		}},
 	})
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	var decoded map[string]any
-	require.NoError(t, json.Unmarshal(buf.Bytes(), &decoded))
+	core.RequireNoError(t, json.Unmarshal(buf.Bytes(), &decoded))
 
 	runs := decoded["runs"].([]any)
 	results := runs[0].(map[string]any)["results"].([]any)
-	assert.Equal(t, "note", results[0].(map[string]any)["level"])
+	core.AssertEqual(t, "note", results[0].(map[string]any)["level"])
 }
 
-func TestWriteReportJSON_Good_Roundtrip(t *testing.T) {
+func TestWriteReportJSON_Good_Roundtrip(t *core.T) {
 	var buf bytes.Buffer
 
 	err := WriteReportJSON(&buf, Report{
@@ -228,39 +225,39 @@ func TestWriteReportJSON_Good_Roundtrip(t *testing.T) {
 		}},
 		Summary: Summary{Total: 1, Warnings: 1, Passed: true},
 	})
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	var decoded Report
-	require.NoError(t, json.Unmarshal(buf.Bytes(), &decoded))
-	assert.Equal(t, "demo", decoded.Project)
-	assert.Equal(t, []string{"go"}, decoded.Languages)
-	require.Len(t, decoded.Findings, 1)
-	assert.Equal(t, "demo-rule", decoded.Findings[0].Code)
-	assert.Equal(t, 1, decoded.Summary.Total)
-	assert.Equal(t, 1, decoded.Summary.Warnings)
+	core.RequireNoError(t, json.Unmarshal(buf.Bytes(), &decoded))
+	core.AssertEqual(t, "demo", decoded.Project)
+	core.AssertEqual(t, []string{"go"}, decoded.Languages)
+	RequireLen(t, decoded.Findings, 1)
+	core.AssertEqual(t, "demo-rule", decoded.Findings[0].Code)
+	core.AssertEqual(t, 1, decoded.Summary.Total)
+	core.AssertEqual(t, 1, decoded.Summary.Warnings)
 }
 
-func TestWriteReportText_Good_IncludesSummary(t *testing.T) {
+func TestWriteReportText_Good_IncludesSummary(t *core.T) {
 	var buf bytes.Buffer
 
 	err := WriteReportText(&buf, Report{
 		Findings: sampleFindings(),
 		Summary:  Summarise(sampleFindings()),
 	})
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	output := buf.String()
-	assert.Contains(t, output, "store/query.go:42")
-	assert.Contains(t, output, "3 finding(s):")
-	assert.Contains(t, output, "0 error(s), 3 warning(s), 0 info")
+	core.AssertContains(t, output, "store/query.go:42")
+	core.AssertContains(t, output, "3 finding(s):")
+	core.AssertContains(t, output, "0 error(s), 3 warning(s), 0 info")
 }
 
-func TestWriteReportText_Bad_PropagatesWriterErrors(t *testing.T) {
+func TestWriteReportText_Bad_PropagatesWriterErrors(t *core.T) {
 	err := WriteReportText(failingWriter{}, Report{
 		Findings: sampleFindings(),
 		Summary:  Summarise(sampleFindings()),
 	})
-	require.Error(t, err)
+	RequireError(t, err)
 }
 
 type failingWriter struct{}

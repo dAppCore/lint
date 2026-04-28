@@ -3,7 +3,6 @@ package lint
 import (
 	core "dappco.re/go"
 	coreio "dappco.re/go/io"
-	coreerr "dappco.re/go/log"
 	"gopkg.in/yaml.v3"
 )
 
@@ -114,7 +113,7 @@ func DefaultConfig() LintConfig {
 func DefaultConfigYAML() (string, error) {
 	data, err := yaml.Marshal(DefaultConfig())
 	if err != nil {
-		return "", coreerr.E("DefaultConfigYAML", "marshal default config", err)
+		return "", core.E("DefaultConfigYAML", "marshal default config", err)
 	}
 	return string(data), nil
 }
@@ -149,15 +148,15 @@ func LoadProjectConfig(projectPath string, override string) (LintConfig, string,
 		if isNotExistError(err) {
 			return config, "", nil
 		}
-		return config, "", coreerr.E("LoadProjectConfig", "stat "+path, err)
+		return config, "", core.E("LoadProjectConfig", "stat "+path, err)
 	}
 
 	raw, err := coreio.Local.Read(path)
 	if err != nil {
-		return config, "", coreerr.E("LoadProjectConfig", "read "+path, err)
+		return config, "", core.E("LoadProjectConfig", "read "+path, err)
 	}
 	if err := yaml.Unmarshal([]byte(raw), &config); err != nil {
-		return config, "", coreerr.E("LoadProjectConfig", "parse "+path, err)
+		return config, "", core.E("LoadProjectConfig", "parse "+path, err)
 	}
 
 	return config, path, nil
@@ -173,7 +172,7 @@ func ResolveSchedule(config LintConfig, name string) (*Schedule, error) {
 
 	schedule, ok := config.Schedules[name]
 	if !ok {
-		return nil, coreerr.E("ResolveSchedule", "schedule "+name+" not found", nil)
+		return nil, core.E("ResolveSchedule", "schedule "+name+" not found", nil)
 	}
 
 	return &schedule, nil

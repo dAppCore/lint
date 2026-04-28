@@ -1,91 +1,88 @@
 package php
 
 import (
+	. "dappco.re/go"
 	"os"
 	"path/filepath"
-	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // =============================================================================
 // DetectRector
 // =============================================================================
 
-func TestDetectRector_Good_RectorConfig(t *testing.T) {
+func TestDetectRector_Good_RectorConfig(t *T) {
 	dir := t.TempDir()
 	mkFile(t, filepath.Join(dir, "rector.php"))
 
-	assert.True(t, DetectRector(dir))
+	AssertTrue(t, DetectRector(dir))
 }
 
-func TestDetectRector_Good_VendorBinary(t *testing.T) {
+func TestDetectRector_Good_VendorBinary(t *T) {
 	dir := t.TempDir()
 	mkFile(t, filepath.Join(dir, "vendor", "bin", "rector"))
 
-	assert.True(t, DetectRector(dir))
+	AssertTrue(t, DetectRector(dir))
 }
 
-func TestDetectRector_Bad_Empty(t *testing.T) {
+func TestDetectRector_Bad_Empty(t *T) {
 	dir := t.TempDir()
 
-	assert.False(t, DetectRector(dir))
+	AssertFalse(t, DetectRector(dir))
 }
 
 // =============================================================================
 // buildRectorCommand
 // =============================================================================
 
-func TestBuildRectorCommand_Good_Defaults(t *testing.T) {
+func TestBuildRectorCommand_Good_Defaults(t *T) {
 	dir := t.TempDir()
 	opts := RectorOptions{Dir: dir}
 
 	cmdName, args := buildRectorCommand(opts)
-	assert.Equal(t, "rector", cmdName)
+	AssertEqual(t, "rector", cmdName)
 	// Fix is false by default, so --dry-run should be present
-	assert.Contains(t, args, "process")
-	assert.Contains(t, args, "--dry-run")
+	AssertContains(t, args, "process")
+	AssertContains(t, args, "--dry-run")
 }
 
-func TestBuildRectorCommand_Good_Fix(t *testing.T) {
+func TestBuildRectorCommand_Good_Fix(t *T) {
 	dir := t.TempDir()
 	opts := RectorOptions{Dir: dir, Fix: true}
 
 	cmdName, args := buildRectorCommand(opts)
-	assert.Equal(t, "rector", cmdName)
-	assert.Contains(t, args, "process")
-	assert.NotContains(t, args, "--dry-run")
+	AssertEqual(t, "rector", cmdName)
+	AssertContains(t, args, "process")
+	AssertNotContains(t, args, "--dry-run")
 }
 
-func TestBuildRectorCommand_Good_VendorBinary(t *testing.T) {
+func TestBuildRectorCommand_Good_VendorBinary(t *T) {
 	dir := t.TempDir()
 	vendorBin := filepath.Join(dir, "vendor", "bin", "rector")
 	mkFile(t, vendorBin)
 
 	opts := RectorOptions{Dir: dir}
 	cmdName, _ := buildRectorCommand(opts)
-	assert.Equal(t, vendorBin, cmdName)
+	AssertEqual(t, vendorBin, cmdName)
 }
 
-func TestBuildRectorCommand_Good_Diff(t *testing.T) {
+func TestBuildRectorCommand_Good_Diff(t *T) {
 	dir := t.TempDir()
 	opts := RectorOptions{Dir: dir, Diff: true}
 
 	_, args := buildRectorCommand(opts)
-	assert.Contains(t, args, "--output-format")
-	assert.Contains(t, args, "diff")
+	AssertContains(t, args, "--output-format")
+	AssertContains(t, args, "diff")
 }
 
-func TestBuildRectorCommand_Good_ClearCache(t *testing.T) {
+func TestBuildRectorCommand_Good_ClearCache(t *T) {
 	dir := t.TempDir()
 	opts := RectorOptions{Dir: dir, ClearCache: true}
 
 	_, args := buildRectorCommand(opts)
-	assert.Contains(t, args, "--clear-cache")
+	AssertContains(t, args, "--clear-cache")
 }
 
-func TestBuildRectorCommand_Good_AllFlags(t *testing.T) {
+func TestBuildRectorCommand_Good_AllFlags(t *T) {
 	dir := t.TempDir()
 	opts := RectorOptions{
 		Dir:        dir,
@@ -95,28 +92,28 @@ func TestBuildRectorCommand_Good_AllFlags(t *testing.T) {
 	}
 
 	_, args := buildRectorCommand(opts)
-	assert.Contains(t, args, "process")
-	assert.NotContains(t, args, "--dry-run")
-	assert.Contains(t, args, "--output-format")
-	assert.Contains(t, args, "diff")
-	assert.Contains(t, args, "--clear-cache")
+	AssertContains(t, args, "process")
+	AssertNotContains(t, args, "--dry-run")
+	AssertContains(t, args, "--output-format")
+	AssertContains(t, args, "diff")
+	AssertContains(t, args, "--clear-cache")
 }
 
-func TestRectorOptions_Defaults(t *testing.T) {
+func TestRectorOptions_Defaults(t *T) {
 	opts := RectorOptions{}
-	assert.Empty(t, opts.Dir)
-	assert.False(t, opts.Fix)
-	assert.False(t, opts.Diff)
-	assert.False(t, opts.ClearCache)
-	assert.Nil(t, opts.Output)
+	AssertEmpty(t, opts.Dir)
+	AssertFalse(t, opts.Fix)
+	AssertFalse(t, opts.Diff)
+	AssertFalse(t, opts.ClearCache)
+	AssertNil(t, opts.Output)
 }
 
-func TestDetectRector_Good_BothConfigAndBinary(t *testing.T) {
+func TestDetectRector_Good_BothConfigAndBinary(t *T) {
 	dir := t.TempDir()
 
 	// Create both config and vendor binary
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "rector.php"), []byte("<?php\n"), 0644))
+	RequireNoError(t, os.WriteFile(filepath.Join(dir, "rector.php"), []byte("<?php\n"), 0644))
 	mkFile(t, filepath.Join(dir, "vendor", "bin", "rector"))
 
-	assert.True(t, DetectRector(dir))
+	AssertTrue(t, DetectRector(dir))
 }

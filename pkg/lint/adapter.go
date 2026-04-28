@@ -10,7 +10,6 @@ import (
 	"time"
 
 	core "dappco.re/go"
-	coreerr "dappco.re/go/log"
 )
 
 // Adapter wraps one lint tool and normalises its output to Finding values.
@@ -411,7 +410,7 @@ func (CatalogAdapter) Run(ctx context.Context, input RunInput, files []string) A
 func loadBuiltinCatalog() (*Catalog, error) {
 	rules, err := ParseRules([]byte(defaultCatalogRulesYAML))
 	if err != nil {
-		return nil, coreerr.E("loadBuiltinCatalog", "parse embedded fallback rules", err)
+		return nil, core.E("loadBuiltinCatalog", "parse embedded fallback rules", err)
 	}
 	return &Catalog{Rules: rules}, nil
 }

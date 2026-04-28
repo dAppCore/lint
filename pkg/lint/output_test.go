@@ -1,18 +1,15 @@
 package lint
 
 import (
+	core "dappco.re/go"
 	"os"
 	"path/filepath"
-	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-func TestResolveRunOutputFormat_Good_Precedence(t *testing.T) {
+func TestResolveRunOutputFormat_Good_Precedence(t *core.T) {
 	dir := t.TempDir()
-	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".core"), 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, ".core", "lint.yaml"), []byte(`output: text
+	core.RequireNoError(t, os.MkdirAll(filepath.Join(dir, ".core"), 0o755))
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, ".core", "lint.yaml"), []byte(`output: text
 schedules:
   nightly:
     output: json
@@ -23,35 +20,35 @@ schedules:
 		Output: "sarif",
 		CI:     true,
 	})
-	require.NoError(t, err)
-	assert.Equal(t, "sarif", format)
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, "sarif", format)
 
 	format, err = ResolveRunOutputFormat(RunInput{
 		Path:     dir,
 		Schedule: "nightly",
 		CI:       true,
 	})
-	require.NoError(t, err)
-	assert.Equal(t, "github", format)
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, "github", format)
 
 	format, err = ResolveRunOutputFormat(RunInput{
 		Path:     dir,
 		Schedule: "nightly",
 	})
-	require.NoError(t, err)
-	assert.Equal(t, "json", format)
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, "json", format)
 
 	format, err = ResolveRunOutputFormat(RunInput{
 		Path: dir,
 	})
-	require.NoError(t, err)
-	assert.Equal(t, "text", format)
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, "text", format)
 }
 
-func TestResolveRunOutputFormat_Good_ExplicitOutputBypassesConfigLoading(t *testing.T) {
+func TestResolveRunOutputFormat_Good_ExplicitOutputBypassesConfigLoading(t *core.T) {
 	dir := t.TempDir()
 	projectPath := filepath.Join(dir, "project-file")
-	require.NoError(t, os.WriteFile(projectPath, []byte("not a directory"), 0o644))
+	core.RequireNoError(t, os.WriteFile(projectPath, []byte("not a directory"), 0o644))
 
 	format, err := ResolveRunOutputFormat(RunInput{
 		Path:     projectPath,
@@ -59,29 +56,29 @@ func TestResolveRunOutputFormat_Good_ExplicitOutputBypassesConfigLoading(t *test
 		Config:   "broken/config.yaml",
 		Schedule: "nightly",
 	})
-	require.NoError(t, err)
-	assert.Equal(t, "sarif", format)
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, "sarif", format)
 }
 
-func TestResolveRunOutputFormat_Bad_BrokenConfig(t *testing.T) {
+func TestResolveRunOutputFormat_Bad_BrokenConfig(t *core.T) {
 	dir := t.TempDir()
-	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".core"), 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, ".core", "lint.yaml"), []byte("{not: yaml"), 0o644))
+	core.RequireNoError(t, os.MkdirAll(filepath.Join(dir, ".core"), 0o755))
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, ".core", "lint.yaml"), []byte("{not: yaml"), 0o644))
 
 	_, err := ResolveRunOutputFormat(RunInput{
 		Path: dir,
 	})
-	assert.Error(t, err)
+	core.AssertError(t, err)
 }
 
-func TestResolveRunOutputFormat_Ugly_MissingSchedule(t *testing.T) {
+func TestResolveRunOutputFormat_Ugly_MissingSchedule(t *core.T) {
 	dir := t.TempDir()
-	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".core"), 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, ".core", "lint.yaml"), []byte("output: text\n"), 0o644))
+	core.RequireNoError(t, os.MkdirAll(filepath.Join(dir, ".core"), 0o755))
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, ".core", "lint.yaml"), []byte("output: text\n"), 0o644))
 
 	_, err := ResolveRunOutputFormat(RunInput{
 		Path:     dir,
 		Schedule: "nightly",
 	})
-	assert.Error(t, err)
+	core.AssertError(t, err)
 }

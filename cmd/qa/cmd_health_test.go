@@ -1,16 +1,14 @@
 package qa
 
 import (
+	. "dappco.re/go"
 	"encoding/json"
 	"path/filepath"
-	"testing"
 
 	"dappco.re/go/cli/pkg/cli"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-func TestRunHealthJSONOutput_UsesMachineFriendlyKeysAndKeepsFetchErrors(t *testing.T) {
+func TestRunHealthJSONOutput_UsesMachineFriendlyKeysAndKeepsFetchErrors(t *T) {
 	dir := t.TempDir()
 	writeTestFile(t, filepath.Join(dir, "repos.yaml"), `version: 1
 org: forge
@@ -58,36 +56,36 @@ esac
 	parent := &cli.Command{Use: "qa"}
 	addHealthCommand(parent)
 	command := findSubcommand(t, parent, "health")
-	require.NoError(t, command.Flags().Set("registry", filepath.Join(dir, "repos.yaml")))
-	require.NoError(t, command.Flags().Set("json", "true"))
+	RequireNoError(t, command.Flags().Set("registry", filepath.Join(dir, "repos.yaml")))
+	RequireNoError(t, command.Flags().Set("json", "true"))
 
 	output := captureStdout(t, func() {
-		require.NoError(t, command.RunE(command, nil))
+		RequireNoError(t, command.RunE(command, nil))
 	})
 
 	var payload HealthOutput
-	require.NoError(t, json.Unmarshal([]byte(output), &payload))
-	assert.Equal(t, 2, payload.Summary.TotalRepos)
-	assert.Equal(t, 1, payload.Summary.Passing)
-	assert.Equal(t, 1, payload.Summary.Errors)
-	assert.Equal(t, 2, payload.Summary.FilteredRepos)
-	assert.Len(t, payload.Summary.ByStatus, 6)
-	assert.Equal(t, 1, payload.Summary.ByStatus["passing"])
-	assert.Equal(t, 1, payload.Summary.ByStatus["error"])
-	assert.Equal(t, 0, payload.Summary.ByStatus["pending"])
-	assert.Equal(t, 0, payload.Summary.ByStatus["disabled"])
-	assert.Equal(t, 0, payload.Summary.ByStatus["no_ci"])
-	require.Len(t, payload.Repos, 2)
-	assert.Equal(t, "error", payload.Repos[0].Status)
-	assert.Equal(t, "beta", payload.Repos[0].Name)
-	assert.Equal(t, "passing", payload.Repos[1].Status)
-	assert.Equal(t, "alpha", payload.Repos[1].Name)
-	assert.Contains(t, output, `"status"`)
-	assert.NotContains(t, output, `"Status"`)
-	assert.NotContains(t, output, `"FailingSince"`)
+	RequireNoError(t, json.Unmarshal([]byte(output), &payload))
+	AssertEqual(t, 2, payload.Summary.TotalRepos)
+	AssertEqual(t, 1, payload.Summary.Passing)
+	AssertEqual(t, 1, payload.Summary.Errors)
+	AssertEqual(t, 2, payload.Summary.FilteredRepos)
+	AssertLen(t, payload.Summary.ByStatus, 6)
+	AssertEqual(t, 1, payload.Summary.ByStatus["passing"])
+	AssertEqual(t, 1, payload.Summary.ByStatus["error"])
+	AssertEqual(t, 0, payload.Summary.ByStatus["pending"])
+	AssertEqual(t, 0, payload.Summary.ByStatus["disabled"])
+	AssertEqual(t, 0, payload.Summary.ByStatus["no_ci"])
+	RequireLen(t, payload.Repos, 2)
+	AssertEqual(t, "error", payload.Repos[0].Status)
+	AssertEqual(t, "beta", payload.Repos[0].Name)
+	AssertEqual(t, "passing", payload.Repos[1].Status)
+	AssertEqual(t, "alpha", payload.Repos[1].Name)
+	AssertContains(t, output, `"status"`)
+	AssertNotContains(t, output, `"Status"`)
+	AssertNotContains(t, output, `"FailingSince"`)
 }
 
-func TestRunHealthJSONOutput_ProblemsOnlyKeepsOverallSummary(t *testing.T) {
+func TestRunHealthJSONOutput_ProblemsOnlyKeepsOverallSummary(t *T) {
 	dir := t.TempDir()
 	writeTestFile(t, filepath.Join(dir, "repos.yaml"), `version: 1
 org: forge
@@ -135,33 +133,33 @@ esac
 	parent := &cli.Command{Use: "qa"}
 	addHealthCommand(parent)
 	command := findSubcommand(t, parent, "health")
-	require.NoError(t, command.Flags().Set("registry", filepath.Join(dir, "repos.yaml")))
-	require.NoError(t, command.Flags().Set("json", "true"))
-	require.NoError(t, command.Flags().Set("problems", "true"))
+	RequireNoError(t, command.Flags().Set("registry", filepath.Join(dir, "repos.yaml")))
+	RequireNoError(t, command.Flags().Set("json", "true"))
+	RequireNoError(t, command.Flags().Set("problems", "true"))
 
 	output := captureStdout(t, func() {
-		require.NoError(t, command.RunE(command, nil))
+		RequireNoError(t, command.RunE(command, nil))
 	})
 
 	var payload HealthOutput
-	require.NoError(t, json.Unmarshal([]byte(output), &payload))
-	assert.Equal(t, 2, payload.Summary.TotalRepos)
-	assert.Equal(t, 1, payload.Summary.Passing)
-	assert.Equal(t, 1, payload.Summary.Errors)
-	assert.Equal(t, 1, payload.Summary.FilteredRepos)
-	assert.True(t, payload.Summary.ProblemsOnly)
-	assert.Len(t, payload.Summary.ByStatus, 6)
-	assert.Equal(t, 1, payload.Summary.ByStatus["passing"])
-	assert.Equal(t, 1, payload.Summary.ByStatus["error"])
-	assert.Equal(t, 0, payload.Summary.ByStatus["pending"])
-	assert.Equal(t, 0, payload.Summary.ByStatus["disabled"])
-	assert.Equal(t, 0, payload.Summary.ByStatus["no_ci"])
-	require.Len(t, payload.Repos, 1)
-	assert.Equal(t, "error", payload.Repos[0].Status)
-	assert.Equal(t, "beta", payload.Repos[0].Name)
+	RequireNoError(t, json.Unmarshal([]byte(output), &payload))
+	AssertEqual(t, 2, payload.Summary.TotalRepos)
+	AssertEqual(t, 1, payload.Summary.Passing)
+	AssertEqual(t, 1, payload.Summary.Errors)
+	AssertEqual(t, 1, payload.Summary.FilteredRepos)
+	AssertTrue(t, payload.Summary.ProblemsOnly)
+	AssertLen(t, payload.Summary.ByStatus, 6)
+	AssertEqual(t, 1, payload.Summary.ByStatus["passing"])
+	AssertEqual(t, 1, payload.Summary.ByStatus["error"])
+	AssertEqual(t, 0, payload.Summary.ByStatus["pending"])
+	AssertEqual(t, 0, payload.Summary.ByStatus["disabled"])
+	AssertEqual(t, 0, payload.Summary.ByStatus["no_ci"])
+	RequireLen(t, payload.Repos, 1)
+	AssertEqual(t, "error", payload.Repos[0].Status)
+	AssertEqual(t, "beta", payload.Repos[0].Name)
 }
 
-func TestRunHealthHumanOutput_ShowsFetchErrorsAsErrors(t *testing.T) {
+func TestRunHealthHumanOutput_ShowsFetchErrorsAsErrors(t *T) {
 	dir := t.TempDir()
 	writeTestFile(t, filepath.Join(dir, "repos.yaml"), `version: 1
 org: forge
@@ -209,20 +207,20 @@ esac
 	parent := &cli.Command{Use: "qa"}
 	addHealthCommand(parent)
 	command := findSubcommand(t, parent, "health")
-	require.NoError(t, command.Flags().Set("registry", filepath.Join(dir, "repos.yaml")))
+	RequireNoError(t, command.Flags().Set("registry", filepath.Join(dir, "repos.yaml")))
 
 	output := captureStdout(t, func() {
-		require.NoError(t, command.RunE(command, nil))
+		RequireNoError(t, command.RunE(command, nil))
 	})
 
-	assert.Contains(t, output, "CI Health")
-	assert.Contains(t, output, "alpha")
-	assert.Contains(t, output, "beta")
-	assert.Contains(t, output, "Failed to fetch workflow status")
-	assert.NotContains(t, output, "no CI")
+	AssertContains(t, output, "CI Health")
+	AssertContains(t, output, "alpha")
+	AssertContains(t, output, "beta")
+	AssertContains(t, output, "Failed to fetch workflow status")
+	AssertNotContains(t, output, "no CI")
 }
 
-func resetHealthFlags(t *testing.T) {
+func resetHealthFlags(t *T) {
 	t.Helper()
 	oldProblems := healthProblems
 	oldRegistry := healthRegistry

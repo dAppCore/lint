@@ -13,7 +13,6 @@ import (
 
 	core "dappco.re/go"
 	coreio "dappco.re/go/io"
-	coreerr "dappco.re/go/log"
 )
 
 const (
@@ -229,12 +228,12 @@ func (service *Service) WriteDefaultConfig(projectPath string, force bool) (stri
 	targetPath := core.JoinPath(projectPath, DefaultConfigPath)
 	if !force {
 		if _, err := os.Stat(targetPath); err == nil {
-			return "", coreerr.E("Service.WriteDefaultConfig", targetPath+" already exists", nil)
+			return "", core.E("Service.WriteDefaultConfig", targetPath+" already exists", nil)
 		}
 	}
 
 	if err := os.MkdirAll(core.PathDir(targetPath), 0o755); err != nil {
-		return "", coreerr.E("Service.WriteDefaultConfig", "mkdir "+core.PathDir(targetPath), err)
+		return "", core.E("Service.WriteDefaultConfig", "mkdir "+core.PathDir(targetPath), err)
 	}
 
 	content, err := DefaultConfigYAML()
@@ -242,7 +241,7 @@ func (service *Service) WriteDefaultConfig(projectPath string, force bool) (stri
 		return "", err
 	}
 	if err := coreio.Local.Write(targetPath, content); err != nil {
-		return "", coreerr.E("Service.WriteDefaultConfig", "write "+targetPath, err)
+		return "", core.E("Service.WriteDefaultConfig", "write "+targetPath, err)
 	}
 
 	return targetPath, nil
@@ -275,13 +274,13 @@ func (service *Service) InstallHook(projectPath string) error {
 	}
 
 	if err := os.MkdirAll(core.PathDir(hookPath), 0o755); err != nil {
-		return coreerr.E("Service.InstallHook", "mkdir "+core.PathDir(hookPath), err)
+		return core.E("Service.InstallHook", "mkdir "+core.PathDir(hookPath), err)
 	}
 	if err := coreio.Local.Write(hookPath, content); err != nil {
-		return coreerr.E("Service.InstallHook", "write "+hookPath, err)
+		return core.E("Service.InstallHook", "write "+hookPath, err)
 	}
 	if err := os.Chmod(hookPath, 0o755); err != nil {
-		return coreerr.E("Service.InstallHook", "chmod "+hookPath, err)
+		return core.E("Service.InstallHook", "chmod "+hookPath, err)
 	}
 
 	return nil
@@ -301,7 +300,7 @@ func (service *Service) RemoveHook(projectPath string) error {
 		if isNotExistError(err) {
 			return nil
 		}
-		return coreerr.E("Service.RemoveHook", "read "+hookPath, err)
+		return core.E("Service.RemoveHook", "read "+hookPath, err)
 	}
 
 	startIndex := strings.Index(raw, hookStartMarker)
@@ -314,13 +313,13 @@ func (service *Service) RemoveHook(projectPath string) error {
 	content := strings.TrimRight(raw[:startIndex]+raw[endIndex:], "\n")
 	if core.Trim(content) == "" {
 		if err := os.Remove(hookPath); err != nil && !os.IsNotExist(err) {
-			return coreerr.E("Service.RemoveHook", "remove "+hookPath, err)
+			return core.E("Service.RemoveHook", "remove "+hookPath, err)
 		}
 		return nil
 	}
 
 	if err := coreio.Local.Write(hookPath, content); err != nil {
-		return coreerr.E("Service.RemoveHook", "write "+hookPath, err)
+		return core.E("Service.RemoveHook", "write "+hookPath, err)
 	}
 	return nil
 }
@@ -388,7 +387,7 @@ func (service *Service) stagedFiles(projectPath string) ([]string, error) {
 	toolkit := NewToolkit(projectPath)
 	stdout, stderr, exitCode, err := toolkit.Run("git", "diff", "--cached", "--name-only")
 	if err != nil && exitCode != 0 {
-		return nil, coreerr.E("Service.stagedFiles", "git diff --cached --name-only: "+core.Trim(stderr), err)
+		return nil, core.E("Service.stagedFiles", "git diff --cached --name-only: "+core.Trim(stderr), err)
 	}
 
 	var files []string
@@ -418,7 +417,7 @@ func collectConfiguredFiles(projectPath string, paths []string, excludes []strin
 
 		info, err := os.Stat(absolutePath)
 		if err != nil {
-			return nil, coreerr.E("collectConfiguredFiles", "stat "+absolutePath, err)
+			return nil, core.E("collectConfiguredFiles", "stat "+absolutePath, err)
 		}
 		if info.IsDir() && shouldSkipTraversalRoot(absolutePath) {
 			continue
@@ -462,7 +461,7 @@ func collectConfiguredFiles(projectPath string, paths []string, excludes []strin
 			return nil
 		})
 		if walkErr != nil {
-			return nil, coreerr.E("collectConfiguredFiles", "walk "+absolutePath, walkErr)
+			return nil, core.E("collectConfiguredFiles", "walk "+absolutePath, walkErr)
 		}
 	}
 
@@ -622,12 +621,12 @@ func hookFilePath(projectPath string) (string, error) {
 	toolkit := NewToolkit(projectPath)
 	stdout, stderr, exitCode, err := toolkit.Run("git", "rev-parse", "--git-dir")
 	if err != nil && exitCode != 0 {
-		return "", coreerr.E("hookFilePath", "git rev-parse --git-dir: "+core.Trim(stderr), err)
+		return "", core.E("hookFilePath", "git rev-parse --git-dir: "+core.Trim(stderr), err)
 	}
 
 	gitDir := core.Trim(stdout)
 	if gitDir == "" {
-		return "", coreerr.E("hookFilePath", "git directory is empty", nil)
+		return "", core.E("hookFilePath", "git directory is empty", nil)
 	}
 	if !core.PathIsAbs(gitDir) {
 		gitDir = core.JoinPath(projectPath, gitDir)

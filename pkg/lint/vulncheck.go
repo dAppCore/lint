@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 
-	coreerr "dappco.re/go/log"
+	core "dappco.re/go"
 )
 
 // VulnFinding represents a single vulnerability found by govulncheck.
@@ -90,7 +90,7 @@ func (t *Toolkit) VulnCheck(modulePath string) (*VulnResult, error) {
 
 	stdout, stderr, exitCode, err := t.Run("govulncheck", "-json", modulePath)
 	if err != nil && exitCode == -1 {
-		return nil, coreerr.E("Toolkit.VulnCheck", "govulncheck not installed or not available", err)
+		return nil, core.E("Toolkit.VulnCheck", "govulncheck not installed or not available", err)
 	}
 
 	return ParseVulnCheckJSON(stdout, stderr)
@@ -111,7 +111,7 @@ func ParseVulnCheckJSON(stdout, stderr string) (*VulnResult, error) {
 
 		var msg govulncheckMessage
 		if err := json.Unmarshal([]byte(line), &msg); err != nil {
-			return nil, coreerr.E("ParseVulnCheckJSON", "invalid govulncheck JSON output", err)
+			return nil, core.E("ParseVulnCheckJSON", "invalid govulncheck JSON output", err)
 		}
 
 		if msg.Config != nil {

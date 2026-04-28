@@ -1,10 +1,7 @@
 package lint
 
 import (
-	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	core "dappco.re/go"
 )
 
 func validRule() Rule {
@@ -20,7 +17,7 @@ func validRule() Rule {
 	}
 }
 
-func TestParseRules_Good(t *testing.T) {
+func TestParseRules_Good(t *core.T) {
 	data := []byte(`
 - id: go-sec-001
   title: "SQL wildcard injection"
@@ -41,103 +38,103 @@ func TestParseRules_Good(t *testing.T) {
   detection: regex
 `)
 	rules, err := ParseRules(data)
-	require.NoError(t, err)
-	assert.Len(t, rules, 2)
-	assert.Equal(t, "go-sec-001", rules[0].ID)
-	assert.Equal(t, "go-sec-002", rules[1].ID)
-	assert.Equal(t, []string{"go"}, rules[0].Languages)
-	assert.False(t, rules[0].AutoFixable)
+	core.RequireNoError(t, err)
+	core.AssertLen(t, rules, 2)
+	core.AssertEqual(t, "go-sec-001", rules[0].ID)
+	core.AssertEqual(t, "go-sec-002", rules[1].ID)
+	core.AssertEqual(t, []string{"go"}, rules[0].Languages)
+	core.AssertFalse(t, rules[0].AutoFixable)
 }
 
-func TestParseRules_Bad_InvalidYAML(t *testing.T) {
+func TestParseRules_Bad_InvalidYAML(t *core.T) {
 	data := []byte(`{{{not yaml at all`)
 	_, err := ParseRules(data)
-	assert.Error(t, err)
+	core.AssertError(t, err)
 }
 
-func TestParseRules_Bad_EmptyInput(t *testing.T) {
+func TestParseRules_Bad_EmptyInput(t *core.T) {
 	rules, err := ParseRules([]byte(""))
-	require.NoError(t, err)
-	assert.Empty(t, rules)
+	core.RequireNoError(t, err)
+	core.AssertEmpty(t, rules)
 }
 
-func TestValidate_Good(t *testing.T) {
+func TestValidate_Good(t *core.T) {
 	r := validRule()
-	assert.NoError(t, r.Validate())
+	core.AssertNoError(t, r.Validate())
 }
 
-func TestValidate_Good_WithExcludePattern(t *testing.T) {
+func TestValidate_Good_WithExcludePattern(t *core.T) {
 	r := validRule()
 	r.ExcludePattern = `securejoin|ValidatePath`
-	assert.NoError(t, r.Validate())
+	core.AssertNoError(t, r.Validate())
 }
 
-func TestValidate_Bad_EmptyID(t *testing.T) {
+func TestValidate_Bad_EmptyID(t *core.T) {
 	r := validRule()
 	r.ID = ""
 	err := r.Validate()
-	assert.ErrorContains(t, err, "id")
+	core.AssertError(t, err, "id")
 }
 
-func TestValidate_Bad_EmptyTitle(t *testing.T) {
+func TestValidate_Bad_EmptyTitle(t *core.T) {
 	r := validRule()
 	r.Title = ""
 	err := r.Validate()
-	assert.ErrorContains(t, err, "title")
+	core.AssertError(t, err, "title")
 }
 
-func TestValidate_Bad_EmptySeverity(t *testing.T) {
+func TestValidate_Bad_EmptySeverity(t *core.T) {
 	r := validRule()
 	r.Severity = ""
 	err := r.Validate()
-	assert.ErrorContains(t, err, "severity")
+	core.AssertError(t, err, "severity")
 }
 
-func TestValidate_Bad_InvalidSeverity(t *testing.T) {
+func TestValidate_Bad_InvalidSeverity(t *core.T) {
 	r := validRule()
 	r.Severity = "catastrophic"
 	err := r.Validate()
-	assert.ErrorContains(t, err, "severity")
+	core.AssertError(t, err, "severity")
 }
 
-func TestValidate_Bad_EmptyLanguages(t *testing.T) {
+func TestValidate_Bad_EmptyLanguages(t *core.T) {
 	r := validRule()
 	r.Languages = nil
 	err := r.Validate()
-	assert.ErrorContains(t, err, "languages")
+	core.AssertError(t, err, "languages")
 }
 
-func TestValidate_Bad_EmptyPattern(t *testing.T) {
+func TestValidate_Bad_EmptyPattern(t *core.T) {
 	r := validRule()
 	r.Pattern = ""
 	err := r.Validate()
-	assert.ErrorContains(t, err, "pattern")
+	core.AssertError(t, err, "pattern")
 }
 
-func TestValidate_Bad_EmptyDetection(t *testing.T) {
+func TestValidate_Bad_EmptyDetection(t *core.T) {
 	r := validRule()
 	r.Detection = ""
 	err := r.Validate()
-	assert.ErrorContains(t, err, "detection")
+	core.AssertError(t, err, "detection")
 }
 
-func TestValidate_Bad_InvalidRegex(t *testing.T) {
+func TestValidate_Bad_InvalidRegex(t *core.T) {
 	r := validRule()
 	r.Pattern = `[invalid(`
 	err := r.Validate()
-	assert.ErrorContains(t, err, "pattern")
+	core.AssertError(t, err, "pattern")
 }
 
-func TestValidate_Bad_InvalidExcludeRegex(t *testing.T) {
+func TestValidate_Bad_InvalidExcludeRegex(t *core.T) {
 	r := validRule()
 	r.ExcludePattern = `[invalid(`
 	err := r.Validate()
-	assert.ErrorContains(t, err, "exclude_pattern")
+	core.AssertError(t, err, "exclude_pattern")
 }
 
-func TestValidate_Good_NonRegexDetection(t *testing.T) {
+func TestValidate_Good_NonRegexDetection(t *core.T) {
 	r := validRule()
 	r.Detection = "ast"
 	r.Pattern = "this is not a valid regex [[ but detection is not regex"
-	assert.NoError(t, r.Validate())
+	core.AssertNoError(t, r.Validate())
 }

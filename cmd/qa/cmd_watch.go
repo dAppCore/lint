@@ -18,9 +18,9 @@ import (
 	"strings"
 	"time"
 
+	core "dappco.re/go"
 	"dappco.re/go/cli/pkg/cli"
 	"dappco.re/go/i18n"
-	"dappco.re/go/log"
 )
 
 // Watch command flags
@@ -82,7 +82,7 @@ func addWatchCommand(parent *cli.Command) {
 func runWatch() error {
 	// Check gh is available
 	if _, err := exec.LookPath("gh"); err != nil {
-		return log.E("qa.watch", i18n.T("error.gh_not_found"), nil)
+		return core.E("qa.watch", i18n.T("error.gh_not_found"), nil)
 	}
 
 	// Determine repo
@@ -119,12 +119,12 @@ func runWatch() error {
 		// Check if context deadline exceeded
 		if ctx.Err() != nil {
 			cli.Blank()
-			return log.E("qa.watch", i18n.T("cmd.qa.watch.timeout", map[string]any{"Duration": watchTimeout}), nil)
+			return core.E("qa.watch", i18n.T("cmd.qa.watch.timeout", map[string]any{"Duration": watchTimeout}), nil)
 		}
 
 		runs, err := fetchWorkflowRunsForCommit(ctx, repoFullName, commitSha)
 		if err != nil {
-			return log.Wrap(err, "qa.watch", "failed to fetch workflow runs")
+			return core.Wrap(err, "qa.watch", "failed to fetch workflow runs")
 		}
 
 		if len(runs) == 0 {
@@ -201,7 +201,7 @@ func resolveRepo(specified string) (string, error) {
 		if org != "" {
 			return org + "/" + specified, nil
 		}
-		return "", log.E("qa.watch", i18n.T("cmd.qa.watch.error.repo_format"), nil)
+		return "", core.E("qa.watch", i18n.T("cmd.qa.watch.error.repo_format"), nil)
 	}
 
 	// Detect from current directory
@@ -218,7 +218,7 @@ func resolveCommit(specified string) (string, error) {
 	cmd := exec.Command("git", "rev-parse", "HEAD")
 	output, err := cmd.Output()
 	if err != nil {
-		return "", log.Wrap(err, "qa.watch", "failed to get HEAD commit")
+		return "", core.Wrap(err, "qa.watch", "failed to get HEAD commit")
 	}
 
 	return strings.TrimSpace(string(output)), nil
@@ -229,7 +229,7 @@ func detectRepoFromGit() (string, error) {
 	cmd := exec.Command("git", "remote", "get-url", "origin")
 	output, err := cmd.Output()
 	if err != nil {
-		return "", log.E("qa.watch", i18n.T("cmd.qa.watch.error.not_git_repo"), nil)
+		return "", core.E("qa.watch", i18n.T("cmd.qa.watch.error.not_git_repo"), nil)
 	}
 
 	url := strings.TrimSpace(string(output))
@@ -267,7 +267,7 @@ func parseGitHubRepo(url string) (string, error) {
 		}
 	}
 
-	return "", log.E("qa.parseGitHubRepo", "could not parse GitHub repo from URL: "+url, nil)
+	return "", core.E("qa.parseGitHubRepo", "could not parse GitHub repo from URL: "+url, nil)
 }
 
 // fetchWorkflowRunsForCommit fetches workflow runs for a specific commit

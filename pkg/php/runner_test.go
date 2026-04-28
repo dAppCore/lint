@@ -1,30 +1,27 @@
 package php
 
 import (
+	. "dappco.re/go"
 	"os"
 	"path/filepath"
-	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-func TestNewQARunner(t *testing.T) {
+func TestNewQARunner(t *T) {
 	runner := NewQARunner("/tmp/test", false)
-	assert.NotNil(t, runner)
+	AssertNotNil(t, runner)
 }
 
-func TestBuildSpecs_Audit(t *testing.T) {
+func TestBuildSpecs_Audit(t *T) {
 	dir := t.TempDir()
 	runner := NewQARunner(dir, false)
 	specs := runner.BuildSpecs([]string{"audit"})
-	require.Len(t, specs, 1)
-	assert.Equal(t, "audit", specs[0].Name)
-	assert.Equal(t, "composer", specs[0].Command)
-	assert.Contains(t, specs[0].Args, "--format=summary")
+	RequireLen(t, specs, 1)
+	AssertEqual(t, "audit", specs[0].Name)
+	AssertEqual(t, "composer", specs[0].Command)
+	AssertContains(t, specs[0].Args, "--format=summary")
 }
 
-func TestBuildSpecs_Fmt_WithPint(t *testing.T) {
+func TestBuildSpecs_Fmt_WithPint(t *T) {
 	dir := t.TempDir()
 	vendorBin := filepath.Join(dir, "vendor", "bin")
 	os.MkdirAll(vendorBin, 0755)
@@ -32,13 +29,13 @@ func TestBuildSpecs_Fmt_WithPint(t *testing.T) {
 
 	runner := NewQARunner(dir, false)
 	specs := runner.BuildSpecs([]string{"fmt"})
-	require.Len(t, specs, 1)
-	assert.Equal(t, "fmt", specs[0].Name)
-	assert.Contains(t, specs[0].Args, "--test")
-	assert.Empty(t, specs[0].After)
+	RequireLen(t, specs, 1)
+	AssertEqual(t, "fmt", specs[0].Name)
+	AssertContains(t, specs[0].Args, "--test")
+	AssertEmpty(t, specs[0].After)
 }
 
-func TestBuildSpecs_Fmt_Fix(t *testing.T) {
+func TestBuildSpecs_Fmt_Fix(t *T) {
 	dir := t.TempDir()
 	vendorBin := filepath.Join(dir, "vendor", "bin")
 	os.MkdirAll(vendorBin, 0755)
@@ -46,18 +43,18 @@ func TestBuildSpecs_Fmt_Fix(t *testing.T) {
 
 	runner := NewQARunner(dir, true) // fix mode
 	specs := runner.BuildSpecs([]string{"fmt"})
-	require.Len(t, specs, 1)
-	assert.NotContains(t, specs[0].Args, "--test")
+	RequireLen(t, specs, 1)
+	AssertNotContains(t, specs[0].Args, "--test")
 }
 
-func TestBuildSpecs_Fmt_NoPint(t *testing.T) {
+func TestBuildSpecs_Fmt_NoPint(t *T) {
 	dir := t.TempDir()
 	runner := NewQARunner(dir, false)
 	specs := runner.BuildSpecs([]string{"fmt"})
-	assert.Empty(t, specs)
+	AssertEmpty(t, specs)
 }
 
-func TestBuildSpecs_Stan_WithPHPStan(t *testing.T) {
+func TestBuildSpecs_Stan_WithPHPStan(t *T) {
 	dir := t.TempDir()
 	vendorBin := filepath.Join(dir, "vendor", "bin")
 	os.MkdirAll(vendorBin, 0755)
@@ -65,20 +62,20 @@ func TestBuildSpecs_Stan_WithPHPStan(t *testing.T) {
 
 	runner := NewQARunner(dir, false)
 	specs := runner.BuildSpecs([]string{"stan"})
-	require.Len(t, specs, 1)
-	assert.Equal(t, "stan", specs[0].Name)
-	assert.Contains(t, specs[0].Args, "--no-progress")
-	assert.Empty(t, specs[0].After)
+	RequireLen(t, specs, 1)
+	AssertEqual(t, "stan", specs[0].Name)
+	AssertContains(t, specs[0].Args, "--no-progress")
+	AssertEmpty(t, specs[0].After)
 }
 
-func TestBuildSpecs_Stan_NotDetected(t *testing.T) {
+func TestBuildSpecs_Stan_NotDetected(t *T) {
 	dir := t.TempDir()
 	runner := NewQARunner(dir, false)
 	specs := runner.BuildSpecs([]string{"stan"})
-	assert.Empty(t, specs)
+	AssertEmpty(t, specs)
 }
 
-func TestBuildSpecs_Psalm_WithPsalm(t *testing.T) {
+func TestBuildSpecs_Psalm_WithPsalm(t *T) {
 	dir := t.TempDir()
 	vendorBin := filepath.Join(dir, "vendor", "bin")
 	os.MkdirAll(vendorBin, 0755)
@@ -86,12 +83,12 @@ func TestBuildSpecs_Psalm_WithPsalm(t *testing.T) {
 
 	runner := NewQARunner(dir, false)
 	specs := runner.BuildSpecs([]string{"psalm"})
-	require.Len(t, specs, 1)
-	assert.Equal(t, "psalm", specs[0].Name)
-	assert.Empty(t, specs[0].After)
+	RequireLen(t, specs, 1)
+	AssertEqual(t, "psalm", specs[0].Name)
+	AssertEmpty(t, specs[0].After)
 }
 
-func TestBuildSpecs_Psalm_Fix(t *testing.T) {
+func TestBuildSpecs_Psalm_Fix(t *T) {
 	dir := t.TempDir()
 	vendorBin := filepath.Join(dir, "vendor", "bin")
 	os.MkdirAll(vendorBin, 0755)
@@ -99,11 +96,11 @@ func TestBuildSpecs_Psalm_Fix(t *testing.T) {
 
 	runner := NewQARunner(dir, true)
 	specs := runner.BuildSpecs([]string{"psalm"})
-	require.Len(t, specs, 1)
-	assert.Contains(t, specs[0].Args, "--alter")
+	RequireLen(t, specs, 1)
+	AssertContains(t, specs[0].Args, "--alter")
 }
 
-func TestBuildSpecs_Test_Pest(t *testing.T) {
+func TestBuildSpecs_Test_Pest(t *T) {
 	dir := t.TempDir()
 	vendorBin := filepath.Join(dir, "vendor", "bin")
 	os.MkdirAll(vendorBin, 0755)
@@ -111,12 +108,12 @@ func TestBuildSpecs_Test_Pest(t *testing.T) {
 
 	runner := NewQARunner(dir, false)
 	specs := runner.BuildSpecs([]string{"test"})
-	require.Len(t, specs, 1)
-	assert.Equal(t, "test", specs[0].Name)
-	assert.Empty(t, specs[0].After)
+	RequireLen(t, specs, 1)
+	AssertEqual(t, "test", specs[0].Name)
+	AssertEmpty(t, specs[0].After)
 }
 
-func TestBuildSpecs_Test_PHPUnit(t *testing.T) {
+func TestBuildSpecs_Test_PHPUnit(t *T) {
 	dir := t.TempDir()
 	vendorBin := filepath.Join(dir, "vendor", "bin")
 	os.MkdirAll(vendorBin, 0755)
@@ -124,11 +121,11 @@ func TestBuildSpecs_Test_PHPUnit(t *testing.T) {
 
 	runner := NewQARunner(dir, false)
 	specs := runner.BuildSpecs([]string{"test"})
-	require.Len(t, specs, 1)
-	assert.Contains(t, specs[0].Command, "phpunit")
+	RequireLen(t, specs, 1)
+	AssertContains(t, specs[0].Command, "phpunit")
 }
 
-func TestBuildSpecs_Test_WithPsalmDep(t *testing.T) {
+func TestBuildSpecs_Test_WithPsalmDep(t *T) {
 	dir := t.TempDir()
 	vendorBin := filepath.Join(dir, "vendor", "bin")
 	os.MkdirAll(vendorBin, 0755)
@@ -137,18 +134,18 @@ func TestBuildSpecs_Test_WithPsalmDep(t *testing.T) {
 
 	runner := NewQARunner(dir, false)
 	specs := runner.BuildSpecs([]string{"test"})
-	require.Len(t, specs, 1)
-	assert.Empty(t, specs[0].After)
+	RequireLen(t, specs, 1)
+	AssertEmpty(t, specs[0].After)
 }
 
-func TestBuildSpecs_Test_NoRunner(t *testing.T) {
+func TestBuildSpecs_Test_NoRunner(t *T) {
 	dir := t.TempDir()
 	runner := NewQARunner(dir, false)
 	specs := runner.BuildSpecs([]string{"test"})
-	assert.Empty(t, specs)
+	AssertEmpty(t, specs)
 }
 
-func TestBuildSpecs_Rector(t *testing.T) {
+func TestBuildSpecs_Rector(t *T) {
 	dir := t.TempDir()
 	vendorBin := filepath.Join(dir, "vendor", "bin")
 	os.MkdirAll(vendorBin, 0755)
@@ -156,13 +153,13 @@ func TestBuildSpecs_Rector(t *testing.T) {
 
 	runner := NewQARunner(dir, false)
 	specs := runner.BuildSpecs([]string{"rector"})
-	require.Len(t, specs, 1)
-	assert.True(t, specs[0].AllowFailure)
-	assert.Contains(t, specs[0].Args, "--dry-run")
-	assert.Empty(t, specs[0].After)
+	RequireLen(t, specs, 1)
+	AssertTrue(t, specs[0].AllowFailure)
+	AssertContains(t, specs[0].Args, "--dry-run")
+	AssertEmpty(t, specs[0].After)
 }
 
-func TestBuildSpecs_Rector_Fix(t *testing.T) {
+func TestBuildSpecs_Rector_Fix(t *T) {
 	dir := t.TempDir()
 	vendorBin := filepath.Join(dir, "vendor", "bin")
 	os.MkdirAll(vendorBin, 0755)
@@ -170,11 +167,11 @@ func TestBuildSpecs_Rector_Fix(t *testing.T) {
 
 	runner := NewQARunner(dir, true)
 	specs := runner.BuildSpecs([]string{"rector"})
-	require.Len(t, specs, 1)
-	assert.NotContains(t, specs[0].Args, "--dry-run")
+	RequireLen(t, specs, 1)
+	AssertNotContains(t, specs[0].Args, "--dry-run")
 }
 
-func TestBuildSpecs_Infection(t *testing.T) {
+func TestBuildSpecs_Infection(t *T) {
 	dir := t.TempDir()
 	vendorBin := filepath.Join(dir, "vendor", "bin")
 	os.MkdirAll(vendorBin, 0755)
@@ -182,18 +179,18 @@ func TestBuildSpecs_Infection(t *testing.T) {
 
 	runner := NewQARunner(dir, false)
 	specs := runner.BuildSpecs([]string{"infection"})
-	require.Len(t, specs, 1)
-	assert.True(t, specs[0].AllowFailure)
-	assert.Empty(t, specs[0].After)
+	RequireLen(t, specs, 1)
+	AssertTrue(t, specs[0].AllowFailure)
+	AssertEmpty(t, specs[0].After)
 }
 
-func TestBuildSpecs_Unknown(t *testing.T) {
+func TestBuildSpecs_Unknown(t *T) {
 	runner := NewQARunner(t.TempDir(), false)
 	specs := runner.BuildSpecs([]string{"unknown"})
-	assert.Empty(t, specs)
+	AssertEmpty(t, specs)
 }
 
-func TestBuildSpecs_Multiple(t *testing.T) {
+func TestBuildSpecs_Multiple(t *T) {
 	dir := t.TempDir()
 	vendorBin := filepath.Join(dir, "vendor", "bin")
 	os.MkdirAll(vendorBin, 0755)
@@ -202,13 +199,13 @@ func TestBuildSpecs_Multiple(t *testing.T) {
 
 	runner := NewQARunner(dir, false)
 	specs := runner.BuildSpecs([]string{"audit", "fmt", "stan"})
-	assert.Len(t, specs, 3)
-	assert.Empty(t, specs[0].After)
-	assert.Equal(t, []string{"audit"}, specs[1].After)
-	assert.Equal(t, []string{"fmt"}, specs[2].After)
+	AssertLen(t, specs, 3)
+	AssertEmpty(t, specs[0].After)
+	AssertEqual(t, []string{"audit"}, specs[1].After)
+	AssertEqual(t, []string{"fmt"}, specs[2].After)
 }
 
-func TestQACheckRunResult_GetIssueMessage(t *testing.T) {
+func TestQACheckRunResult_GetIssueMessage(t *T) {
 	tests := []struct {
 		name     string
 		result   QACheckRunResult
@@ -226,13 +223,13 @@ func TestQACheckRunResult_GetIssueMessage(t *testing.T) {
 		{"unknown", QACheckRunResult{Name: "whatever"}, "found issues"},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.expected, tt.result.GetIssueMessage())
+		t.Run(tt.name, func(t *T) {
+			AssertEqual(t, tt.expected, tt.result.GetIssueMessage())
 		})
 	}
 }
 
-func TestQARunResult(t *testing.T) {
+func TestQARunResult(t *T) {
 	result := QARunResult{
 		Passed:   true,
 		Duration: "1.5s",
@@ -242,7 +239,7 @@ func TestQARunResult(t *testing.T) {
 		},
 		PassedCount: 2,
 	}
-	assert.True(t, result.Passed)
-	assert.Equal(t, 2, result.PassedCount)
-	assert.Equal(t, 0, result.FailedCount)
+	AssertTrue(t, result.Passed)
+	AssertEqual(t, 2, result.PassedCount)
+	AssertEqual(t, 0, result.FailedCount)
 }

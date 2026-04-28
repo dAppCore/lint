@@ -7,7 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	coreerr "dappco.re/go/log"
+	core "dappco.re/go"
 )
 
 // RectorOptions configures Rector code refactoring.
@@ -41,7 +41,7 @@ func RunRector(ctx context.Context, opts RectorOptions) error {
 	if opts.Dir == "" {
 		cwd, err := os.Getwd()
 		if err != nil {
-			return coreerr.E("php.RunRector", "get working directory", err)
+			return core.E("php.RunRector", "get working directory", err)
 		}
 		opts.Dir = cwd
 	}

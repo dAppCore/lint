@@ -1,15 +1,12 @@
 package qa
 
 import (
+	. "dappco.re/go"
 	"encoding/json"
 	"path/filepath"
-	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-func TestRunDocblockCheckJSONOutput_IsDeterministicAndKeepsWarnings(t *testing.T) {
+func TestRunDocblockCheckJSONOutput_IsDeterministicAndKeepsWarnings(t *T) {
 	dir := t.TempDir()
 	writeTestFile(t, filepath.Join(dir, "b.go"), "package sample\n\nfunc Beta() {}\n")
 	writeTestFile(t, filepath.Join(dir, "a.go"), "package sample\n\nfunc Alpha() {}\n")
@@ -20,17 +17,17 @@ func TestRunDocblockCheckJSONOutput_IsDeterministicAndKeepsWarnings(t *testing.T
 	var result DocblockResult
 	output := captureStdout(t, func() {
 		err := RunDocblockCheck([]string{"."}, 100, false, true)
-		require.Error(t, err)
+		RequireError(t, err)
 	})
 
-	require.NoError(t, json.Unmarshal([]byte(output), &result))
-	assert.False(t, result.Passed)
-	assert.Equal(t, 2, result.Total)
-	assert.Equal(t, 0, result.Documented)
-	require.Len(t, result.Missing, 2)
-	assert.Equal(t, "a.go", result.Missing[0].File)
-	assert.Equal(t, "b.go", result.Missing[1].File)
-	require.Len(t, result.Warnings, 1)
-	assert.Equal(t, ".", result.Warnings[0].Path)
-	assert.NotEmpty(t, result.Warnings[0].Error)
+	RequireNoError(t, json.Unmarshal([]byte(output), &result))
+	AssertFalse(t, result.Passed)
+	AssertEqual(t, 2, result.Total)
+	AssertEqual(t, 0, result.Documented)
+	RequireLen(t, result.Missing, 2)
+	AssertEqual(t, "a.go", result.Missing[0].File)
+	AssertEqual(t, "b.go", result.Missing[1].File)
+	RequireLen(t, result.Warnings, 1)
+	AssertEqual(t, ".", result.Warnings[0].Path)
+	AssertNotEmpty(t, result.Warnings[0].Error)
 }

@@ -11,7 +11,6 @@ import (
 
 	"dappco.re/go"
 	coreio "dappco.re/go/io"
-	coreerr "dappco.re/go/log"
 )
 
 // CoverageSnapshot represents a point-in-time coverage measurement.
@@ -53,19 +52,19 @@ func NewCoverageStore(path string) *CoverageStore {
 func (s *CoverageStore) Append(snap CoverageSnapshot) error {
 	snapshots, err := s.Load()
 	if err != nil && !isNotExistError(err) {
-		return coreerr.E("CoverageStore.Append", "load snapshots", err)
+		return core.E("CoverageStore.Append", "load snapshots", err)
 	}
 
 	snapshots = append(snapshots, snap)
 
 	r := core.JSONMarshal(snapshots)
 	if !r.OK {
-		return coreerr.E("CoverageStore.Append", "marshal snapshots", r.Value.(error))
+		return core.E("CoverageStore.Append", "marshal snapshots", r.Value.(error))
 	}
 	data := r.Value.([]byte)
 
 	if err := coreio.Local.Write(s.Path, string(data)); err != nil {
-		return coreerr.E("CoverageStore.Append", "write "+s.Path, err)
+		return core.E("CoverageStore.Append", "write "+s.Path, err)
 	}
 	return nil
 }
@@ -79,7 +78,7 @@ func (s *CoverageStore) Load() ([]CoverageSnapshot, error) {
 
 	var snapshots []CoverageSnapshot
 	if r := core.JSONUnmarshal([]byte(raw), &snapshots); !r.OK {
-		return nil, coreerr.E("CoverageStore.Load", "parse "+s.Path, r.Value.(error))
+		return nil, core.E("CoverageStore.Load", "parse "+s.Path, r.Value.(error))
 	}
 	return snapshots, nil
 }

@@ -8,7 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	coreerr "dappco.re/go/log"
+	core "dappco.re/go"
 )
 
 // TestOptions configures PHP test execution.
@@ -68,7 +68,7 @@ func RunTests(ctx context.Context, opts TestOptions) error {
 	if opts.Dir == "" {
 		cwd, err := os.Getwd()
 		if err != nil {
-			return coreerr.E("php.RunTests", "get working directory", err)
+			return core.E("php.RunTests", "get working directory", err)
 		}
 		opts.Dir = cwd
 	}
@@ -80,10 +80,10 @@ func RunTests(ctx context.Context, opts TestOptions) error {
 	if opts.JUnit && opts.JUnitPath == "" {
 		reportFile, err := os.CreateTemp("", "core-qa-junit-*.xml")
 		if err != nil {
-			return coreerr.E("php.RunTests", "create JUnit report file", err)
+			return core.E("php.RunTests", "create JUnit report file", err)
 		}
 		if closeErr := reportFile.Close(); closeErr != nil {
-			return coreerr.E("php.RunTests", "close JUnit report file", closeErr)
+			return core.E("php.RunTests", "close JUnit report file", closeErr)
 		}
 		opts.JUnitPath = reportFile.Name()
 		defer os.Remove(opts.JUnitPath)
@@ -230,16 +230,16 @@ func junitReportPath(opts TestOptions) string {
 func emitJUnitReport(output io.Writer, reportPath string) error {
 	report, err := os.ReadFile(reportPath)
 	if err != nil {
-		return coreerr.E("php.emitJUnitReport", "read JUnit report", err)
+		return core.E("php.emitJUnitReport", "read JUnit report", err)
 	}
 
 	if _, err := output.Write(report); err != nil {
-		return coreerr.E("php.emitJUnitReport", "write JUnit report", err)
+		return core.E("php.emitJUnitReport", "write JUnit report", err)
 	}
 
 	if len(report) == 0 || report[len(report)-1] != '\n' {
 		if _, err := io.WriteString(output, "\n"); err != nil {
-			return coreerr.E("php.emitJUnitReport", "terminate JUnit report", err)
+			return core.E("php.emitJUnitReport", "terminate JUnit report", err)
 		}
 	}
 

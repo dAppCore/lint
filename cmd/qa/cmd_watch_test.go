@@ -2,15 +2,12 @@ package qa
 
 import (
 	"context"
+	. "dappco.re/go"
 	"path/filepath"
 	"strings"
-	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-func TestPrintResults_SortsRunsAndUsesDeterministicDetails(t *testing.T) {
+func TestPrintResults_SortsRunsAndUsesDeterministicDetails(t *T) {
 	dir := t.TempDir()
 	writeExecutable(t, filepath.Join(dir, "gh"), `#!/bin/sh
 case "$*" in
@@ -82,22 +79,22 @@ esac
 
 	output := captureStdout(t, func() {
 		err := printResults(context.Background(), "forge/alpha", runs)
-		require.Error(t, err)
+		RequireError(t, err)
 	})
 
-	assert.NotContains(t, output, "\033[2K\r")
+	AssertNotContains(t, output, "\033[2K\r")
 	alphaBuild := strings.Index(output, "Alpha Build")
-	require.NotEqual(t, -1, alphaBuild)
+	RequireNotEqual(t, -1, alphaBuild)
 	zuluBuild := strings.Index(output, "Zulu Build")
-	require.NotEqual(t, -1, zuluBuild)
-	assert.Less(t, alphaBuild, zuluBuild)
+	RequireNotEqual(t, -1, zuluBuild)
+	AssertLess(t, alphaBuild, zuluBuild)
 
 	betaFailure := strings.Index(output, "Beta Failure")
-	require.NotEqual(t, -1, betaFailure)
+	RequireNotEqual(t, -1, betaFailure)
 	omegaFailure := strings.Index(output, "Omega Failure")
-	require.NotEqual(t, -1, omegaFailure)
-	assert.Less(t, betaFailure, omegaFailure)
-	assert.Contains(t, output, "Job: Alpha Job (step: 1: Alpha Step)")
-	assert.Contains(t, output, "Error: Alpha error detail")
-	assert.NotContains(t, output, "Job: Zulu Job")
+	RequireNotEqual(t, -1, omegaFailure)
+	AssertLess(t, betaFailure, omegaFailure)
+	AssertContains(t, output, "Job: Alpha Job (step: 1: Alpha Step)")
+	AssertContains(t, output, "Error: Alpha error detail")
+	AssertNotContains(t, output, "Job: Zulu Job")
 }

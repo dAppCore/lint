@@ -1,18 +1,16 @@
 package qa
 
 import (
+	. "dappco.re/go"
 	"encoding/json"
 	"fmt"
 	"path/filepath"
-	"testing"
 	"time"
 
 	"dappco.re/go/cli/pkg/cli"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-func TestRunQAIssuesJSONOutput_UsesMachineFriendlyKeys(t *testing.T) {
+func TestRunQAIssuesJSONOutput_UsesMachineFriendlyKeys(t *T) {
 	dir := t.TempDir()
 	commentTime := time.Now().UTC().Add(-1 * time.Hour).Format(time.RFC3339)
 	updatedAt := time.Now().UTC().Format(time.RFC3339)
@@ -72,33 +70,33 @@ esac
 	parent := &cli.Command{Use: "qa"}
 	addIssuesCommand(parent)
 	command := findSubcommand(t, parent, "issues")
-	require.NoError(t, command.Flags().Set("registry", filepath.Join(dir, "repos.yaml")))
-	require.NoError(t, command.Flags().Set("json", "true"))
+	RequireNoError(t, command.Flags().Set("registry", filepath.Join(dir, "repos.yaml")))
+	RequireNoError(t, command.Flags().Set("json", "true"))
 
 	output := captureStdout(t, func() {
-		require.NoError(t, command.RunE(command, nil))
+		RequireNoError(t, command.RunE(command, nil))
 	})
 
 	var payload IssuesOutput
-	require.NoError(t, json.Unmarshal([]byte(output), &payload))
-	assert.Equal(t, 1, payload.TotalIssues)
-	assert.Equal(t, 1, payload.FilteredIssues)
-	require.Len(t, payload.Categories, 4)
-	require.Len(t, payload.Categories[0].Issues, 1)
+	RequireNoError(t, json.Unmarshal([]byte(output), &payload))
+	AssertEqual(t, 1, payload.TotalIssues)
+	AssertEqual(t, 1, payload.FilteredIssues)
+	RequireLen(t, payload.Categories, 4)
+	RequireLen(t, payload.Categories[0].Issues, 1)
 
 	issue := payload.Categories[0].Issues[0]
-	assert.Equal(t, "needs_response", payload.Categories[0].Category)
-	assert.Equal(t, "alpha", issue.RepoName)
-	assert.Equal(t, 10, issue.Priority)
-	assert.Equal(t, "needs_response", issue.Category)
-	assert.Equal(t, "@carol awaiting response", issue.ActionHint)
-	assert.Contains(t, output, `"repo_name"`)
-	assert.Contains(t, output, `"action_hint"`)
-	assert.NotContains(t, output, `"RepoName"`)
-	assert.NotContains(t, output, `"ActionHint"`)
+	AssertEqual(t, "needs_response", payload.Categories[0].Category)
+	AssertEqual(t, "alpha", issue.RepoName)
+	AssertEqual(t, 10, issue.Priority)
+	AssertEqual(t, "needs_response", issue.Category)
+	AssertEqual(t, "@carol awaiting response", issue.ActionHint)
+	AssertContains(t, output, `"repo_name"`)
+	AssertContains(t, output, `"action_hint"`)
+	AssertNotContains(t, output, `"RepoName"`)
+	AssertNotContains(t, output, `"ActionHint"`)
 }
 
-func TestRunQAIssuesJSONOutput_SortsFetchErrorsByRepoName(t *testing.T) {
+func TestRunQAIssuesJSONOutput_SortsFetchErrorsByRepoName(t *T) {
 	dir := t.TempDir()
 	writeTestFile(t, filepath.Join(dir, "repos.yaml"), `version: 1
 org: forge
@@ -136,23 +134,23 @@ esac
 	parent := &cli.Command{Use: "qa"}
 	addIssuesCommand(parent)
 	command := findSubcommand(t, parent, "issues")
-	require.NoError(t, command.Flags().Set("registry", filepath.Join(dir, "repos.yaml")))
-	require.NoError(t, command.Flags().Set("json", "true"))
+	RequireNoError(t, command.Flags().Set("registry", filepath.Join(dir, "repos.yaml")))
+	RequireNoError(t, command.Flags().Set("json", "true"))
 
 	var runErr error
 	output := captureStdout(t, func() {
 		runErr = command.RunE(command, nil)
 	})
 
-	require.Error(t, runErr)
+	RequireError(t, runErr)
 	var payload IssuesOutput
-	require.NoError(t, json.Unmarshal([]byte(output), &payload))
-	require.Len(t, payload.FetchErrors, 2)
-	assert.Equal(t, "alpha", payload.FetchErrors[0].Repo)
-	assert.Equal(t, "beta", payload.FetchErrors[1].Repo)
+	RequireNoError(t, json.Unmarshal([]byte(output), &payload))
+	RequireLen(t, payload.FetchErrors, 2)
+	AssertEqual(t, "alpha", payload.FetchErrors[0].Repo)
+	AssertEqual(t, "beta", payload.FetchErrors[1].Repo)
 }
 
-func TestRunQAIssuesJSONOutput_ReturnsErrorWhenAllFetchesFail(t *testing.T) {
+func TestRunQAIssuesJSONOutput_ReturnsErrorWhenAllFetchesFail(t *T) {
 	dir := t.TempDir()
 	writeTestFile(t, filepath.Join(dir, "repos.yaml"), `version: 1
 org: forge
@@ -190,26 +188,26 @@ esac
 	parent := &cli.Command{Use: "qa"}
 	addIssuesCommand(parent)
 	command := findSubcommand(t, parent, "issues")
-	require.NoError(t, command.Flags().Set("registry", filepath.Join(dir, "repos.yaml")))
-	require.NoError(t, command.Flags().Set("json", "true"))
+	RequireNoError(t, command.Flags().Set("registry", filepath.Join(dir, "repos.yaml")))
+	RequireNoError(t, command.Flags().Set("json", "true"))
 
 	var runErr error
 	output := captureStdout(t, func() {
 		runErr = command.RunE(command, nil)
 	})
 
-	require.Error(t, runErr)
+	RequireError(t, runErr)
 
 	var payload IssuesOutput
-	require.NoError(t, json.Unmarshal([]byte(output), &payload))
-	require.Len(t, payload.Categories, 4)
-	assert.Empty(t, payload.Categories[0].Issues)
-	require.Len(t, payload.FetchErrors, 2)
-	assert.Equal(t, "alpha", payload.FetchErrors[0].Repo)
-	assert.Equal(t, "beta", payload.FetchErrors[1].Repo)
+	RequireNoError(t, json.Unmarshal([]byte(output), &payload))
+	RequireLen(t, payload.Categories, 4)
+	AssertEmpty(t, payload.Categories[0].Issues)
+	RequireLen(t, payload.FetchErrors, 2)
+	AssertEqual(t, "alpha", payload.FetchErrors[0].Repo)
+	AssertEqual(t, "beta", payload.FetchErrors[1].Repo)
 }
 
-func TestRunQAIssuesHumanOutput_ReturnsErrorWhenAllFetchesFail(t *testing.T) {
+func TestRunQAIssuesHumanOutput_ReturnsErrorWhenAllFetchesFail(t *T) {
 	dir := t.TempDir()
 	writeTestFile(t, filepath.Join(dir, "repos.yaml"), `version: 1
 org: forge
@@ -247,28 +245,28 @@ esac
 	parent := &cli.Command{Use: "qa"}
 	addIssuesCommand(parent)
 	command := findSubcommand(t, parent, "issues")
-	require.NoError(t, command.Flags().Set("registry", filepath.Join(dir, "repos.yaml")))
+	RequireNoError(t, command.Flags().Set("registry", filepath.Join(dir, "repos.yaml")))
 
 	var runErr error
 	output := captureStdout(t, func() {
 		runErr = command.RunE(command, nil)
 	})
 
-	require.Error(t, runErr)
-	assert.NotContains(t, output, "cmd.qa.issues.no_issues")
+	RequireError(t, runErr)
+	AssertNotContains(t, output, "cmd.qa.issues.no_issues")
 }
 
-func TestCalculatePriority_UsesMostUrgentLabelRegardlessOfOrder(t *testing.T) {
+func TestCalculatePriority_UsesMostUrgentLabelRegardlessOfOrder(t *T) {
 	labelsA := []string{"low", "critical"}
 	labelsB := []string{"critical", "low"}
 
-	assert.Equal(t, 1, calculatePriority(labelsA))
-	assert.Equal(t, 1, calculatePriority(labelsB))
+	AssertEqual(t, 1, calculatePriority(labelsA))
+	AssertEqual(t, 1, calculatePriority(labelsB))
 }
 
-func TestPrintTriagedIssue_SortsImportantLabels(t *testing.T) {
+func TestPrintTriagedIssue_SortsImportantLabels(t *T) {
 	var issue Issue
-	require.NoError(t, json.Unmarshal([]byte(`{
+	RequireNoError(t, json.Unmarshal([]byte(`{
 		"number": 7,
 		"title": "Stabilise output",
 		"updatedAt": "2026-03-30T00:00:00Z",
@@ -285,11 +283,11 @@ func TestPrintTriagedIssue_SortsImportantLabels(t *testing.T) {
 		printTriagedIssue(issue)
 	})
 
-	assert.Contains(t, output, "[agent:ready, priority:urgent]")
-	assert.NotContains(t, output, "[priority:urgent, agent:ready]")
+	AssertContains(t, output, "[agent:ready, priority:urgent]")
+	AssertNotContains(t, output, "[priority:urgent, agent:ready]")
 }
 
-func resetIssuesFlags(t *testing.T) {
+func resetIssuesFlags(t *T) {
 	t.Helper()
 	oldMine := issuesMine
 	oldTriage := issuesTriage

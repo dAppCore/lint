@@ -1,35 +1,32 @@
 package lint
 
 import (
+	core "dappco.re/go"
 	"embed"
 	"os"
 	"path/filepath"
-	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 //go:embed testdata/catalog/*.yaml
 var testCatalogFS embed.FS
 
-func TestLoadDir_Good(t *testing.T) {
+func TestLoadDir_Good(t *core.T) {
 	// Use the real catalog/ directory at the repo root.
 	dir := findCatalogDir(t)
 	cat, err := LoadDir(dir)
-	require.NoError(t, err)
-	assert.NotEmpty(t, cat.Rules)
+	core.RequireNoError(t, err)
+	core.AssertNotEmpty(t, cat.Rules)
 
 	// All 18 rules should load (6 security + 7 correctness + 5 modernise).
-	assert.Len(t, cat.Rules, 18)
+	core.AssertLen(t, cat.Rules, 18)
 
 	// Verify we can find a rule from each file.
-	assert.NotNil(t, cat.ByID("go-sec-001"))
-	assert.NotNil(t, cat.ByID("go-cor-001"))
-	assert.NotNil(t, cat.ByID("go-mod-001"))
+	core.AssertNotNil(t, cat.ByID("go-sec-001"))
+	core.AssertNotNil(t, cat.ByID("go-cor-001"))
+	core.AssertNotNil(t, cat.ByID("go-mod-001"))
 }
 
-func TestLoadDir_SortsFilesDeterministically(t *testing.T) {
+func TestLoadDir_SortsFilesDeterministically(t *core.T) {
 	dir := t.TempDir()
 
 	err := os.WriteFile(filepath.Join(dir, "z.yaml"), []byte(`- id: z-rule
@@ -41,7 +38,7 @@ func TestLoadDir_SortsFilesDeterministically(t *testing.T) {
   detection: regex
   auto_fixable: false
 `), 0o644)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	err = os.WriteFile(filepath.Join(dir, "a.yaml"), []byte(`- id: a-rule
   title: "A rule"
@@ -52,43 +49,43 @@ func TestLoadDir_SortsFilesDeterministically(t *testing.T) {
   detection: regex
   auto_fixable: false
 `), 0o644)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	cat, err := LoadDir(dir)
-	require.NoError(t, err)
-	require.Len(t, cat.Rules, 2)
-	assert.Equal(t, "a-rule", cat.Rules[0].ID)
-	assert.Equal(t, "z-rule", cat.Rules[1].ID)
+	core.RequireNoError(t, err)
+	RequireLen(t, cat.Rules, 2)
+	core.AssertEqual(t, "a-rule", cat.Rules[0].ID)
+	core.AssertEqual(t, "z-rule", cat.Rules[1].ID)
 }
 
-func TestLoadDir_Bad_NonexistentDir(t *testing.T) {
+func TestLoadDir_Bad_NonexistentDir(t *core.T) {
 	_, err := LoadDir("/nonexistent/path/that/does/not/exist")
-	assert.Error(t, err)
+	core.AssertError(t, err)
 }
 
-func TestLoadDir_Bad_EmptyDir(t *testing.T) {
+func TestLoadDir_Bad_EmptyDir(t *core.T) {
 	dir := t.TempDir()
 	cat, err := LoadDir(dir)
-	require.NoError(t, err)
-	assert.Empty(t, cat.Rules)
+	core.RequireNoError(t, err)
+	core.AssertEmpty(t, cat.Rules)
 }
 
-func TestLoadDir_Bad_InvalidYAML(t *testing.T) {
+func TestLoadDir_Bad_InvalidYAML(t *core.T) {
 	dir := t.TempDir()
 	err := os.WriteFile(filepath.Join(dir, "bad.yaml"), []byte("{{{"), 0o644)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	_, err = LoadDir(dir)
-	assert.Error(t, err)
+	core.AssertError(t, err)
 }
 
-func TestLoadFS_Good(t *testing.T) {
+func TestLoadFS_Good(t *core.T) {
 	cat, err := LoadFS(testCatalogFS, "testdata/catalog")
-	require.NoError(t, err)
-	assert.Len(t, cat.Rules, 2)
+	core.RequireNoError(t, err)
+	core.AssertLen(t, cat.Rules, 2)
 }
 
-func TestForLanguage_Good(t *testing.T) {
+func TestForLanguage_Good(t *core.T) {
 	cat := &Catalog{
 		Rules: []Rule{
 			{ID: "go-1", Languages: []string{"go"}},
@@ -98,21 +95,21 @@ func TestForLanguage_Good(t *testing.T) {
 	}
 
 	goRules := cat.ForLanguage("go")
-	assert.Len(t, goRules, 2)
-	assert.Equal(t, "go-1", goRules[0].ID)
-	assert.Equal(t, "both-1", goRules[1].ID)
+	core.AssertLen(t, goRules, 2)
+	core.AssertEqual(t, "go-1", goRules[0].ID)
+	core.AssertEqual(t, "both-1", goRules[1].ID)
 }
 
-func TestForLanguage_Bad_NoMatch(t *testing.T) {
+func TestForLanguage_Bad_NoMatch(t *core.T) {
 	cat := &Catalog{
 		Rules: []Rule{
 			{ID: "go-1", Languages: []string{"go"}},
 		},
 	}
-	assert.Empty(t, cat.ForLanguage("rust"))
+	core.AssertEmpty(t, cat.ForLanguage("rust"))
 }
 
-func TestAtSeverity_Good(t *testing.T) {
+func TestAtSeverity_Good(t *core.T) {
 	cat := &Catalog{
 		Rules: []Rule{
 			{ID: "info-1", Severity: "info"},
@@ -124,28 +121,28 @@ func TestAtSeverity_Good(t *testing.T) {
 	}
 
 	high := cat.AtSeverity("high")
-	assert.Len(t, high, 2)
-	assert.Equal(t, "high-1", high[0].ID)
-	assert.Equal(t, "crit-1", high[1].ID)
+	core.AssertLen(t, high, 2)
+	core.AssertEqual(t, "high-1", high[0].ID)
+	core.AssertEqual(t, "crit-1", high[1].ID)
 
 	all := cat.AtSeverity("info")
-	assert.Len(t, all, 5)
+	core.AssertLen(t, all, 5)
 
 	crit := cat.AtSeverity("critical")
-	assert.Len(t, crit, 1)
+	core.AssertLen(t, crit, 1)
 }
 
-func TestAtSeverity_Bad_UnknownSeverity(t *testing.T) {
+func TestAtSeverity_Bad_UnknownSeverity(t *core.T) {
 	cat := &Catalog{
 		Rules: []Rule{
 			{ID: "high-1", Severity: "high"},
 		},
 	}
 	// Unknown severity returns empty.
-	assert.Empty(t, cat.AtSeverity("catastrophic"))
+	core.AssertEmpty(t, cat.AtSeverity("catastrophic"))
 }
 
-func TestByID_Good(t *testing.T) {
+func TestByID_Good(t *core.T) {
 	cat := &Catalog{
 		Rules: []Rule{
 			{ID: "go-sec-001", Title: "SQL injection"},
@@ -154,36 +151,36 @@ func TestByID_Good(t *testing.T) {
 	}
 
 	r := cat.ByID("go-sec-002")
-	require.NotNil(t, r)
-	assert.Equal(t, "Path traversal", r.Title)
+	RequireNotNil(t, r)
+	core.AssertEqual(t, "Path traversal", r.Title)
 }
 
-func TestByID_Bad_NotFound(t *testing.T) {
+func TestByID_Bad_NotFound(t *core.T) {
 	cat := &Catalog{
 		Rules: []Rule{
 			{ID: "go-sec-001"},
 		},
 	}
-	assert.Nil(t, cat.ByID("nonexistent"))
+	core.AssertNil(t, cat.ByID("nonexistent"))
 }
 
-func TestLoadDir_Good_AllRulesValidate(t *testing.T) {
+func TestLoadDir_Good_AllRulesValidate(t *core.T) {
 	dir := findCatalogDir(t)
 	cat, err := LoadDir(dir)
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
 	for _, r := range cat.Rules {
 		err := r.Validate()
-		assert.NoError(t, err, "rule %s failed validation", r.ID)
+		core.AssertNoError(t, err, "rule %s failed validation", r.ID)
 	}
 }
 
 // findCatalogDir locates the catalog/ directory relative to the repo root.
-func findCatalogDir(t *testing.T) string {
+func findCatalogDir(t *core.T) string {
 	t.Helper()
 	// Walk up from the test file to find the repo root with catalog/.
 	dir, err := os.Getwd()
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 	for {
 		candidate := filepath.Join(dir, "catalog")
 		if info, err := os.Stat(candidate); err == nil && info.IsDir() {

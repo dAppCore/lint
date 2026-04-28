@@ -1,19 +1,16 @@
 package lint
 
 import (
+	core "dappco.re/go"
 	"fmt"
 	"os"
 	"path/filepath"
-	"testing"
 	"time"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // setupMockCmd creates a shell script in a temp dir that echoes predetermined
 // content, and prepends that dir to PATH so Run() picks it up.
-func setupMockCmd(t *testing.T, name, content string) {
+func setupMockCmd(t *core.T, name, content string) {
 	t.Helper()
 	tmpDir := t.TempDir()
 	scriptPath := filepath.Join(tmpDir, name)
@@ -28,7 +25,7 @@ func setupMockCmd(t *testing.T, name, content string) {
 }
 
 // setupMockCmdExit creates a mock that echoes to stdout/stderr and exits with a code.
-func setupMockCmdExit(t *testing.T, name, stdout, stderr string, exitCode int) {
+func setupMockCmdExit(t *core.T, name, stdout, stderr string, exitCode int) {
 	t.Helper()
 	tmpDir := t.TempDir()
 	scriptPath := filepath.Join(tmpDir, name)
@@ -42,12 +39,12 @@ func setupMockCmdExit(t *testing.T, name, stdout, stderr string, exitCode int) {
 	t.Setenv("PATH", tmpDir+string(os.PathListSeparator)+oldPath)
 }
 
-func TestNewToolkit(t *testing.T) {
+func TestNewToolkit(t *core.T) {
 	tk := NewToolkit("/tmp")
-	assert.Equal(t, "/tmp", tk.Dir)
+	core.AssertEqual(t, "/tmp", tk.Dir)
 }
 
-func TestToolkit_Coverage_Good(t *testing.T) {
+func TestToolkit_Coverage_Good(t *core.T) {
 	output := `?   	example.com/skipped	[no test files]
 ok  	example.com/pkg1	0.5s	coverage: 85.0% of statements
 ok  	example.com/pkg2	0.2s	coverage: 100.0% of statements`
@@ -56,24 +53,24 @@ ok  	example.com/pkg2	0.2s	coverage: 100.0% of statements`
 
 	tk := NewToolkit(t.TempDir())
 	reports, err := tk.Coverage("./...")
-	require.NoError(t, err)
-	require.Len(t, reports, 2)
-	assert.Equal(t, "example.com/pkg1", reports[0].Package)
-	assert.Equal(t, 85.0, reports[0].Percentage)
-	assert.Equal(t, "example.com/pkg2", reports[1].Package)
-	assert.Equal(t, 100.0, reports[1].Percentage)
+	core.RequireNoError(t, err)
+	RequireLen(t, reports, 2)
+	core.AssertEqual(t, "example.com/pkg1", reports[0].Package)
+	core.AssertEqual(t, 85.0, reports[0].Percentage)
+	core.AssertEqual(t, "example.com/pkg2", reports[1].Package)
+	core.AssertEqual(t, 100.0, reports[1].Percentage)
 }
 
-func TestToolkit_Coverage_Bad(t *testing.T) {
+func TestToolkit_Coverage_Bad(t *core.T) {
 	setupMockCmd(t, "go", "FAIL\texample.com/broken [build failed]")
 
 	tk := NewToolkit(t.TempDir())
 	reports, err := tk.Coverage("./...")
-	require.NoError(t, err)
-	assert.Empty(t, reports)
+	core.RequireNoError(t, err)
+	core.AssertEmpty(t, reports)
 }
 
-func TestToolkit_GitLog_Good(t *testing.T) {
+func TestToolkit_GitLog_Good(t *core.T) {
 	now := time.Now().Truncate(time.Second)
 	nowStr := now.Format(time.RFC3339)
 
@@ -82,81 +79,81 @@ func TestToolkit_GitLog_Good(t *testing.T) {
 
 	tk := NewToolkit(t.TempDir())
 	commits, err := tk.GitLog(2)
-	require.NoError(t, err)
-	require.Len(t, commits, 2)
-	assert.Equal(t, "abc123", commits[0].Hash)
-	assert.Equal(t, "Alice", commits[0].Author)
-	assert.Equal(t, "Fix the bug", commits[0].Message)
-	assert.True(t, commits[0].Date.Equal(now))
+	core.RequireNoError(t, err)
+	RequireLen(t, commits, 2)
+	core.AssertEqual(t, "abc123", commits[0].Hash)
+	core.AssertEqual(t, "Alice", commits[0].Author)
+	core.AssertEqual(t, "Fix the bug", commits[0].Message)
+	core.AssertTrue(t, commits[0].Date.Equal(now))
 }
 
-func TestToolkit_GitLog_Bad(t *testing.T) {
+func TestToolkit_GitLog_Bad(t *core.T) {
 	setupMockCmd(t, "git", "incomplete|line\nabc|Bob|2025-01-01T00:00:00Z|Good commit")
 
 	tk := NewToolkit(t.TempDir())
 	commits, err := tk.GitLog(5)
-	require.NoError(t, err)
-	assert.Len(t, commits, 1)
+	core.RequireNoError(t, err)
+	core.AssertLen(t, commits, 1)
 }
 
-func TestToolkit_GocycloComplexity_Good(t *testing.T) {
+func TestToolkit_GocycloComplexity_Good(t *core.T) {
 	output := "15 main ComplexFunc file.go:10:1\n20 pkg VeryComplex other.go:50:1"
 	setupMockCmd(t, "gocyclo", output)
 
 	tk := NewToolkit(t.TempDir())
 	funcs, err := tk.GocycloComplexity(10)
-	require.NoError(t, err)
-	require.Len(t, funcs, 2)
-	assert.Equal(t, 15, funcs[0].Score)
-	assert.Equal(t, "ComplexFunc", funcs[0].FuncName)
-	assert.Equal(t, "file.go", funcs[0].File)
-	assert.Equal(t, 10, funcs[0].Line)
-	assert.Equal(t, 20, funcs[1].Score)
-	assert.Equal(t, "pkg", funcs[1].Package)
+	core.RequireNoError(t, err)
+	RequireLen(t, funcs, 2)
+	core.AssertEqual(t, 15, funcs[0].Score)
+	core.AssertEqual(t, "ComplexFunc", funcs[0].FuncName)
+	core.AssertEqual(t, "file.go", funcs[0].File)
+	core.AssertEqual(t, 10, funcs[0].Line)
+	core.AssertEqual(t, 20, funcs[1].Score)
+	core.AssertEqual(t, "pkg", funcs[1].Package)
 }
 
-func TestToolkit_GocycloComplexity_Bad(t *testing.T) {
+func TestToolkit_GocycloComplexity_Bad(t *core.T) {
 	setupMockCmd(t, "gocyclo", "")
 
 	tk := NewToolkit(t.TempDir())
 	funcs, err := tk.GocycloComplexity(50)
-	require.NoError(t, err)
-	assert.Empty(t, funcs)
+	core.RequireNoError(t, err)
+	core.AssertEmpty(t, funcs)
 }
 
-func TestToolkit_DepGraph_Good(t *testing.T) {
+func TestToolkit_DepGraph_Good(t *core.T) {
 	output := "modA@v1 modB@v2\nmodA@v1 modC@v3\nmodB@v2 modD@v1"
 	setupMockCmd(t, "go", output)
 
 	tk := NewToolkit(t.TempDir())
 	graph, err := tk.DepGraph("./...")
-	require.NoError(t, err)
-	assert.Len(t, graph.Nodes, 4)
-	assert.Len(t, graph.Edges["modA@v1"], 2)
+	core.RequireNoError(t, err)
+	core.AssertLen(t, graph.Nodes, 4)
+	core.AssertLen(t, graph.Edges["modA@v1"], 2)
 }
 
-func TestToolkit_DepGraph_SortsNodesAndEdges(t *testing.T) {
+func TestToolkit_DepGraph_SortsNodesAndEdges(t *core.T) {
 	output := "modB@v2 modD@v1\nmodA@v1 modC@v3\nmodA@v1 modB@v2"
 	setupMockCmd(t, "go", output)
 
 	tk := NewToolkit(t.TempDir())
 	graph, err := tk.DepGraph("./...")
-	require.NoError(t, err)
+	core.RequireNoError(t, err)
 
-	assert.Equal(t, []string{"modA@v1", "modB@v2", "modC@v3", "modD@v1"}, graph.Nodes)
-	assert.Equal(t, []string{"modB@v2", "modC@v3"}, graph.Edges["modA@v1"])
+	core.AssertEqual(t, []string{"modA@v1", "modB@v2", "modC@v3", "modD@v1"}, graph.Nodes)
+	core.AssertEqual(t, []string{"modB@v2", "modC@v3"}, graph.Edges["modA@v1"])
 }
 
-func TestToolkit_RaceDetect_Good(t *testing.T) {
+func TestToolkit_RaceDetect_Good(t *core.T) {
 	setupMockCmd(t, "go", "ok\texample.com/safe\t0.1s")
 
 	tk := NewToolkit(t.TempDir())
 	races, err := tk.RaceDetect("./...")
-	require.NoError(t, err)
-	assert.Empty(t, races)
+	core.RequireNoError(t, err)
+	core.AssertEmpty(t, races)
 }
 
-func TestToolkit_RaceDetect_Bad(t *testing.T) {
+func TestToolkit_RaceDetect_Bad(t *core.T) {
 	stderrOut := `WARNING: DATA RACE
 Read at 0x00c000123456 by goroutine 7:
       /home/user/project/main.go:42
@@ -167,13 +164,13 @@ Previous write at 0x00c000123456 by goroutine 6:
 
 	tk := NewToolkit(t.TempDir())
 	races, err := tk.RaceDetect("./...")
-	require.NoError(t, err)
-	require.Len(t, races, 1)
-	assert.Equal(t, "/home/user/project/main.go", races[0].File)
-	assert.Equal(t, 42, races[0].Line)
+	core.RequireNoError(t, err)
+	RequireLen(t, races, 1)
+	core.AssertEqual(t, "/home/user/project/main.go", races[0].File)
+	core.AssertEqual(t, 42, races[0].Line)
 }
 
-func TestToolkit_DiffStat_Good(t *testing.T) {
+func TestToolkit_DiffStat_Good(t *core.T) {
 	output := ` file1.go | 10 +++++++---
  file2.go |  5 +++++
  2 files changed, 12 insertions(+), 3 deletions(-)`
@@ -181,43 +178,43 @@ func TestToolkit_DiffStat_Good(t *testing.T) {
 
 	tk := NewToolkit(t.TempDir())
 	s, err := tk.DiffStat()
-	require.NoError(t, err)
-	assert.Equal(t, 2, s.FilesChanged)
-	assert.Equal(t, 12, s.Insertions)
-	assert.Equal(t, 3, s.Deletions)
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, 2, s.FilesChanged)
+	core.AssertEqual(t, 12, s.Insertions)
+	core.AssertEqual(t, 3, s.Deletions)
 }
 
-func TestToolkit_CheckPerms_Good(t *testing.T) {
+func TestToolkit_CheckPerms_Good(t *core.T) {
 	dir := t.TempDir()
 
 	badFile := filepath.Join(dir, "bad.txt")
-	require.NoError(t, os.WriteFile(badFile, []byte("test"), 0644))
-	require.NoError(t, os.Chmod(badFile, 0666))
+	core.RequireNoError(t, os.WriteFile(badFile, []byte("test"), 0644))
+	core.RequireNoError(t, os.Chmod(badFile, 0666))
 
 	goodFile := filepath.Join(dir, "good.txt")
-	require.NoError(t, os.WriteFile(goodFile, []byte("test"), 0644))
+	core.RequireNoError(t, os.WriteFile(goodFile, []byte("test"), 0644))
 
 	tk := NewToolkit("/")
 	issues, err := tk.CheckPerms(dir)
-	require.NoError(t, err)
-	require.Len(t, issues, 1)
-	assert.Equal(t, "Group and world-writable", issues[0].Issue)
+	core.RequireNoError(t, err)
+	RequireLen(t, issues, 1)
+	core.AssertEqual(t, "Group and world-writable", issues[0].Issue)
 }
 
-func TestToolkit_FindTrackedComments_Compatibility(t *testing.T) {
+func TestToolkit_FindTrackedComments_Compatibility(t *core.T) {
 	output := "pkg/file.go:12:TODO: fix this\n"
 	setupMockCmd(t, "git", output)
 
 	tk := NewToolkit(t.TempDir())
 	comments, err := tk.FindTrackedComments("pkg")
-	require.NoError(t, err)
-	require.Len(t, comments, 1)
-	assert.Equal(t, "pkg/file.go", comments[0].File)
-	assert.Equal(t, 12, comments[0].Line)
-	assert.Equal(t, "TODO", comments[0].Type)
-	assert.Equal(t, "fix this", comments[0].Message)
+	core.RequireNoError(t, err)
+	RequireLen(t, comments, 1)
+	core.AssertEqual(t, "pkg/file.go", comments[0].File)
+	core.AssertEqual(t, 12, comments[0].Line)
+	core.AssertEqual(t, "TODO", comments[0].Type)
+	core.AssertEqual(t, "fix this", comments[0].Message)
 
 	legacyComments, err := tk.FindTODOs("pkg")
-	require.NoError(t, err)
-	assert.Equal(t, comments, legacyComments)
+	core.RequireNoError(t, err)
+	core.AssertEqual(t, comments, legacyComments)
 }

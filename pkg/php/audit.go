@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"slices"
 
-	coreerr "dappco.re/go/log"
+	core "dappco.re/go"
 )
 
 // AuditOptions configures dependency security auditing.
@@ -43,7 +43,7 @@ func RunAudit(ctx context.Context, opts AuditOptions) ([]AuditResult, error) {
 	if opts.Dir == "" {
 		cwd, err := os.Getwd()
 		if err != nil {
-			return nil, coreerr.E("php.RunAudit", "get working directory", err)
+			return nil, core.E("php.RunAudit", "get working directory", err)
 		}
 		opts.Dir = cwd
 	}

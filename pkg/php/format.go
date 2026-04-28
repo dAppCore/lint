@@ -8,8 +8,8 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	core "dappco.re/go"
 	coreio "dappco.re/go/io"
-	coreerr "dappco.re/go/log"
 )
 
 // fileExists reports whether the named file or directory exists.
@@ -69,7 +69,7 @@ func Format(ctx context.Context, opts FormatOptions) error {
 	if opts.Dir == "" {
 		cwd, err := os.Getwd()
 		if err != nil {
-			return coreerr.E("php.Format", "get working directory", err)
+			return core.E("php.Format", "get working directory", err)
 		}
 		opts.Dir = cwd
 	}
@@ -81,7 +81,7 @@ func Format(ctx context.Context, opts FormatOptions) error {
 	// Check if formatter is available
 	formatter, found := DetectFormatter(opts.Dir)
 	if !found {
-		return coreerr.E("php.Format", "no formatter found (install Laravel Pint: composer require laravel/pint --dev)", nil)
+		return core.E("php.Format", "no formatter found (install Laravel Pint: composer require laravel/pint --dev)", nil)
 	}
 
 	var cmdName string

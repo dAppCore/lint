@@ -2,9 +2,17 @@ package php
 
 import (
 	"path/filepath"
-
-	process "dappco.re/go/process"
 )
+
+type RunSpec struct {
+	Name         string
+	Command      string
+	Args         []string
+	Dir          string
+	Env          []string
+	After        []string
+	AllowFailure bool
+}
 
 // QARunner builds process run specs for PHP QA checks.
 type QARunner struct {
@@ -18,8 +26,8 @@ func NewQARunner(dir string, fix bool) *QARunner {
 }
 
 // BuildSpecs creates RunSpecs for the given QA checks.
-func (r *QARunner) BuildSpecs(checks []string) []process.RunSpec {
-	specs := make([]process.RunSpec, 0, len(checks))
+func (r *QARunner) BuildSpecs(checks []string) []RunSpec {
+	specs := make([]RunSpec, 0, len(checks))
 	for _, check := range checks {
 		spec := r.buildSpec(check)
 		if spec != nil {
@@ -31,7 +39,7 @@ func (r *QARunner) BuildSpecs(checks []string) []process.RunSpec {
 }
 
 // filterSpecDependencies drops dependencies for checks that were not requested.
-func filterSpecDependencies(specs []process.RunSpec) {
+func filterSpecDependencies(specs []RunSpec) {
 	available := make(map[string]struct{}, len(specs))
 	for _, spec := range specs {
 		available[spec.Name] = struct{}{}
@@ -53,10 +61,10 @@ func filterSpecDependencies(specs []process.RunSpec) {
 }
 
 // buildSpec creates a RunSpec for a single check.
-func (r *QARunner) buildSpec(check string) *process.RunSpec {
+func (r *QARunner) buildSpec(check string) *RunSpec {
 	switch check {
 	case "audit":
-		return &process.RunSpec{
+		return &RunSpec{
 			Name:    "audit",
 			Command: "composer",
 			Args:    []string{"audit", "--format=summary"},
@@ -77,7 +85,7 @@ func (r *QARunner) buildSpec(check string) *process.RunSpec {
 		if !r.fix {
 			args = append(args, "--test")
 		}
-		return &process.RunSpec{
+		return &RunSpec{
 			Name:    "fmt",
 			Command: cmd,
 			Args:    args,
@@ -95,7 +103,7 @@ func (r *QARunner) buildSpec(check string) *process.RunSpec {
 		if fileExists(vendorBin) {
 			cmd = vendorBin
 		}
-		return &process.RunSpec{
+		return &RunSpec{
 			Name:    "stan",
 			Command: cmd,
 			Args:    []string{"analyse", "--no-progress"},
@@ -117,7 +125,7 @@ func (r *QARunner) buildSpec(check string) *process.RunSpec {
 		if r.fix {
 			args = append(args, "--alter", "--issues=all")
 		}
-		return &process.RunSpec{
+		return &RunSpec{
 			Name:    "psalm",
 			Command: cmd,
 			Args:    args,
@@ -140,7 +148,7 @@ func (r *QARunner) buildSpec(check string) *process.RunSpec {
 		if _, found := DetectPsalm(r.dir); found {
 			after = []string{"psalm"}
 		}
-		return &process.RunSpec{
+		return &RunSpec{
 			Name:    "test",
 			Command: cmd,
 			Args:    []string{},
@@ -161,7 +169,7 @@ func (r *QARunner) buildSpec(check string) *process.RunSpec {
 		if !r.fix {
 			args = append(args, "--dry-run")
 		}
-		return &process.RunSpec{
+		return &RunSpec{
 			Name:         "rector",
 			Command:      cmd,
 			Args:         args,
@@ -179,7 +187,7 @@ func (r *QARunner) buildSpec(check string) *process.RunSpec {
 		if fileExists(vendorBin) {
 			cmd = vendorBin
 		}
-		return &process.RunSpec{
+		return &RunSpec{
 			Name:         "infection",
 			Command:      cmd,
 			Args:         []string{"--min-msi=50", "--min-covered-msi=70", "--threads=4"},

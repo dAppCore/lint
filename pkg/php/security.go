@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
+	core "dappco.re/go"
 	coreio "dappco.re/go/io"
-	coreerr "dappco.re/go/log"
 )
 
 // SecurityOptions configures security scanning.
@@ -89,7 +89,7 @@ func filterSecurityChecks(checks []SecurityCheck, minimum string) ([]SecurityChe
 
 	minRank, ok := securitySeverityRank(minimum)
 	if !ok {
-		return nil, coreerr.E("filterSecurityChecks", "invalid security severity "+minimum, nil)
+		return nil, core.E("filterSecurityChecks", "invalid security severity "+minimum, nil)
 	}
 
 	filtered := make([]SecurityCheck, 0, len(checks))
@@ -111,7 +111,7 @@ func RunSecurityChecks(ctx context.Context, opts SecurityOptions) (*SecurityResu
 	if opts.Dir == "" {
 		cwd, err := os.Getwd()
 		if err != nil {
-			return nil, coreerr.E("RunSecurityChecks", "get working directory", err)
+			return nil, core.E("RunSecurityChecks", "get working directory", err)
 		}
 		opts.Dir = cwd
 	}

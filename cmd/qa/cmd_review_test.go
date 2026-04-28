@@ -1,16 +1,14 @@
 package qa
 
 import (
+	. "dappco.re/go"
 	"encoding/json"
 	"path/filepath"
-	"testing"
 
 	"dappco.re/go/cli/pkg/cli"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-func TestRunReviewJSONOutput_PreservesPartialResultsAndFetchErrors(t *testing.T) {
+func TestRunReviewJSONOutput_PreservesPartialResultsAndFetchErrors(t *T) {
 	dir := t.TempDir()
 	writeExecutable(t, filepath.Join(dir, "gh"), `#!/bin/sh
 case "$*" in
@@ -59,28 +57,28 @@ esac
 	parent := &cli.Command{Use: "qa"}
 	addReviewCommand(parent)
 	command := findSubcommand(t, parent, "review")
-	require.NoError(t, command.Flags().Set("repo", "forge/example"))
-	require.NoError(t, command.Flags().Set("json", "true"))
+	RequireNoError(t, command.Flags().Set("repo", "forge/example"))
+	RequireNoError(t, command.Flags().Set("json", "true"))
 
 	output := captureStdout(t, func() {
-		require.NoError(t, command.RunE(command, nil))
+		RequireNoError(t, command.RunE(command, nil))
 	})
 
 	var payload reviewOutput
-	require.NoError(t, json.Unmarshal([]byte(output), &payload))
-	assert.True(t, payload.ShowingMine)
-	assert.True(t, payload.ShowingRequested)
-	require.Len(t, payload.Mine, 0)
-	require.Len(t, payload.Requested, 1)
-	assert.Equal(t, 42, payload.Requested[0].Number)
-	assert.Equal(t, "Refine agent output", payload.Requested[0].Title)
-	require.Len(t, payload.FetchErrors, 1)
-	assert.Equal(t, "forge/example", payload.FetchErrors[0].Repo)
-	assert.Equal(t, "mine", payload.FetchErrors[0].Scope)
-	assert.Contains(t, payload.FetchErrors[0].Error, "simulated author query failure")
+	RequireNoError(t, json.Unmarshal([]byte(output), &payload))
+	AssertTrue(t, payload.ShowingMine)
+	AssertTrue(t, payload.ShowingRequested)
+	RequireLen(t, payload.Mine, 0)
+	RequireLen(t, payload.Requested, 1)
+	AssertEqual(t, 42, payload.Requested[0].Number)
+	AssertEqual(t, "Refine agent output", payload.Requested[0].Title)
+	RequireLen(t, payload.FetchErrors, 1)
+	AssertEqual(t, "forge/example", payload.FetchErrors[0].Repo)
+	AssertEqual(t, "mine", payload.FetchErrors[0].Scope)
+	AssertContains(t, payload.FetchErrors[0].Error, "simulated author query failure")
 }
 
-func TestRunReviewJSONOutput_ReturnsErrorWhenAllFetchesFail(t *testing.T) {
+func TestRunReviewJSONOutput_ReturnsErrorWhenAllFetchesFail(t *T) {
 	dir := t.TempDir()
 	writeExecutable(t, filepath.Join(dir, "gh"), `#!/bin/sh
 case "$*" in
@@ -109,26 +107,26 @@ esac
 	parent := &cli.Command{Use: "qa"}
 	addReviewCommand(parent)
 	command := findSubcommand(t, parent, "review")
-	require.NoError(t, command.Flags().Set("repo", "forge/example"))
-	require.NoError(t, command.Flags().Set("json", "true"))
+	RequireNoError(t, command.Flags().Set("repo", "forge/example"))
+	RequireNoError(t, command.Flags().Set("json", "true"))
 
 	var runErr error
 	output := captureStdout(t, func() {
 		runErr = command.RunE(command, nil)
 	})
 
-	require.Error(t, runErr)
+	RequireError(t, runErr)
 
 	var payload reviewOutput
-	require.NoError(t, json.Unmarshal([]byte(output), &payload))
-	assert.Empty(t, payload.Mine)
-	assert.Empty(t, payload.Requested)
-	require.Len(t, payload.FetchErrors, 2)
-	assert.Equal(t, "mine", payload.FetchErrors[0].Scope)
-	assert.Equal(t, "requested", payload.FetchErrors[1].Scope)
+	RequireNoError(t, json.Unmarshal([]byte(output), &payload))
+	AssertEmpty(t, payload.Mine)
+	AssertEmpty(t, payload.Requested)
+	RequireLen(t, payload.FetchErrors, 2)
+	AssertEqual(t, "mine", payload.FetchErrors[0].Scope)
+	AssertEqual(t, "requested", payload.FetchErrors[1].Scope)
 }
 
-func TestRunReviewHumanOutput_PreservesSuccessfulSectionWhenOneFetchFails(t *testing.T) {
+func TestRunReviewHumanOutput_PreservesSuccessfulSectionWhenOneFetchFails(t *T) {
 	dir := t.TempDir()
 	writeExecutable(t, filepath.Join(dir, "gh"), `#!/bin/sh
 case "$*" in
@@ -177,19 +175,19 @@ esac
 	parent := &cli.Command{Use: "qa"}
 	addReviewCommand(parent)
 	command := findSubcommand(t, parent, "review")
-	require.NoError(t, command.Flags().Set("repo", "forge/example"))
+	RequireNoError(t, command.Flags().Set("repo", "forge/example"))
 
 	output := captureStdout(t, func() {
-		require.NoError(t, command.RunE(command, nil))
+		RequireNoError(t, command.RunE(command, nil))
 	})
 
-	assert.Contains(t, output, "#42 Refine agent output")
-	assert.Contains(t, output, "gh pr checkout 42")
-	assert.NotContains(t, output, "Your pull requests")
-	assert.NotContains(t, output, "cmd.qa.review.no_prs")
+	AssertContains(t, output, "#42 Refine agent output")
+	AssertContains(t, output, "gh pr checkout 42")
+	AssertNotContains(t, output, "Your pull requests")
+	AssertNotContains(t, output, "cmd.qa.review.no_prs")
 }
 
-func TestRunReviewHumanOutput_ReturnsErrorWhenAllFetchesFail(t *testing.T) {
+func TestRunReviewHumanOutput_ReturnsErrorWhenAllFetchesFail(t *T) {
 	dir := t.TempDir()
 	writeExecutable(t, filepath.Join(dir, "gh"), `#!/bin/sh
 case "$*" in
@@ -218,19 +216,19 @@ esac
 	parent := &cli.Command{Use: "qa"}
 	addReviewCommand(parent)
 	command := findSubcommand(t, parent, "review")
-	require.NoError(t, command.Flags().Set("repo", "forge/example"))
+	RequireNoError(t, command.Flags().Set("repo", "forge/example"))
 
 	var runErr error
 	output := captureStdout(t, func() {
 		runErr = command.RunE(command, nil)
 	})
 
-	require.Error(t, runErr)
-	assert.NotContains(t, output, "Your pull requests")
-	assert.NotContains(t, output, "Review requested")
+	RequireError(t, runErr)
+	AssertNotContains(t, output, "Your pull requests")
+	AssertNotContains(t, output, "Review requested")
 }
 
-func TestAnalyzePRStatus_UsesDeterministicFailedCheckName(t *testing.T) {
+func TestAnalyzePRStatus_UsesDeterministicFailedCheckName(t *T) {
 	pr := PullRequest{
 		Mergeable:      "MERGEABLE",
 		ReviewDecision: "",
@@ -244,11 +242,11 @@ func TestAnalyzePRStatus_UsesDeterministicFailedCheckName(t *testing.T) {
 
 	status, _, action := analyzePRStatus(pr)
 
-	assert.Equal(t, "✗", status)
-	assert.Equal(t, "CI failed: Alpha", action)
+	AssertEqual(t, "✗", status)
+	AssertEqual(t, "CI failed: Alpha", action)
 }
 
-func resetReviewFlags(t *testing.T) {
+func resetReviewFlags(t *T) {
 	t.Helper()
 	oldMine := reviewMine
 	oldRequested := reviewRequested

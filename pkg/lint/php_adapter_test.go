@@ -1,13 +1,10 @@
 package lint
 
 import (
-	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	core "dappco.re/go"
 )
 
-func TestPHPAdapter_ParsePHPStan_Good(t *testing.T) {
+func TestPHPAdapter_ParsePHPStan_Good(t *core.T) {
 	output := `{
   "totals": {"errors": 1, "file_errors": 1},
   "files": {
@@ -26,33 +23,33 @@ func TestPHPAdapter_ParsePHPStan_Good(t *testing.T) {
 }`
 
 	findings := parsePHPStanDiagnostics("phpstan", "correctness", output)
-	require.NotEmpty(t, findings, "expected at least one finding from phpstan output")
+	core.RequireNotEmpty(t, findings, "expected at least one finding from phpstan output")
 
 	hadReturnType := false
 	for _, finding := range findings {
-		assert.Equal(t, "phpstan", finding.Tool)
-		assert.NotEmpty(t, finding.Severity, "phpstan findings always carry severity")
+		core.AssertEqual(t, "phpstan", finding.Tool)
+		core.AssertNotEmpty(t, finding.Severity, "phpstan findings always carry severity")
 		if finding.Code == "return.type" || finding.Message != "" {
 			hadReturnType = true
 		}
 	}
-	assert.True(t, hadReturnType, "expected to parse the return.type finding")
+	core.AssertTrue(t, hadReturnType, "expected to parse the return.type finding")
 }
 
-func TestPHPAdapter_ParsePHPStan_Bad(t *testing.T) {
+func TestPHPAdapter_ParsePHPStan_Bad(t *core.T) {
 	findings := parsePHPStanDiagnostics("phpstan", "correctness", "not valid json")
-	require.NotEmpty(t, findings, "garbage input emits a parse-error finding")
-	assert.Equal(t, "phpstan", findings[0].Tool)
-	assert.Equal(t, "parse-error", findings[0].Code)
+	core.RequireNotEmpty(t, findings, "garbage input emits a parse-error finding")
+	core.AssertEqual(t, "phpstan", findings[0].Tool)
+	core.AssertEqual(t, "parse-error", findings[0].Code)
 }
 
-func TestPHPAdapter_ParsePHPStan_Ugly(t *testing.T) {
+func TestPHPAdapter_ParsePHPStan_Ugly(t *core.T) {
 	output := `{"totals":{"errors":0,"file_errors":0},"files":{}}`
 	findings := parsePHPStanDiagnostics("phpstan", "correctness", output)
-	assert.Empty(t, findings, "clean phpstan output emits no findings")
+	core.AssertEmpty(t, findings, "clean phpstan output emits no findings")
 }
 
-func TestPHPAdapter_ParsePsalm_Good_TaintFlow(t *testing.T) {
+func TestPHPAdapter_ParsePsalm_Good_TaintFlow(t *core.T) {
 	output := `[
   {
     "severity": "error",
@@ -74,7 +71,7 @@ func TestPHPAdapter_ParsePsalm_Good_TaintFlow(t *testing.T) {
 ]`
 
 	findings := parsePsalmDiagnostics("psalm", "correctness", output)
-	require.NotEmpty(t, findings, "psalm taint output should produce at least one finding")
+	core.RequireNotEmpty(t, findings, "psalm taint output should produce at least one finding")
 
 	taintFound := false
 	for _, finding := range findings {
@@ -83,10 +80,10 @@ func TestPHPAdapter_ParsePsalm_Good_TaintFlow(t *testing.T) {
 			break
 		}
 	}
-	assert.True(t, taintFound, "TaintedSql finding must be re-tagged category=security severity=error")
+	core.AssertTrue(t, taintFound, "TaintedSql finding must be re-tagged category=security severity=error")
 }
 
-func TestPHPAdapter_ParsePsalm_Good_NonTaintRetainsCorrectness(t *testing.T) {
+func TestPHPAdapter_ParsePsalm_Good_NonTaintRetainsCorrectness(t *core.T) {
 	output := `[
   {
     "severity": "info",
@@ -100,20 +97,20 @@ func TestPHPAdapter_ParsePsalm_Good_NonTaintRetainsCorrectness(t *testing.T) {
 ]`
 
 	findings := parsePsalmDiagnostics("psalm", "correctness", output)
-	require.NotEmpty(t, findings)
+	core.RequireNotEmpty(t, findings)
 
 	for _, finding := range findings {
-		assert.NotEqual(t, "security", finding.Category, "non-taint findings stay in their original category")
+		core.AssertNotEqual(t, "security", finding.Category, "non-taint findings stay in their original category")
 	}
 }
 
-func TestPHPAdapter_ParsePsalm_Bad(t *testing.T) {
+func TestPHPAdapter_ParsePsalm_Bad(t *core.T) {
 	findings := parsePsalmDiagnostics("psalm", "correctness", "{not-json")
-	require.NotEmpty(t, findings)
-	assert.Equal(t, "parse-error", findings[0].Code)
+	core.RequireNotEmpty(t, findings)
+	core.AssertEqual(t, "parse-error", findings[0].Code)
 }
 
-func TestPHPAdapter_IsPsalmTaintFinding_Good(t *testing.T) {
+func TestPHPAdapter_IsPsalmTaintFinding_Good(t *core.T) {
 	cases := []struct {
 		name    string
 		finding Finding
@@ -128,19 +125,19 @@ func TestPHPAdapter_IsPsalmTaintFinding_Good(t *testing.T) {
 	}
 
 	for _, testCase := range cases {
-		t.Run(testCase.name, func(t *testing.T) {
-			assert.Equal(t, testCase.want, isPsalmTaintFinding(testCase.finding))
+		t.Run(testCase.name, func(t *core.T) {
+			core.AssertEqual(t, testCase.want, isPsalmTaintFinding(testCase.finding))
 		})
 	}
 }
 
 // TestPHPAdapter_DefaultAdapters_PHPStan_Wired ensures the registry row for
 // phpstan still routes to the dedicated parser.
-func TestPHPAdapter_DefaultAdapters_PHPStan_Wired(t *testing.T) {
+func TestPHPAdapter_DefaultAdapters_PHPStan_Wired(t *core.T) {
 	adapters := defaultAdapters()
 	for _, adapter := range adapters {
 		if adapter.Name() == "phpstan" {
-			assert.Equal(t, "correctness", adapter.Category())
+			core.AssertEqual(t, "correctness", adapter.Category())
 			return
 		}
 	}
@@ -149,11 +146,11 @@ func TestPHPAdapter_DefaultAdapters_PHPStan_Wired(t *testing.T) {
 
 // TestPHPAdapter_DefaultAdapters_Psalm_Wired ensures the registry row for
 // psalm still routes to the dedicated parser.
-func TestPHPAdapter_DefaultAdapters_Psalm_Wired(t *testing.T) {
+func TestPHPAdapter_DefaultAdapters_Psalm_Wired(t *core.T) {
 	adapters := defaultAdapters()
 	for _, adapter := range adapters {
 		if adapter.Name() == "psalm" {
-			assert.Equal(t, "correctness", adapter.Category())
+			core.AssertEqual(t, "correctness", adapter.Category())
 			return
 		}
 	}

@@ -13,10 +13,10 @@ import (
 	"slices"
 	"strings"
 
+	core "dappco.re/go"
 	"dappco.re/go/cli/pkg/cli"
 	"dappco.re/go/i18n"
 	"dappco.re/go/io"
-	"dappco.re/go/log"
 	"dappco.re/go/scm/repos"
 )
 
@@ -86,7 +86,7 @@ func addHealthCommand(parent *cli.Command) {
 
 func runHealth() error {
 	if _, err := exec.LookPath("gh"); err != nil {
-		return log.E("qa.health", i18n.T("error.gh_not_found"), nil)
+		return core.E("qa.health", i18n.T("error.gh_not_found"), nil)
 	}
 
 	var reg *repos.Registry
@@ -96,12 +96,12 @@ func runHealth() error {
 	} else {
 		registryPath, findErr := repos.FindRegistry(io.Local)
 		if findErr != nil {
-			return log.E("qa.health", i18n.T("error.registry_not_found"), nil)
+			return core.E("qa.health", i18n.T("error.registry_not_found"), nil)
 		}
 		reg, err = repos.LoadRegistry(io.Local, registryPath)
 	}
 	if err != nil {
-		return log.E("qa.health", "failed to load registry", err)
+		return core.E("qa.health", "failed to load registry", err)
 	}
 
 	repoList := reg.List()

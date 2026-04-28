@@ -7,7 +7,6 @@ import (
 
 	core "dappco.re/go"
 	coreio "dappco.re/go/io"
-	coreerr "dappco.re/go/log"
 )
 
 // extensionMap maps file extensions to language identifiers.
@@ -126,7 +125,7 @@ func (s *Scanner) ScanDir(root string) ([]Finding, error) {
 
 		raw, err := coreio.Local.Read(path)
 		if err != nil {
-			return coreerr.E("Scanner.ScanDir", "reading "+path, err)
+			return core.E("Scanner.ScanDir", "reading "+path, err)
 		}
 		content := []byte(raw)
 
@@ -148,7 +147,7 @@ func (s *Scanner) ScanDir(root string) ([]Finding, error) {
 	})
 
 	if err != nil {
-		return nil, coreerr.E("Scanner.ScanDir", "scanning "+root, err)
+		return nil, core.E("Scanner.ScanDir", "scanning "+root, err)
 	}
 
 	return findings, nil
@@ -158,7 +157,7 @@ func (s *Scanner) ScanDir(root string) ([]Finding, error) {
 func (s *Scanner) ScanFile(path string) ([]Finding, error) {
 	raw, err := coreio.Local.Read(path)
 	if err != nil {
-		return nil, coreerr.E("Scanner.ScanFile", "reading "+path, err)
+		return nil, core.E("Scanner.ScanFile", "reading "+path, err)
 	}
 	content := []byte(raw)
 

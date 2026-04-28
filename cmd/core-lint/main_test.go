@@ -1,6 +1,7 @@
 package main
 
 import (
+	. "dappco.re/go"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -8,11 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"testing"
 
 	lintpkg "dappco.re/go/lint/pkg/lint"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -21,12 +19,12 @@ var (
 	buildBinaryErr  error
 )
 
-func TestCLI_Run_JSON(t *testing.T) {
+func TestCLI_Run_JSON(t *T) {
 	dir := t.TempDir()
 	buildCLI(t)
 	t.Setenv("PATH", t.TempDir())
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/test\n"), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "input.go"), []byte(`package sample
+	RequireNoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/test\n"), 0o644))
+	RequireNoError(t, os.WriteFile(filepath.Join(dir, "input.go"), []byte(`package sample
 
 type service struct{}
 
@@ -39,16 +37,16 @@ func Run() {
 `), 0o644))
 
 	stdout, stderr, exitCode := runCLI(t, dir, "run", "--output", "json", "--fail-on", "warning", dir)
-	assert.Equal(t, 1, exitCode, stderr)
-	assert.Contains(t, stderr, "lint failed (fail-on=warning)")
+	AssertEqual(t, 1, exitCode, stderr)
+	AssertContains(t, stderr, "lint failed (fail-on=warning)")
 
 	var report lintpkg.Report
-	require.NoError(t, json.Unmarshal([]byte(stdout), &report))
-	require.NotEmpty(t, report.Findings)
-	assert.GreaterOrEqual(t, report.Summary.Total, 2)
-	assert.Greater(t, report.Summary.Info, 0)
-	assert.Contains(t, report.Summary.BySeverity, "info")
-	assert.Contains(t, report.Summary.BySeverity, "warning")
+	RequireNoError(t, json.Unmarshal([]byte(stdout), &report))
+	RequireNotEmpty(t, report.Findings)
+	AssertGreaterOrEqual(t, report.Summary.Total, 2)
+	AssertGreater(t, report.Summary.Info, 0)
+	AssertContains(t, report.Summary.BySeverity, "info")
+	AssertContains(t, report.Summary.BySeverity, "warning")
 
 	var hasCatalogFinding bool
 	var hasMissingToolFinding bool
@@ -60,22 +58,22 @@ func Run() {
 			hasMissingToolFinding = true
 		}
 	}
-	assert.True(t, hasCatalogFinding)
-	assert.True(t, hasMissingToolFinding)
-	assert.False(t, report.Summary.Passed)
+	AssertTrue(t, hasCatalogFinding)
+	AssertTrue(t, hasMissingToolFinding)
+	AssertFalse(t, report.Summary.Passed)
 }
 
-func TestCLI_Run_FilesFlagLimitsScanning(t *testing.T) {
+func TestCLI_Run_FilesFlagLimitsScanning(t *T) {
 	dir := t.TempDir()
 	buildCLI(t)
 	t.Setenv("PATH", t.TempDir())
 
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/test\n"), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "clean.go"), []byte(`package sample
+	RequireNoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/test\n"), 0o644))
+	RequireNoError(t, os.WriteFile(filepath.Join(dir, "clean.go"), []byte(`package sample
 
 func Clean() {}
 `), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "ignored.go"), []byte(`package sample
+	RequireNoError(t, os.WriteFile(filepath.Join(dir, "ignored.go"), []byte(`package sample
 
 func Run() {
 	_ = helper()
@@ -85,31 +83,31 @@ func helper() error { return nil }
 `), 0o644))
 
 	stdout, stderr, exitCode := runCLI(t, dir, "run", "--output", "json", "--files", "clean.go", dir)
-	assert.Equal(t, 0, exitCode, stderr)
+	AssertEqual(t, 0, exitCode, stderr)
 
 	var report lintpkg.Report
-	require.NoError(t, json.Unmarshal([]byte(stdout), &report))
-	require.NotEmpty(t, report.Findings)
+	RequireNoError(t, json.Unmarshal([]byte(stdout), &report))
+	RequireNotEmpty(t, report.Findings)
 	infoCount := 0
 	for _, finding := range report.Findings {
-		assert.Equal(t, "missing-tool", finding.Code)
-		assert.Equal(t, "info", finding.Severity)
+		AssertEqual(t, "missing-tool", finding.Code)
+		AssertEqual(t, "info", finding.Severity)
 		if finding.Severity == "info" {
 			infoCount++
 		}
 	}
-	assert.Equal(t, len(report.Findings), report.Summary.Total)
-	assert.Equal(t, infoCount, report.Summary.Info)
-	assert.True(t, report.Summary.Passed)
+	AssertEqual(t, len(report.Findings), report.Summary.Total)
+	AssertEqual(t, infoCount, report.Summary.Info)
+	AssertTrue(t, report.Summary.Passed)
 }
 
-func TestCLI_Run_ScheduleAppliesPreset(t *testing.T) {
+func TestCLI_Run_ScheduleAppliesPreset(t *T) {
 	dir := t.TempDir()
 	buildCLI(t)
 	t.Setenv("PATH", t.TempDir())
 
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/test\n"), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "root.go"), []byte(`package sample
+	RequireNoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/test\n"), 0o644))
+	RequireNoError(t, os.WriteFile(filepath.Join(dir, "root.go"), []byte(`package sample
 
 type service struct{}
 
@@ -120,13 +118,13 @@ func Run() {
 	_ = svc.Process("root")
 }
 `), 0o644))
-	require.NoError(t, os.MkdirAll(filepath.Join(dir, "services"), 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "services", "clean.go"), []byte(`package sample
+	RequireNoError(t, os.MkdirAll(filepath.Join(dir, "services"), 0o755))
+	RequireNoError(t, os.WriteFile(filepath.Join(dir, "services", "clean.go"), []byte(`package sample
 
 func Clean() {}
 `), 0o644))
-	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".core"), 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, ".core", "lint.yaml"), []byte(`output: text
+	RequireNoError(t, os.MkdirAll(filepath.Join(dir, ".core"), 0o755))
+	RequireNoError(t, os.WriteFile(filepath.Join(dir, ".core", "lint.yaml"), []byte(`output: text
 schedules:
   nightly:
     output: json
@@ -135,57 +133,57 @@ schedules:
 `), 0o644))
 
 	stdout, stderr, exitCode := runCLI(t, dir, "run", "--schedule", "nightly", dir)
-	assert.Equal(t, 0, exitCode, stderr)
+	AssertEqual(t, 0, exitCode, stderr)
 
 	var report lintpkg.Report
-	require.NoError(t, json.Unmarshal([]byte(stdout), &report))
-	require.NotEmpty(t, report.Findings)
+	RequireNoError(t, json.Unmarshal([]byte(stdout), &report))
+	RequireNotEmpty(t, report.Findings)
 	infoCount := 0
 	for _, finding := range report.Findings {
-		assert.Equal(t, "missing-tool", finding.Code)
-		assert.Equal(t, "info", finding.Severity)
+		AssertEqual(t, "missing-tool", finding.Code)
+		AssertEqual(t, "info", finding.Severity)
 		if finding.Severity == "info" {
 			infoCount++
 		}
 	}
-	assert.Equal(t, len(report.Findings), report.Summary.Total)
-	assert.Equal(t, infoCount, report.Summary.Info)
-	assert.True(t, report.Summary.Passed)
+	AssertEqual(t, len(report.Findings), report.Summary.Total)
+	AssertEqual(t, infoCount, report.Summary.Info)
+	AssertTrue(t, report.Summary.Passed)
 }
 
-func TestCLI_Detect_JSON(t *testing.T) {
+func TestCLI_Detect_JSON(t *T) {
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/test\n"), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "package.json"), []byte("{}\n"), 0o644))
+	RequireNoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/test\n"), 0o644))
+	RequireNoError(t, os.WriteFile(filepath.Join(dir, "package.json"), []byte("{}\n"), 0o644))
 
 	stdout, stderr, exitCode := runCLI(t, dir, "detect", "--output", "json", dir)
-	assert.Equal(t, 0, exitCode, stderr)
+	AssertEqual(t, 0, exitCode, stderr)
 
 	var languages []string
-	require.NoError(t, json.Unmarshal([]byte(stdout), &languages))
-	assert.Equal(t, []string{"go", "js"}, languages)
+	RequireNoError(t, json.Unmarshal([]byte(stdout), &languages))
+	AssertEqual(t, []string{"go", "js"}, languages)
 }
 
-func TestCLI_Init_WritesConfig(t *testing.T) {
+func TestCLI_Init_WritesConfig(t *T) {
 	dir := t.TempDir()
 
 	stdout, stderr, exitCode := runCLI(t, dir, "init", dir)
-	assert.Equal(t, 0, exitCode, stderr)
-	assert.Contains(t, stdout, ".core/lint.yaml")
+	AssertEqual(t, 0, exitCode, stderr)
+	AssertContains(t, stdout, ".core/lint.yaml")
 
 	configPath := filepath.Join(dir, ".core", "lint.yaml")
 	content, err := os.ReadFile(configPath)
-	require.NoError(t, err)
-	assert.Contains(t, string(content), "golangci-lint")
-	assert.Contains(t, string(content), "fail_on: error")
+	RequireNoError(t, err)
+	AssertContains(t, string(content), "golangci-lint")
+	AssertContains(t, string(content), "fail_on: error")
 }
 
-func TestCLI_Tools_TextIncludesMetadata(t *testing.T) {
+func TestCLI_Tools_TextIncludesMetadata(t *T) {
 	buildCLI(t)
 
 	binDir := t.TempDir()
 	fakeToolPath := filepath.Join(binDir, "gosec")
-	require.NoError(t, os.WriteFile(fakeToolPath, []byte("#!/bin/sh\nexit 0\n"), 0o755))
+	RequireNoError(t, os.WriteFile(fakeToolPath, []byte("#!/bin/sh\nexit 0\n"), 0o755))
 	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
 
 	command := exec.Command(buildCLI(t), "tools", "--lang", "go")
@@ -193,20 +191,20 @@ func TestCLI_Tools_TextIncludesMetadata(t *testing.T) {
 	command.Env = os.Environ()
 
 	output, err := command.CombinedOutput()
-	require.NoError(t, err, string(output))
+	RequireNoError(t, err, string(output))
 
 	text := string(output)
-	assert.Contains(t, text, "gosec")
-	assert.Contains(t, text, "langs=go")
-	assert.Contains(t, text, "entitlement=lint.security")
+	AssertContains(t, text, "gosec")
+	AssertContains(t, text, "langs=go")
+	AssertContains(t, text, "entitlement=lint.security")
 }
 
-func TestCLI_LintCheck_SARIF(t *testing.T) {
+func TestCLI_LintCheck_SARIF(t *T) {
 	buildCLI(t)
 
 	repoRoot := repoRoot(t)
 	stdout, stderr, exitCode := runCLI(t, repoRoot, "lint", "check", "--format", "sarif", "tests/cli/lint/check/fixtures")
-	assert.Equal(t, 0, exitCode, stderr)
+	AssertEqual(t, 0, exitCode, stderr)
 
 	var sarif struct {
 		Version string `json:"version"`
@@ -221,15 +219,15 @@ func TestCLI_LintCheck_SARIF(t *testing.T) {
 			} `json:"results"`
 		} `json:"runs"`
 	}
-	require.NoError(t, json.Unmarshal([]byte(stdout), &sarif))
-	require.Equal(t, "2.1.0", sarif.Version)
-	require.Len(t, sarif.Runs, 1)
-	assert.Equal(t, "core-lint", sarif.Runs[0].Tool.Driver.Name)
-	require.Len(t, sarif.Runs[0].Results, 1)
-	assert.Equal(t, "go-cor-003", sarif.Runs[0].Results[0].RuleID)
+	RequireNoError(t, json.Unmarshal([]byte(stdout), &sarif))
+	RequireEqual(t, "2.1.0", sarif.Version)
+	RequireLen(t, sarif.Runs, 1)
+	AssertEqual(t, "core-lint", sarif.Runs[0].Tool.Driver.Name)
+	RequireLen(t, sarif.Runs[0].Results, 1)
+	AssertEqual(t, "go-cor-003", sarif.Runs[0].Results[0].RuleID)
 }
 
-func TestCLI_HookInstallRemove(t *testing.T) {
+func TestCLI_HookInstallRemove(t *T) {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git not available")
 	}
@@ -240,23 +238,23 @@ func TestCLI_HookInstallRemove(t *testing.T) {
 	runCLIExpectSuccess(t, dir, "git", "config", "user.name", "Test User")
 
 	_, stderr, exitCode := runCLI(t, dir, "hook", "install", dir)
-	assert.Equal(t, 0, exitCode, stderr)
+	AssertEqual(t, 0, exitCode, stderr)
 
 	hookPath := filepath.Join(dir, ".git", "hooks", "pre-commit")
 	hookContent, err := os.ReadFile(hookPath)
-	require.NoError(t, err)
-	assert.Contains(t, string(hookContent), "core-lint run --hook")
+	RequireNoError(t, err)
+	AssertContains(t, string(hookContent), "core-lint run --hook")
 
 	_, stderr, exitCode = runCLI(t, dir, "hook", "remove", dir)
-	assert.Equal(t, 0, exitCode, stderr)
+	AssertEqual(t, 0, exitCode, stderr)
 
 	removedContent, err := os.ReadFile(hookPath)
 	if err == nil {
-		assert.NotContains(t, string(removedContent), "core-lint run --hook")
+		AssertNotContains(t, string(removedContent), "core-lint run --hook")
 	}
 }
 
-func runCLI(t *testing.T, workdir string, args ...string) (string, string, int) {
+func runCLI(t *T, workdir string, args ...string) (string, string, int) {
 	t.Helper()
 
 	command := exec.Command(buildCLI(t), args...)
@@ -277,16 +275,16 @@ func runCLI(t *testing.T, workdir string, args ...string) (string, string, int) 
 	return string(stdout), stderr, exitCode
 }
 
-func runCLIExpectSuccess(t *testing.T, dir string, name string, args ...string) {
+func runCLIExpectSuccess(t *T, dir string, name string, args ...string) {
 	t.Helper()
 
 	command := exec.Command(name, args...)
 	command.Dir = dir
 	output, err := command.CombinedOutput()
-	require.NoError(t, err, string(output))
+	RequireNoError(t, err, string(output))
 }
 
-func buildCLI(t *testing.T) string {
+func buildCLI(t *T) string {
 	t.Helper()
 
 	buildBinaryOnce.Do(func() {
@@ -306,14 +304,14 @@ func buildCLI(t *testing.T) string {
 		}
 	})
 
-	require.NoError(t, buildBinaryErr)
+	RequireNoError(t, buildBinaryErr)
 	return builtBinaryPath
 }
 
-func repoRoot(t *testing.T) string {
+func repoRoot(t *T) string {
 	t.Helper()
 
 	root, err := filepath.Abs(filepath.Join(".", "..", ".."))
-	require.NoError(t, err)
+	RequireNoError(t, err)
 	return root
 }

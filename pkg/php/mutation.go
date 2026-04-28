@@ -8,7 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	coreerr "dappco.re/go/log"
+	core "dappco.re/go"
 )
 
 // InfectionOptions configures Infection mutation testing.
@@ -46,7 +46,7 @@ func RunInfection(ctx context.Context, opts InfectionOptions) error {
 	if opts.Dir == "" {
 		cwd, err := os.Getwd()
 		if err != nil {
-			return coreerr.E("php.RunInfection", "get working directory", err)
+			return core.E("php.RunInfection", "get working directory", err)
 		}
 		opts.Dir = cwd
 	}

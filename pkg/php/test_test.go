@@ -1,61 +1,58 @@
 package php
 
 import (
+	. "dappco.re/go"
 	"os"
 	"path/filepath"
-	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // =============================================================================
 // DetectTestRunner
 // =============================================================================
 
-func TestDetectTestRunner_Good_Pest(t *testing.T) {
+func TestDetectTestRunner_Good_Pest(t *T) {
 	dir := t.TempDir()
 
 	// Create tests/Pest.php
 	mkFile(t, filepath.Join(dir, "tests", "Pest.php"))
 
 	runner := DetectTestRunner(dir)
-	assert.Equal(t, TestRunnerPest, runner)
+	AssertEqual(t, TestRunnerPest, runner)
 }
 
-func TestDetectTestRunner_Good_PHPUnit(t *testing.T) {
+func TestDetectTestRunner_Good_PHPUnit(t *T) {
 	dir := t.TempDir()
 
 	// No tests/Pest.php → defaults to PHPUnit
 	runner := DetectTestRunner(dir)
-	assert.Equal(t, TestRunnerPHPUnit, runner)
+	AssertEqual(t, TestRunnerPHPUnit, runner)
 }
 
-func TestDetectTestRunner_Good_PHPUnitWithTestsDir(t *testing.T) {
+func TestDetectTestRunner_Good_PHPUnitWithTestsDir(t *T) {
 	dir := t.TempDir()
 
 	// tests/ dir exists but no Pest.php
-	require.NoError(t, os.MkdirAll(filepath.Join(dir, "tests"), 0o755))
+	RequireNoError(t, os.MkdirAll(filepath.Join(dir, "tests"), 0o755))
 
 	runner := DetectTestRunner(dir)
-	assert.Equal(t, TestRunnerPHPUnit, runner)
+	AssertEqual(t, TestRunnerPHPUnit, runner)
 }
 
 // =============================================================================
 // buildPestCommand
 // =============================================================================
 
-func TestBuildPestCommand_Good_Defaults(t *testing.T) {
+func TestBuildPestCommand_Good_Defaults(t *T) {
 	dir := t.TempDir()
 
 	opts := TestOptions{Dir: dir}
 	cmdName, args := buildPestCommand(opts)
 
-	assert.Equal(t, "pest", cmdName)
-	assert.Empty(t, args)
+	AssertEqual(t, "pest", cmdName)
+	AssertEmpty(t, args)
 }
 
-func TestBuildPestCommand_Good_VendorBinary(t *testing.T) {
+func TestBuildPestCommand_Good_VendorBinary(t *T) {
 	dir := t.TempDir()
 	vendorBin := filepath.Join(dir, "vendor", "bin", "pest")
 	mkFile(t, vendorBin)
@@ -63,58 +60,58 @@ func TestBuildPestCommand_Good_VendorBinary(t *testing.T) {
 	opts := TestOptions{Dir: dir}
 	cmdName, _ := buildPestCommand(opts)
 
-	assert.Equal(t, vendorBin, cmdName)
+	AssertEqual(t, vendorBin, cmdName)
 }
 
-func TestBuildPestCommand_Good_Filter(t *testing.T) {
+func TestBuildPestCommand_Good_Filter(t *T) {
 	dir := t.TempDir()
 
 	opts := TestOptions{Dir: dir, Filter: "TestLogin"}
 	_, args := buildPestCommand(opts)
 
-	assert.Contains(t, args, "--filter")
-	assert.Contains(t, args, "TestLogin")
+	AssertContains(t, args, "--filter")
+	AssertContains(t, args, "TestLogin")
 }
 
-func TestBuildPestCommand_Good_Parallel(t *testing.T) {
+func TestBuildPestCommand_Good_Parallel(t *T) {
 	dir := t.TempDir()
 
 	opts := TestOptions{Dir: dir, Parallel: true}
 	_, args := buildPestCommand(opts)
 
-	assert.Contains(t, args, "--parallel")
+	AssertContains(t, args, "--parallel")
 }
 
-func TestBuildPestCommand_Good_CoverageDefault(t *testing.T) {
+func TestBuildPestCommand_Good_CoverageDefault(t *T) {
 	dir := t.TempDir()
 
 	opts := TestOptions{Dir: dir, Coverage: true}
 	_, args := buildPestCommand(opts)
 
-	assert.Contains(t, args, "--coverage")
+	AssertContains(t, args, "--coverage")
 }
 
-func TestBuildPestCommand_Good_CoverageHTML(t *testing.T) {
+func TestBuildPestCommand_Good_CoverageHTML(t *T) {
 	dir := t.TempDir()
 
 	opts := TestOptions{Dir: dir, Coverage: true, CoverageFormat: "html"}
 	_, args := buildPestCommand(opts)
 
-	assert.Contains(t, args, "--coverage-html")
-	assert.Contains(t, args, "coverage")
+	AssertContains(t, args, "--coverage-html")
+	AssertContains(t, args, "coverage")
 }
 
-func TestBuildPestCommand_Good_CoverageClover(t *testing.T) {
+func TestBuildPestCommand_Good_CoverageClover(t *T) {
 	dir := t.TempDir()
 
 	opts := TestOptions{Dir: dir, Coverage: true, CoverageFormat: "clover"}
 	_, args := buildPestCommand(opts)
 
-	assert.Contains(t, args, "--coverage-clover")
-	assert.Contains(t, args, "coverage.xml")
+	AssertContains(t, args, "--coverage-clover")
+	AssertContains(t, args, "coverage.xml")
 }
 
-func TestBuildPestCommand_Good_Groups(t *testing.T) {
+func TestBuildPestCommand_Good_Groups(t *T) {
 	dir := t.TempDir()
 
 	opts := TestOptions{Dir: dir, Groups: []string{"unit", "integration"}}
@@ -127,22 +124,22 @@ func TestBuildPestCommand_Good_Groups(t *testing.T) {
 			groupCount++
 		}
 	}
-	assert.Equal(t, 2, groupCount)
-	assert.Contains(t, args, "unit")
-	assert.Contains(t, args, "integration")
+	AssertEqual(t, 2, groupCount)
+	AssertContains(t, args, "unit")
+	AssertContains(t, args, "integration")
 }
 
-func TestBuildPestCommand_Good_JUnit(t *testing.T) {
+func TestBuildPestCommand_Good_JUnit(t *T) {
 	dir := t.TempDir()
 
 	opts := TestOptions{Dir: dir, JUnit: true}
 	_, args := buildPestCommand(opts)
 
-	assert.Contains(t, args, "--log-junit")
-	assert.Contains(t, args, "test-results.xml")
+	AssertContains(t, args, "--log-junit")
+	AssertContains(t, args, "test-results.xml")
 }
 
-func TestBuildPestCommand_Good_AllFlags(t *testing.T) {
+func TestBuildPestCommand_Good_AllFlags(t *T) {
 	dir := t.TempDir()
 
 	opts := TestOptions{
@@ -156,30 +153,30 @@ func TestBuildPestCommand_Good_AllFlags(t *testing.T) {
 	}
 	_, args := buildPestCommand(opts)
 
-	assert.Contains(t, args, "--filter")
-	assert.Contains(t, args, "TestFoo")
-	assert.Contains(t, args, "--parallel")
-	assert.Contains(t, args, "--coverage-clover")
-	assert.Contains(t, args, "--group")
-	assert.Contains(t, args, "smoke")
-	assert.Contains(t, args, "--log-junit")
+	AssertContains(t, args, "--filter")
+	AssertContains(t, args, "TestFoo")
+	AssertContains(t, args, "--parallel")
+	AssertContains(t, args, "--coverage-clover")
+	AssertContains(t, args, "--group")
+	AssertContains(t, args, "smoke")
+	AssertContains(t, args, "--log-junit")
 }
 
 // =============================================================================
 // buildPHPUnitCommand
 // =============================================================================
 
-func TestBuildPHPUnitCommand_Good_Defaults(t *testing.T) {
+func TestBuildPHPUnitCommand_Good_Defaults(t *T) {
 	dir := t.TempDir()
 
 	opts := TestOptions{Dir: dir}
 	cmdName, args := buildPHPUnitCommand(opts)
 
-	assert.Equal(t, "phpunit", cmdName)
-	assert.Empty(t, args)
+	AssertEqual(t, "phpunit", cmdName)
+	AssertEmpty(t, args)
 }
 
-func TestBuildPHPUnitCommand_Good_VendorBinary(t *testing.T) {
+func TestBuildPHPUnitCommand_Good_VendorBinary(t *T) {
 	dir := t.TempDir()
 	vendorBin := filepath.Join(dir, "vendor", "bin", "phpunit")
 	mkFile(t, vendorBin)
@@ -187,20 +184,20 @@ func TestBuildPHPUnitCommand_Good_VendorBinary(t *testing.T) {
 	opts := TestOptions{Dir: dir}
 	cmdName, _ := buildPHPUnitCommand(opts)
 
-	assert.Equal(t, vendorBin, cmdName)
+	AssertEqual(t, vendorBin, cmdName)
 }
 
-func TestBuildPHPUnitCommand_Good_Filter(t *testing.T) {
+func TestBuildPHPUnitCommand_Good_Filter(t *T) {
 	dir := t.TempDir()
 
 	opts := TestOptions{Dir: dir, Filter: "TestCheckout"}
 	_, args := buildPHPUnitCommand(opts)
 
-	assert.Contains(t, args, "--filter")
-	assert.Contains(t, args, "TestCheckout")
+	AssertContains(t, args, "--filter")
+	AssertContains(t, args, "TestCheckout")
 }
 
-func TestBuildPHPUnitCommand_Good_Parallel_WithParatest(t *testing.T) {
+func TestBuildPHPUnitCommand_Good_Parallel_WithParatest(t *T) {
 	dir := t.TempDir()
 	paratestBin := filepath.Join(dir, "vendor", "bin", "paratest")
 	mkFile(t, paratestBin)
@@ -208,20 +205,20 @@ func TestBuildPHPUnitCommand_Good_Parallel_WithParatest(t *testing.T) {
 	opts := TestOptions{Dir: dir, Parallel: true}
 	cmdName, _ := buildPHPUnitCommand(opts)
 
-	assert.Equal(t, paratestBin, cmdName)
+	AssertEqual(t, paratestBin, cmdName)
 }
 
-func TestBuildPHPUnitCommand_Good_Parallel_NoParatest(t *testing.T) {
+func TestBuildPHPUnitCommand_Good_Parallel_NoParatest(t *T) {
 	dir := t.TempDir()
 
 	opts := TestOptions{Dir: dir, Parallel: true}
 	cmdName, _ := buildPHPUnitCommand(opts)
 
 	// Falls back to phpunit when paratest is not available
-	assert.Equal(t, "phpunit", cmdName)
+	AssertEqual(t, "phpunit", cmdName)
 }
 
-func TestBuildPHPUnitCommand_Good_Parallel_VendorPHPUnit_WithParatest(t *testing.T) {
+func TestBuildPHPUnitCommand_Good_Parallel_VendorPHPUnit_WithParatest(t *T) {
 	dir := t.TempDir()
 	mkFile(t, filepath.Join(dir, "vendor", "bin", "phpunit"))
 	paratestBin := filepath.Join(dir, "vendor", "bin", "paratest")
@@ -231,39 +228,39 @@ func TestBuildPHPUnitCommand_Good_Parallel_VendorPHPUnit_WithParatest(t *testing
 	cmdName, _ := buildPHPUnitCommand(opts)
 
 	// paratest takes precedence over phpunit when parallel is requested
-	assert.Equal(t, paratestBin, cmdName)
+	AssertEqual(t, paratestBin, cmdName)
 }
 
-func TestBuildPHPUnitCommand_Good_CoverageDefault(t *testing.T) {
+func TestBuildPHPUnitCommand_Good_CoverageDefault(t *T) {
 	dir := t.TempDir()
 
 	opts := TestOptions{Dir: dir, Coverage: true}
 	_, args := buildPHPUnitCommand(opts)
 
-	assert.Contains(t, args, "--coverage-text")
+	AssertContains(t, args, "--coverage-text")
 }
 
-func TestBuildPHPUnitCommand_Good_CoverageHTML(t *testing.T) {
+func TestBuildPHPUnitCommand_Good_CoverageHTML(t *T) {
 	dir := t.TempDir()
 
 	opts := TestOptions{Dir: dir, Coverage: true, CoverageFormat: "html"}
 	_, args := buildPHPUnitCommand(opts)
 
-	assert.Contains(t, args, "--coverage-html")
-	assert.Contains(t, args, "coverage")
+	AssertContains(t, args, "--coverage-html")
+	AssertContains(t, args, "coverage")
 }
 
-func TestBuildPHPUnitCommand_Good_CoverageClover(t *testing.T) {
+func TestBuildPHPUnitCommand_Good_CoverageClover(t *T) {
 	dir := t.TempDir()
 
 	opts := TestOptions{Dir: dir, Coverage: true, CoverageFormat: "clover"}
 	_, args := buildPHPUnitCommand(opts)
 
-	assert.Contains(t, args, "--coverage-clover")
-	assert.Contains(t, args, "coverage.xml")
+	AssertContains(t, args, "--coverage-clover")
+	AssertContains(t, args, "coverage.xml")
 }
 
-func TestBuildPHPUnitCommand_Good_Groups(t *testing.T) {
+func TestBuildPHPUnitCommand_Good_Groups(t *T) {
 	dir := t.TempDir()
 
 	opts := TestOptions{Dir: dir, Groups: []string{"api", "slow"}}
@@ -275,23 +272,23 @@ func TestBuildPHPUnitCommand_Good_Groups(t *testing.T) {
 			groupCount++
 		}
 	}
-	assert.Equal(t, 2, groupCount)
-	assert.Contains(t, args, "api")
-	assert.Contains(t, args, "slow")
+	AssertEqual(t, 2, groupCount)
+	AssertContains(t, args, "api")
+	AssertContains(t, args, "slow")
 }
 
-func TestBuildPHPUnitCommand_Good_JUnit(t *testing.T) {
+func TestBuildPHPUnitCommand_Good_JUnit(t *T) {
 	dir := t.TempDir()
 
 	opts := TestOptions{Dir: dir, JUnit: true}
 	_, args := buildPHPUnitCommand(opts)
 
-	assert.Contains(t, args, "--log-junit")
-	assert.Contains(t, args, "test-results.xml")
-	assert.NotContains(t, args, "--testdox")
+	AssertContains(t, args, "--log-junit")
+	AssertContains(t, args, "test-results.xml")
+	AssertNotContains(t, args, "--testdox")
 }
 
-func TestBuildPHPUnitCommand_Good_AllFlags(t *testing.T) {
+func TestBuildPHPUnitCommand_Good_AllFlags(t *T) {
 	dir := t.TempDir()
 	mkFile(t, filepath.Join(dir, "vendor", "bin", "paratest"))
 
@@ -306,12 +303,12 @@ func TestBuildPHPUnitCommand_Good_AllFlags(t *testing.T) {
 	}
 	cmdName, args := buildPHPUnitCommand(opts)
 
-	assert.Equal(t, filepath.Join(dir, "vendor", "bin", "paratest"), cmdName)
-	assert.Contains(t, args, "--filter")
-	assert.Contains(t, args, "TestBar")
-	assert.Contains(t, args, "--coverage-html")
-	assert.Contains(t, args, "--group")
-	assert.Contains(t, args, "feature")
-	assert.Contains(t, args, "--log-junit")
-	assert.NotContains(t, args, "--testdox")
+	AssertEqual(t, filepath.Join(dir, "vendor", "bin", "paratest"), cmdName)
+	AssertContains(t, args, "--filter")
+	AssertContains(t, args, "TestBar")
+	AssertContains(t, args, "--coverage-html")
+	AssertContains(t, args, "--group")
+	AssertContains(t, args, "feature")
+	AssertContains(t, args, "--log-junit")
+	AssertNotContains(t, args, "--testdox")
 }

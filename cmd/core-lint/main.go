@@ -9,10 +9,10 @@ import (
 	"sort"
 	"strings"
 
+	core "dappco.re/go"
 	"dappco.re/go/cli/pkg/cli"
 	cataloglint "dappco.re/go/lint"
 	lintpkg "dappco.re/go/lint/pkg/lint"
-	coreerr "dappco.re/go/log"
 )
 
 func main() {
@@ -96,7 +96,7 @@ func newRunCommand(commandName string, summary string, defaults lintpkg.RunInput
 			return err
 		}
 		if !report.Summary.Passed {
-			return coreerr.E(
+			return core.E(
 				"cmd."+commandName,
 				fmt.Sprintf(
 					"lint failed (fail-on=%s): %d error(s), %d warning(s), %d info finding(s)",
@@ -144,7 +144,7 @@ func newDetectCommand(commandName string, summary string) *cli.Command {
 		case "json":
 			return writeIndentedJSON(command.OutOrStdout(), languages)
 		default:
-			return coreerr.E("cmd.detect", "unsupported output format "+output, nil)
+			return core.E("cmd.detect", "unsupported output format "+output, nil)
 		}
 	})
 
@@ -182,7 +182,7 @@ func newToolsCommand(commandName string, summary string) *cli.Command {
 		case "json":
 			return writeIndentedJSON(command.OutOrStdout(), tools)
 		default:
-			return coreerr.E("cmd.tools", "unsupported output format "+output, nil)
+			return core.E("cmd.tools", "unsupported output format "+output, nil)
 		}
 	})
 
@@ -258,7 +258,7 @@ func newCheckCommand() *cli.Command {
 	command := cli.NewCommand("check", "Scan files for pattern matches", "", func(command *cli.Command, args []string) error {
 		catalog, err := cataloglint.LoadEmbeddedCatalog()
 		if err != nil {
-			return coreerr.E("cmd.check", "loading catalog", err)
+			return core.E("cmd.check", "loading catalog", err)
 		}
 
 		rules := catalog.Rules
@@ -284,7 +284,7 @@ func newCheckCommand() *cli.Command {
 
 		scanner, err := lintpkg.NewScanner(rules)
 		if err != nil {
-			return coreerr.E("cmd.check", "creating scanner", err)
+			return core.E("cmd.check", "creating scanner", err)
 		}
 
 		paths := args
@@ -296,7 +296,7 @@ func newCheckCommand() *cli.Command {
 		for _, path := range paths {
 			info, err := os.Stat(path)
 			if err != nil {
-				return coreerr.E("cmd.check", "stat "+path, err)
+				return core.E("cmd.check", "stat "+path, err)
 			}
 
 			if info.IsDir() {
@@ -353,7 +353,7 @@ func newCatalogCommand() *cli.Command {
 	listCmd := cli.NewCommand("list", "List all rules in the catalog", "", func(command *cli.Command, args []string) error {
 		catalog, err := cataloglint.LoadEmbeddedCatalog()
 		if err != nil {
-			return coreerr.E("cmd.catalog.list", "loading catalog", err)
+			return core.E("cmd.catalog.list", "loading catalog", err)
 		}
 
 		rules := catalog.Rules
@@ -390,17 +390,17 @@ func newCatalogCommand() *cli.Command {
 
 	showCmd := cli.NewCommand("show", "Show details of a specific rule", "", func(command *cli.Command, args []string) error {
 		if len(args) == 0 {
-			return coreerr.E("cmd.catalog.show", "rule ID required", nil)
+			return core.E("cmd.catalog.show", "rule ID required", nil)
 		}
 
 		catalog, err := cataloglint.LoadEmbeddedCatalog()
 		if err != nil {
-			return coreerr.E("cmd.catalog.show", "loading catalog", err)
+			return core.E("cmd.catalog.show", "loading catalog", err)
 		}
 
 		rule := catalog.ByID(args[0])
 		if rule == nil {
-			return coreerr.E("cmd.catalog.show", "rule "+args[0]+" not found", nil)
+			return core.E("cmd.catalog.show", "rule "+args[0]+" not found", nil)
 		}
 
 		data, err := json.MarshalIndent(rule, "", "  ")
@@ -426,7 +426,7 @@ func writeReport(writer io.Writer, output string, report lintpkg.Report) error {
 	case "sarif":
 		return lintpkg.WriteReportSARIF(writer, report)
 	default:
-		return coreerr.E("writeReport", "unsupported output format "+output, nil)
+		return core.E("writeReport", "unsupported output format "+output, nil)
 	}
 }
 
