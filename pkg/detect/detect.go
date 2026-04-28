@@ -4,7 +4,7 @@ package detect
 import (
 	"path/filepath"
 
-	coreio "dappco.re/go/core/io"
+	coreio "dappco.re/go/io"
 )
 
 // ProjectType identifies a project's language/framework.

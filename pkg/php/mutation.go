@@ -8,7 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	coreerr "dappco.re/go/core/log"
+	coreerr "dappco.re/go/log"
 )
 
 // InfectionOptions configures Infection mutation testing.

@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	core "dappco.re/go/core"
-	coreerr "dappco.re/go/core/log"
+	core "dappco.re/go"
+	coreerr "dappco.re/go/log"
 )
 
 // Adapter wraps one lint tool and normalises its output to Finding values.

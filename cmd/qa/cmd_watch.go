@@ -18,9 +18,9 @@ import (
 	"strings"
 	"time"
 
-	"dappco.re/go/core/cli/pkg/cli"
-	"dappco.re/go/core/i18n"
-	"dappco.re/go/core/log"
+	"dappco.re/go/cli/pkg/cli"
+	"dappco.re/go/i18n"
+	"dappco.re/go/log"
 )
 
 // Watch command flags

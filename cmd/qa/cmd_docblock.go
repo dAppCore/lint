@@ -19,9 +19,9 @@ import (
 	"slices"
 	"strings"
 
-	"dappco.re/go/core/cli/pkg/cli"
-	"dappco.re/go/core/i18n"
-	coreio "dappco.re/go/core/io"
+	"dappco.re/go/cli/pkg/cli"
+	"dappco.re/go/i18n"
+	coreio "dappco.re/go/io"
 )
 
 // Docblock command flags

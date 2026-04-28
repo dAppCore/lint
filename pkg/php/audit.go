@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"slices"
 
-	coreerr "dappco.re/go/core/log"
+	coreerr "dappco.re/go/log"
 )
 
 // AuditOptions configures dependency security auditing.

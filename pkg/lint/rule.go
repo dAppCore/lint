@@ -4,8 +4,8 @@ import (
 	"regexp"
 	"slices"
 
-	core "dappco.re/go/core"
-	coreerr "dappco.re/go/core/log"
+	core "dappco.re/go"
+	coreerr "dappco.re/go/log"
 	"gopkg.in/yaml.v3"
 )
 

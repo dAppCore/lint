@@ -5,9 +5,9 @@ import (
 	"path/filepath" // Note: AX-6 — WalkDir and Rel do not have core equivalents.
 	"slices"
 
-	core "dappco.re/go/core"
-	coreio "dappco.re/go/core/io"
-	coreerr "dappco.re/go/core/log"
+	core "dappco.re/go"
+	coreio "dappco.re/go/io"
+	coreerr "dappco.re/go/log"
 )
 
 // extensionMap maps file extensions to language identifiers.

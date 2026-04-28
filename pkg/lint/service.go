@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	core "dappco.re/go/core"
-	coreio "dappco.re/go/core/io"
-	coreerr "dappco.re/go/core/log"
+	core "dappco.re/go"
+	coreio "dappco.re/go/io"
+	coreerr "dappco.re/go/log"
 )
 
 const (

@@ -14,10 +14,10 @@ import (
 	"sort"
 	"time"
 
-	core "dappco.re/go/core"
-	"dappco.re/go/core/cli/pkg/cli"
-	"dappco.re/go/core/i18n"
-	"dappco.re/go/core/log"
+	core "dappco.re/go"
+	"dappco.re/go/cli/pkg/cli"
+	"dappco.re/go/i18n"
+	"dappco.re/go/log"
 )
 
 // Review command flags

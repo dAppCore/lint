@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	coreio "dappco.re/go/core/io"
-	coreerr "dappco.re/go/core/log"
+	coreio "dappco.re/go/io"
+	coreerr "dappco.re/go/log"
 )
 
 // SecurityOptions configures security scanning.

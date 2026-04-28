@@ -13,6 +13,6 @@ tasks:
           output="$(mktemp)"
           run_capture_stdout 1 "$output" ./bin/core qa docblock --json --threshold 100 fixtures/src
           jq -e '(.passed == false) and (.coverage < .threshold)' "$output" >/dev/null
-          jq -e '(.missing | length == 1) and (.missing[0].name == "Beta")' "$output" >/dev/null
-          jq -e '(.warnings | length == 1) and (.warnings[0].path == "fixtures/src")' "$output" >/dev/null
+          jq -e '(.missing | length == 2) and (.missing[0].name == "Beta") and (.missing[1].name == "Broken")' "$output" >/dev/null
+          jq -e '(.warnings | length == 0)' "$output" >/dev/null
           EOF

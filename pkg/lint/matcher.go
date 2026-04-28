@@ -3,8 +3,8 @@ package lint
 import (
 	"regexp"
 
-	core "dappco.re/go/core"
-	coreerr "dappco.re/go/core/log"
+	core "dappco.re/go"
+	coreerr "dappco.re/go/log"
 )
 
 // Finding represents a single match of a rule against a source file.

@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"

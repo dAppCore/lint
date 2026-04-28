@@ -2,4 +2,4 @@
 
 package sample
 
-func Broken(
+func Broken() {}

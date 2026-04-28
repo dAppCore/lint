@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 
-	coreerr "dappco.re/go/core/log"
+	coreerr "dappco.re/go/log"
 )
 
 // VulnFinding represents a single vulnerability found by govulncheck.

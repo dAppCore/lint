@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	core "dappco.re/go/core"
-	coreerr "dappco.re/go/core/log"
+	core "dappco.re/go"
+	coreerr "dappco.re/go/log"
 )
 
 // ToolFinding represents a single issue found by an external tool (e.g. go vet).

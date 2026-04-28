@@ -9,10 +9,10 @@ import (
 	"sort"
 	"strings"
 
-	"dappco.re/go/core/cli/pkg/cli"
-	coreerr "dappco.re/go/core/log"
+	"dappco.re/go/cli/pkg/cli"
 	cataloglint "dappco.re/go/lint"
 	lintpkg "dappco.re/go/lint/pkg/lint"
+	coreerr "dappco.re/go/log"
 )
 
 func main() {

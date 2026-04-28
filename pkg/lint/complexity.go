@@ -7,9 +7,9 @@ import (
 	"os"
 	"path/filepath" // Note: AX-6 — Walk and SkipDir do not have core equivalents.
 
-	core "dappco.re/go/core"
-	coreio "dappco.re/go/core/io"
-	coreerr "dappco.re/go/core/log"
+	core "dappco.re/go"
+	coreio "dappco.re/go/io"
+	coreerr "dappco.re/go/log"
 )
 
 // ComplexityConfig controls cyclomatic complexity analysis.

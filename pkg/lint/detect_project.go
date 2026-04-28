@@ -4,7 +4,7 @@ import (
 	"os"
 	"slices"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 )
 
 var projectLanguageByExtension = map[string]string{

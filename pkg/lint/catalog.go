@@ -5,9 +5,9 @@ import (
 	"slices"
 	"strings" // Note: AX-6 — strings.Compare has no core equivalent.
 
-	core "dappco.re/go/core"
-	coreio "dappco.re/go/core/io"
-	coreerr "dappco.re/go/core/log"
+	core "dappco.re/go"
+	coreio "dappco.re/go/io"
+	coreerr "dappco.re/go/log"
 )
 
 // severityOrder maps severity names to numeric ranks for threshold comparison.

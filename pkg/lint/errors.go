@@ -4,7 +4,7 @@ import (
 	"io/fs"
 	"os"
 
-	core "dappco.re/go/core"
+	core "dappco.re/go"
 )
 
 // isNotExistError recognises missing-file errors from stdlib and core media.

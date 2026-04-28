@@ -189,4 +189,3 @@ func TestBuildPHPStanCommand_Good_WithPaths(t *testing.T) {
 	assert.Contains(t, args, "src")
 	assert.Contains(t, args, "app")
 }
-

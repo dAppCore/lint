@@ -1,7 +1,7 @@
 package main
 
 import (
-	"dappco.re/go/core/cli/pkg/cli"
+	"dappco.re/go/cli/pkg/cli"
 	_ "dappco.re/go/lint/cmd/qa"
 )
 

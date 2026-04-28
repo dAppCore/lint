@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"dappco.re/go/core/cli/pkg/cli"
+	"dappco.re/go/cli/pkg/cli"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

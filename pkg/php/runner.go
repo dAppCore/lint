@@ -3,7 +3,7 @@ package php
 import (
 	"path/filepath"
 
-	process "dappco.re/go/core/process"
+	process "dappco.re/go/process"
 )
 
 // QARunner builds process run specs for PHP QA checks.

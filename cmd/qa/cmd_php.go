@@ -20,7 +20,7 @@ import (
 	"sort"
 	"strings"
 
-	"dappco.re/go/core/cli/pkg/cli"
+	"dappco.re/go/cli/pkg/cli"
 	"dappco.re/go/lint/pkg/detect"
 	"dappco.re/go/lint/pkg/php"
 )
