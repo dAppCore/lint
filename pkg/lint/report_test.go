@@ -129,6 +129,7 @@ func TestWriteJSONL_Good_Empty(t *core.T) {
 func TestWriteJSONL_Bad_PropagatesWriterErrors(t *core.T) {
 	err := WriteJSONL(failingWriter{}, sampleFindings())
 	RequireError(t, err)
+	core.AssertContains(t, err.Error(), "write failed")
 }
 
 func TestWriteText_Good(t *core.T) {
@@ -175,6 +176,7 @@ func TestWriteReportGitHub_Good_MapsInfoToNotice(t *core.T) {
 func TestWriteText_Bad_PropagatesWriterErrors(t *core.T) {
 	err := WriteText(failingWriter{}, sampleFindings())
 	RequireError(t, err)
+	core.AssertContains(t, err.Error(), "write failed")
 }
 
 func TestWriteReportGitHub_Bad_PropagatesWriterErrors(t *core.T) {

@@ -42,10 +42,13 @@ func TestDetectLanguage_Good(t *core.T) {
 func TestDetectLanguage_Bad_UnknownExtension(t *core.T) {
 	core.AssertEqual(t, "", DetectLanguage("notes.txt"))
 	core.AssertEqual(t, "", DetectLanguage("README"))
+	core.AssertEqual(t, "", DetectLanguage(""))
 }
 
 func TestDetectLanguage_Ugly_DockerfileVariant(t *core.T) {
-	core.AssertEqual(t, "dockerfile", DetectLanguage("nested/Dockerfile.test"))
+	got := DetectLanguage("nested/Dockerfile.test")
+	core.AssertEqual(t, "dockerfile", got)
+	core.AssertNotEqual(t, "", got)
 }
 
 func TestScanDir_Good_FindsMatches(t *core.T) {

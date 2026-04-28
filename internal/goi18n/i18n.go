@@ -21,7 +21,7 @@ func RegisterLocales(fsys fs.FS, dir string) {
 	if dir == "" {
 		dir = "."
 	}
-	_ = fs.WalkDir(fsys, dir, func(file string, entry fs.DirEntry, err error) error {
+	if err := fs.WalkDir(fsys, dir, func(file string, entry fs.DirEntry, err error) error {
 		if err != nil || entry.IsDir() || path.Ext(file) != ".json" {
 			return nil
 		}
@@ -42,7 +42,9 @@ func RegisterLocales(fsys fs.FS, dir string) {
 		}
 		messagesMu.Unlock()
 		return nil
-	})
+	}); err != nil {
+		return
+	}
 }
 
 func T(messageID string, args ...any) string {

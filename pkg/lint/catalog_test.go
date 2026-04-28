@@ -59,8 +59,9 @@ func TestLoadDir_SortsFilesDeterministically(t *core.T) {
 }
 
 func TestLoadDir_Bad_NonexistentDir(t *core.T) {
-	_, err := LoadDir("/nonexistent/path/that/does/not/exist")
+	cat, err := LoadDir("/nonexistent/path/that/does/not/exist")
 	core.AssertError(t, err)
+	core.AssertNil(t, cat)
 }
 
 func TestLoadDir_Bad_EmptyDir(t *core.T) {

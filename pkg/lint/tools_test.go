@@ -41,6 +41,7 @@ func setupMockCmdExit(t *core.T, name, stdout, stderr string, exitCode int) {
 
 func TestNewToolkit(t *core.T) {
 	tk := NewToolkit("/tmp")
+	core.AssertNotNil(t, tk)
 	core.AssertEqual(t, "/tmp", tk.Dir)
 }
 

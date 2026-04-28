@@ -42,6 +42,7 @@ func TestDetectInfection_Bad_Empty(t *T) {
 	dir := t.TempDir()
 
 	AssertFalse(t, DetectInfection(dir))
+	AssertFalse(t, fileExists(filepath.Join(dir, "infection.json")))
 }
 
 // =============================================================================

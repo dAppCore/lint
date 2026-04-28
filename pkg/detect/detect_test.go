@@ -15,6 +15,7 @@ func TestIsGoProject_Good(t *T) {
 func TestIsGoProject_Bad(t *T) {
 	dir := t.TempDir()
 	AssertFalse(t, IsGoProject(dir))
+	AssertEmpty(t, DetectAll(dir))
 }
 
 func TestIsPHPProject_Good(t *T) {
@@ -26,6 +27,7 @@ func TestIsPHPProject_Good(t *T) {
 func TestIsPHPProject_Bad(t *T) {
 	dir := t.TempDir()
 	AssertFalse(t, IsPHPProject(dir))
+	AssertEmpty(t, DetectAll(dir))
 }
 
 func TestDetectAll_Good(t *T) {

@@ -66,12 +66,16 @@ func TestConfig_ResolveConfigPath_Good(t *core.T) {
 }
 
 func TestConfig_ResolveConfigPath_Bad(t *core.T) {
-	core.AssertEqual(t, core.CleanPath(filepath.Join(".core", "lint.yaml"), "/"), ResolveConfigPath("", ""))
+	path := ResolveConfigPath("", "")
+	core.AssertEqual(t, core.CleanPath(filepath.Join(".core", "lint.yaml"), "/"), path)
+	core.AssertContains(t, path, DefaultConfigPath)
 }
 
 func TestConfig_ResolveConfigPath_Ugly(t *core.T) {
 	absolute := filepath.Join(t.TempDir(), "nested", "lint.yaml")
-	core.AssertEqual(t, absolute, ResolveConfigPath(t.TempDir(), absolute))
+	path := ResolveConfigPath(t.TempDir(), absolute)
+	core.AssertEqual(t, absolute, path)
+	core.AssertContains(t, path, "lint.yaml")
 }
 
 func TestConfig_LoadProjectConfig_Good(t *core.T) {
@@ -132,12 +136,14 @@ func TestConfig_ResolveSchedule_Good(t *core.T) {
 }
 
 func TestConfig_ResolveSchedule_Bad(t *core.T) {
-	_, err := ResolveSchedule(DefaultConfig(), "missing")
+	schedule, err := ResolveSchedule(DefaultConfig(), "missing")
 	core.AssertError(t, err)
+	core.AssertNil(t, schedule)
 }
 
 func TestConfig_ResolveSchedule_Ugly(t *core.T) {
 	schedule, err := ResolveSchedule(DefaultConfig(), "")
 	core.RequireNoError(t, err)
 	core.AssertNil(t, schedule)
+	core.AssertEqual(t, (*Schedule)(nil), schedule)
 }

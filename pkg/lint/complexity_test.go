@@ -170,8 +170,9 @@ func TestAnalyseComplexity_InvalidPath(t *core.T) {
 }
 
 func TestAnalyseComplexitySource_ParseError(t *core.T) {
-	_, err := AnalyseComplexitySource("not valid go", "bad.go", 1)
+	results, err := AnalyseComplexitySource("not valid go", "bad.go", 1)
 	core.AssertError(t, err)
+	core.AssertNil(t, results)
 }
 
 func TestAnalyseComplexitySource_EmptyBody(t *core.T) {

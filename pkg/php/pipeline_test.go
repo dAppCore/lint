@@ -9,16 +9,19 @@ import (
 func TestGetQAStages_Default(t *T) {
 	stages := GetQAStages(QAOptions{})
 	AssertEqual(t, []QAStage{QAStageQuick, QAStageStandard}, stages)
+	AssertLen(t, stages, 2)
 }
 
 func TestGetQAStages_Quick(t *T) {
 	stages := GetQAStages(QAOptions{Quick: true})
 	AssertEqual(t, []QAStage{QAStageQuick}, stages)
+	AssertLen(t, stages, 1)
 }
 
 func TestGetQAStages_Full(t *T) {
 	stages := GetQAStages(QAOptions{Full: true})
 	AssertEqual(t, []QAStage{QAStageQuick, QAStageStandard, QAStageFull}, stages)
+	AssertLen(t, stages, 3)
 }
 
 func TestGetQAChecks_Quick(t *T) {
@@ -64,4 +67,5 @@ func TestGetQAChecks_Full_WithRectorAndInfection(t *T) {
 func TestGetQAChecks_InvalidStage(t *T) {
 	checks := GetQAChecks(t.TempDir(), QAStage("invalid"))
 	AssertNil(t, checks)
+	AssertNotEqual(t, []string{}, checks)
 }

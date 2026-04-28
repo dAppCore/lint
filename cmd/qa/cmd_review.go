@@ -357,8 +357,11 @@ func runReviewCommand(ctx context.Context, command string, args ...string) ([]by
 	select {
 	case waitResult = <-waitDone:
 	case <-ctx.Done():
-		_ = process.Kill()
+		killErr := process.Kill()
 		waitResult = <-waitDone
+		if killErr != nil && waitResult.err == nil {
+			waitResult.err = killErr
+		}
 	}
 
 	stdoutResult := <-stdoutDone

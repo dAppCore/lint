@@ -28,6 +28,7 @@ func TestDetectRector_Bad_Empty(t *T) {
 	dir := t.TempDir()
 
 	AssertFalse(t, DetectRector(dir))
+	AssertFalse(t, fileExists(filepath.Join(dir, "rector.php")))
 }
 
 // =============================================================================

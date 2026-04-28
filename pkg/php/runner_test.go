@@ -9,6 +9,7 @@ import (
 func TestNewQARunner(t *T) {
 	runner := NewQARunner("/tmp/test", false)
 	AssertNotNil(t, runner)
+	AssertEqual(t, "/tmp/test", runner.dir)
 }
 
 func TestBuildSpecs_Audit(t *T) {

@@ -8,5 +8,5 @@ func (service) Process(string) error { return nil }
 
 func Run() {
 	svc := service{}
-	_ = svc.Process("data")
+	var _ = svc.Process("data")
 }

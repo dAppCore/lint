@@ -61,6 +61,7 @@ func TestParseRules_Bad_EmptyInput(t *core.T) {
 func TestValidate_Good(t *core.T) {
 	r := validRule()
 	core.AssertNoError(t, r.Validate())
+	core.AssertEqual(t, "go-sec-001", r.ID)
 }
 
 func TestValidate_Good_WithExcludePattern(t *core.T) {

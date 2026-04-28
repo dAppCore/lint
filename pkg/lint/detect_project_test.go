@@ -71,7 +71,9 @@ func TestDetectFromFiles_Good(t *core.T) {
 }
 
 func TestDetect_Bad_MissingPathReturnsEmptySlice(t *core.T) {
-	core.AssertEqual(t, []string{}, Detect(filepath.Join(t.TempDir(), "missing")))
+	got := Detect(filepath.Join(t.TempDir(), "missing"))
+	core.AssertEqual(t, []string{}, got)
+	core.AssertNotNil(t, got)
 }
 
 func TestDetect_Good_SkipsHiddenRootDirectory(t *core.T) {

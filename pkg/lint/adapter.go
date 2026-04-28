@@ -1010,7 +1010,7 @@ const defaultCatalogRulesYAML = `
   severity: medium
   languages: [go]
   tags: [correctness, errors]
-  pattern: '^\s*_\s*=\s*\w+\.\w+\('
+  pattern: '^\s*(var\s+)?_\s*=\s*\w+\.\w+\('
   exclude_pattern: 'defer|Close\(|Flush\('
   fix: "Handle the error explicitly — log it, return it, or document why it is safe to discard"
   detection: regex

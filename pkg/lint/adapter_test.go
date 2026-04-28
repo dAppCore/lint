@@ -295,7 +295,9 @@ func TestAdapter_ParseTextDiagnostics_Good(t *core.T) {
 }
 
 func TestAdapter_ParseTextDiagnostics_Bad(t *core.T) {
-	core.AssertEmpty(t, parseTextDiagnostics("eslint", "security", ""))
+	findings := parseTextDiagnostics("eslint", "security", "")
+	core.AssertEmpty(t, findings)
+	core.AssertNil(t, findings)
 }
 
 func TestAdapter_ParseTextDiagnostics_Ugly(t *core.T) {
@@ -323,7 +325,9 @@ func TestAdapter_ParseGovulncheckDiagnostics_Good(t *core.T) {
 }
 
 func TestAdapter_ParseGovulncheckDiagnostics_Bad(t *core.T) {
-	core.AssertEmpty(t, parseGovulncheckDiagnostics("govulncheck", "security", "not json"))
+	findings := parseGovulncheckDiagnostics("govulncheck", "security", "not json")
+	core.AssertEmpty(t, findings)
+	core.AssertNil(t, findings)
 }
 
 func TestAdapter_CatalogAdapter_Good(t *core.T) {
