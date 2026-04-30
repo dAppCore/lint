@@ -395,7 +395,7 @@ func printPHPSecurityJSON(payload any, summary php.SecuritySummary) error {
 	return failOnBlockingSecurity(summary)
 }
 
-func printPHPSecurityText(result php.SecurityResult) {
+func printPHPSecurityText(result *php.SecurityResult) {
 	for _, check := range result.Checks {
 		printPHPSecurityCheck(check)
 	}
