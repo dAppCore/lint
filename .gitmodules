@@ -1,0 +1,20 @@
+[submodule "external/go"]
+	path = external/go
+	url = https://github.com/dappcore/go.git
+	branch = dev
+[submodule "external/cli"]
+	path = external/cli
+	url = https://github.com/dappcore/cli.git
+	branch = dev
+[submodule "external/go-i18n"]
+	path = external/go-i18n
+	url = https://github.com/dappcore/go-i18n.git
+	branch = dev
+[submodule "external/go-io"]
+	path = external/go-io
+	url = https://github.com/dappcore/go-io.git
+	branch = dev
+[submodule "external/go-scm"]
+	path = external/go-scm
+	url = https://github.com/dappcore/go-scm.git
+	branch = dev

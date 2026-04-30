@@ -1,3 +1,0 @@
-#!/usr/bin/env sh
-
-printf '%s\n' '{"tool":"pint","changed":true,"files":[{"path":"src/Bad.php","fixed":1}]}'
