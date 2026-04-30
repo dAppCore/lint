@@ -202,40 +202,56 @@ func (t *Toolkit) AuditDeps() ([]Vulnerability, error) {
 	inBlock := false
 
 	for scanner.Scan() {
-		line := scanner.Text()
-		if strings.HasPrefix(line, "Vulnerability #") {
-			if cur.ID != "" {
-				vulns = append(vulns, cur)
-			}
-			fields := strings.Fields(line)
-			cur = Vulnerability{}
-			if len(fields) > 1 {
-				cur.ID = fields[1]
-			}
-			inBlock = true
-		} else if inBlock {
-			switch {
-			case strings.Contains(line, "Package:"):
-				cur.Package = strings.TrimSpace(strings.SplitN(line, ":", 2)[1])
-			case strings.Contains(line, "Found in version:"):
-				cur.Version = strings.TrimSpace(strings.SplitN(line, ":", 2)[1])
-			case line == "":
-				if cur.ID != "" {
-					vulns = append(vulns, cur)
-					cur = Vulnerability{}
-				}
-				inBlock = false
-			default:
-				if !strings.HasPrefix(line, "  ") && cur.Description == "" {
-					cur.Description = strings.TrimSpace(line)
-				}
-			}
-		}
+		parseVulnerabilityLine(scanner.Text(), &cur, &inBlock, &vulns)
 	}
 	if cur.ID != "" {
 		vulns = append(vulns, cur)
 	}
 	return vulns, nil
+}
+
+func parseVulnerabilityLine(line string, cur *Vulnerability, inBlock *bool, vulns *[]Vulnerability) {
+	if strings.HasPrefix(line, "Vulnerability #") {
+		startVulnerability(line, cur, inBlock, vulns)
+		return
+	}
+	if !*inBlock {
+		return
+	}
+	switch {
+	case strings.Contains(line, "Package:"):
+		cur.Package = vulnerabilityFieldValue(line)
+	case strings.Contains(line, "Found in version:"):
+		cur.Version = vulnerabilityFieldValue(line)
+	case line == "":
+		finishVulnerability(cur, inBlock, vulns)
+	case !strings.HasPrefix(line, "  ") && cur.Description == "":
+		cur.Description = strings.TrimSpace(line)
+	}
+}
+
+func startVulnerability(line string, cur *Vulnerability, inBlock *bool, vulns *[]Vulnerability) {
+	if cur.ID != "" {
+		*vulns = append(*vulns, *cur)
+	}
+	fields := strings.Fields(line)
+	*cur = Vulnerability{}
+	if len(fields) > 1 {
+		cur.ID = fields[1]
+	}
+	*inBlock = true
+}
+
+func vulnerabilityFieldValue(line string) string {
+	return strings.TrimSpace(strings.SplitN(line, ":", 2)[1])
+}
+
+func finishVulnerability(cur *Vulnerability, inBlock *bool, vulns *[]Vulnerability) {
+	if cur.ID != "" {
+		*vulns = append(*vulns, *cur)
+		*cur = Vulnerability{}
+	}
+	*inBlock = false
 }
 
 // DiffStat returns a summary of uncommitted changes.

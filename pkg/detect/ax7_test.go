@@ -7,9 +7,15 @@ import (
 	. "dappco.re/go"
 )
 
+const (
+	ax7TestComposerJsonbc9ada      = "composer.json"
+	ax7TestGoMod4aab4b             = "go.mod"
+	ax7TestModuleExampleTest359e6a = "module example.test\n"
+)
+
 func TestDetect_IsGoProject_Good(t *T) {
 	dir := t.TempDir()
-	RequireNoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.test\n"), 0o644))
+	RequireNoError(t, os.WriteFile(filepath.Join(dir, ax7TestGoMod4aab4b), []byte(ax7TestModuleExampleTest359e6a), 0o644))
 	got := IsGoProject(dir)
 	AssertTrue(t, got)
 	AssertEqual(t, []ProjectType{Go}, DetectAll(dir))
@@ -23,8 +29,8 @@ func TestDetect_IsGoProject_Bad(t *T) {
 }
 
 func TestDetect_IsGoProject_Ugly(t *T) {
-	file := filepath.Join(t.TempDir(), "go.mod")
-	RequireNoError(t, os.WriteFile(file, []byte("module example.test\n"), 0o644))
+	file := filepath.Join(t.TempDir(), ax7TestGoMod4aab4b)
+	RequireNoError(t, os.WriteFile(file, []byte(ax7TestModuleExampleTest359e6a), 0o644))
 	got := IsGoProject(file)
 	AssertTrue(t, got)
 	AssertTrue(t, filepath.IsAbs(file))
@@ -32,7 +38,7 @@ func TestDetect_IsGoProject_Ugly(t *T) {
 
 func TestDetect_IsPHPProject_Good(t *T) {
 	dir := t.TempDir()
-	RequireNoError(t, os.WriteFile(filepath.Join(dir, "composer.json"), []byte(`{}`), 0o644))
+	RequireNoError(t, os.WriteFile(filepath.Join(dir, ax7TestComposerJsonbc9ada), []byte(`{}`), 0o644))
 	got := IsPHPProject(dir)
 	AssertTrue(t, got)
 	AssertEqual(t, []ProjectType{PHP}, DetectAll(dir))
@@ -46,7 +52,7 @@ func TestDetect_IsPHPProject_Bad(t *T) {
 }
 
 func TestDetect_IsPHPProject_Ugly(t *T) {
-	file := filepath.Join(t.TempDir(), "composer.json")
+	file := filepath.Join(t.TempDir(), ax7TestComposerJsonbc9ada)
 	RequireNoError(t, os.WriteFile(file, []byte(`{}`), 0o644))
 	got := IsPHPProject(file)
 	AssertTrue(t, got)
@@ -55,8 +61,8 @@ func TestDetect_IsPHPProject_Ugly(t *T) {
 
 func TestDetect_DetectAll_Good(t *T) {
 	dir := t.TempDir()
-	RequireNoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.test\n"), 0o644))
-	RequireNoError(t, os.WriteFile(filepath.Join(dir, "composer.json"), []byte(`{}`), 0o644))
+	RequireNoError(t, os.WriteFile(filepath.Join(dir, ax7TestGoMod4aab4b), []byte(ax7TestModuleExampleTest359e6a), 0o644))
+	RequireNoError(t, os.WriteFile(filepath.Join(dir, ax7TestComposerJsonbc9ada), []byte(`{}`), 0o644))
 	got := DetectAll(dir)
 	AssertEqual(t, []ProjectType{Go, PHP}, got)
 	AssertLen(t, got, 2)
@@ -71,7 +77,7 @@ func TestDetect_DetectAll_Bad(t *T) {
 
 func TestDetect_DetectAll_Ugly(t *T) {
 	dir := t.TempDir()
-	RequireNoError(t, os.WriteFile(filepath.Join(dir, "composer.json"), []byte(`{}`), 0o644))
+	RequireNoError(t, os.WriteFile(filepath.Join(dir, ax7TestComposerJsonbc9ada), []byte(`{}`), 0o644))
 	got := DetectAll(dir)
 	AssertEqual(t, []ProjectType{PHP}, got)
 	AssertFalse(t, IsGoProject(dir))

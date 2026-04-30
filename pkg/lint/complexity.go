@@ -37,48 +37,37 @@ func DefaultComplexityConfig() ComplexityConfig {
 // AnalyseComplexity walks Go source files and returns functions exceeding the
 // configured complexity threshold. Uses native go/ast parsing — no external tools.
 func AnalyseComplexity(cfg ComplexityConfig) ([]ComplexityResult, error) {
+	cfg = normaliseComplexityConfig(cfg)
+	info, err := coreio.Local.Stat(cfg.Path)
+	if err != nil {
+		return nil, core.E("AnalyseComplexity", "stat "+cfg.Path, err)
+	}
+	if !info.IsDir() {
+		return analyseFile(cfg.Path, cfg.Threshold)
+	}
+	return analyseComplexityDir(cfg)
+}
+
+func normaliseComplexityConfig(cfg ComplexityConfig) ComplexityConfig {
 	if cfg.Threshold <= 0 {
 		cfg.Threshold = 15
 	}
 	if cfg.Path == "" {
 		cfg.Path = "."
 	}
+	return cfg
+}
 
+func analyseComplexityDir(cfg ComplexityConfig) ([]ComplexityResult, error) {
 	var results []ComplexityResult
-
-	info, err := coreio.Local.Stat(cfg.Path)
-	if err != nil {
-		return nil, core.E("AnalyseComplexity", "stat "+cfg.Path, err)
-	}
-
-	if !info.IsDir() {
-		fileResults, err := analyseFile(cfg.Path, cfg.Threshold)
-		if err != nil {
-			return nil, err
-		}
-		results = append(results, fileResults...)
-		return results, nil
-	}
-
-	err = filepath.Walk(cfg.Path, func(path string, fi os.FileInfo, err error) error {
+	err := filepath.Walk(cfg.Path, func(path string, fi os.FileInfo, err error) error {
 		if err != nil {
 			return nil
 		}
-		if fi.IsDir() {
-			name := fi.Name()
-			if name == "vendor" || core.HasPrefix(name, ".") {
-				return filepath.SkipDir
-			}
-			return nil
+		if skip, err := shouldSkipComplexityPath(path, fi); skip || err != nil {
+			return err
 		}
-		if !core.HasSuffix(path, ".go") || core.HasSuffix(path, "_test.go") {
-			return nil
-		}
-		fileResults, err := analyseFile(path, cfg.Threshold)
-		if err != nil {
-			return nil // Skip files that fail to parse
-		}
-		results = append(results, fileResults...)
+		results = append(results, analyseComplexityFile(path, cfg.Threshold)...)
 		return nil
 	})
 	if err != nil {
@@ -86,6 +75,25 @@ func AnalyseComplexity(cfg ComplexityConfig) ([]ComplexityResult, error) {
 	}
 
 	return results, nil
+}
+
+func shouldSkipComplexityPath(path string, fi os.FileInfo) (bool, error) {
+	if fi.IsDir() {
+		name := fi.Name()
+		if name == "vendor" || core.HasPrefix(name, ".") {
+			return true, filepath.SkipDir
+		}
+		return true, nil
+	}
+	return !core.HasSuffix(path, ".go") || core.HasSuffix(path, "_test.go"), nil
+}
+
+func analyseComplexityFile(path string, threshold int) []ComplexityResult {
+	fileResults, err := analyseFile(path, threshold)
+	if err != nil {
+		return nil
+	}
+	return fileResults
 }
 
 // AnalyseComplexitySource parses Go source code from a string and returns

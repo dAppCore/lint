@@ -99,23 +99,33 @@ func (t *Toolkit) VulnCheck(modulePath string) (*VulnResult, error) {
 // ParseVulnCheckJSON parses govulncheck -json output (newline-delimited JSON messages).
 func ParseVulnCheckJSON(stdout, stderr string) (*VulnResult, error) {
 	result := &VulnResult{}
+	module, osvMap, findings, err := parseGovulnMessages(stdout)
+	if err != nil {
+		return nil, err
+	}
+	result.Module = module
 
+	for _, f := range findings {
+		result.Findings = append(result.Findings, vulnFindingFromGovuln(f, osvMap))
+	}
+
+	return result, nil
+}
+
+func parseGovulnMessages(stdout string) (string, map[string]*govulncheckOSV, []govulncheckFind, error) {
 	osvMap := make(map[string]*govulncheckOSV)
 	var findings []govulncheckFind
-
+	var module string
 	for line := range strings.SplitSeq(stdout, "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" {
+		msg, ok, err := parseGovulnMessageLine(line)
+		if err != nil {
+			return "", nil, nil, err
+		}
+		if !ok {
 			continue
 		}
-
-		var msg govulncheckMessage
-		if err := json.Unmarshal([]byte(line), &msg); err != nil {
-			return nil, core.E("ParseVulnCheckJSON", "invalid govulncheck JSON output", err)
-		}
-
 		if msg.Config != nil {
-			result.Module = msg.Config.ModulePath
+			module = msg.Config.ModulePath
 		}
 		if msg.OSV != nil {
 			osvMap[msg.OSV.ID] = msg.OSV
@@ -124,43 +134,67 @@ func ParseVulnCheckJSON(stdout, stderr string) (*VulnResult, error) {
 			findings = append(findings, *msg.Finding)
 		}
 	}
+	return module, osvMap, findings, nil
+}
 
-	for _, f := range findings {
-		finding := VulnFinding{
-			ID: f.OSV,
-		}
-
-		if len(f.Trace) > 0 {
-			last := f.Trace[len(f.Trace)-1]
-			finding.Package = last.Package
-			finding.CalledFunction = last.Function
-			finding.ModulePath = last.Module
-
-			for _, tr := range f.Trace {
-				if tr.Version != "" {
-					finding.FixedVersion = tr.Version
-					break
-				}
-			}
-		}
-
-		if osv, ok := osvMap[f.OSV]; ok {
-			finding.Description = osv.Summary
-			finding.Aliases = osv.Aliases
-
-			for _, aff := range osv.Affected {
-				for _, r := range aff.Ranges {
-					for _, ev := range r.Events {
-						if ev.Fixed != "" && finding.FixedVersion == "" {
-							finding.FixedVersion = ev.Fixed
-						}
-					}
-				}
-			}
-		}
-
-		result.Findings = append(result.Findings, finding)
+func parseGovulnMessageLine(line string) (govulncheckMessage, bool, error) {
+	line = strings.TrimSpace(line)
+	if line == "" {
+		return govulncheckMessage{}, false, nil
 	}
+	var msg govulncheckMessage
+	if err := json.Unmarshal([]byte(line), &msg); err != nil {
+		return govulncheckMessage{}, false, core.E("ParseVulnCheckJSON", "invalid govulncheck JSON output", err)
+	}
+	return msg, true, nil
+}
 
-	return result, nil
+func vulnFindingFromGovuln(f govulncheckFind, osvMap map[string]*govulncheckOSV) VulnFinding {
+	finding := VulnFinding{ID: f.OSV}
+	applyGovulnTrace(&finding, f.Trace)
+	if osv, ok := osvMap[f.OSV]; ok {
+		applyGovulnOSV(&finding, osv)
+	}
+	return finding
+}
+
+func applyGovulnTrace(finding *VulnFinding, trace []govulncheckTrace) {
+	if len(trace) == 0 {
+		return
+	}
+	last := trace[len(trace)-1]
+	finding.Package = last.Package
+	finding.CalledFunction = last.Function
+	finding.ModulePath = last.Module
+	finding.FixedVersion = firstTraceFixedVersion(trace)
+}
+
+func firstTraceFixedVersion(trace []govulncheckTrace) string {
+	for _, tr := range trace {
+		if tr.Version != "" {
+			return tr.Version
+		}
+	}
+	return ""
+}
+
+func applyGovulnOSV(finding *VulnFinding, osv *govulncheckOSV) {
+	finding.Description = osv.Summary
+	finding.Aliases = osv.Aliases
+	if finding.FixedVersion == "" {
+		finding.FixedVersion = firstOSVFixedVersion(osv)
+	}
+}
+
+func firstOSVFixedVersion(osv *govulncheckOSV) string {
+	for _, aff := range osv.Affected {
+		for _, r := range aff.Ranges {
+			for _, ev := range r.Events {
+				if ev.Fixed != "" {
+					return ev.Fixed
+				}
+			}
+		}
+	}
+	return ""
 }

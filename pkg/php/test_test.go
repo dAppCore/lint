@@ -6,6 +6,14 @@ import (
 	"path/filepath"
 )
 
+const (
+	testTestCoverageClover2083f2 = "--coverage-clover"
+	testTestCoverageHtml06c6e2   = "--coverage-html"
+	testTestFilter946eb5         = "--filter"
+	testTestGroup389856          = "--group"
+	testTestLogJunit792b50       = "--log-junit"
+)
+
 // =============================================================================
 // DetectTestRunner
 // =============================================================================
@@ -69,7 +77,7 @@ func TestBuildPestCommand_Good_Filter(t *T) {
 	opts := TestOptions{Dir: dir, Filter: "TestLogin"}
 	_, args := buildPestCommand(opts)
 
-	AssertContains(t, args, "--filter")
+	AssertContains(t, args, testTestFilter946eb5)
 	AssertContains(t, args, "TestLogin")
 }
 
@@ -97,7 +105,7 @@ func TestBuildPestCommand_Good_CoverageHTML(t *T) {
 	opts := TestOptions{Dir: dir, Coverage: true, CoverageFormat: "html"}
 	_, args := buildPestCommand(opts)
 
-	AssertContains(t, args, "--coverage-html")
+	AssertContains(t, args, testTestCoverageHtml06c6e2)
 	AssertContains(t, args, "coverage")
 }
 
@@ -107,7 +115,7 @@ func TestBuildPestCommand_Good_CoverageClover(t *T) {
 	opts := TestOptions{Dir: dir, Coverage: true, CoverageFormat: "clover"}
 	_, args := buildPestCommand(opts)
 
-	AssertContains(t, args, "--coverage-clover")
+	AssertContains(t, args, testTestCoverageClover2083f2)
 	AssertContains(t, args, "coverage.xml")
 }
 
@@ -120,7 +128,7 @@ func TestBuildPestCommand_Good_Groups(t *T) {
 	// Should have --group unit --group integration
 	groupCount := 0
 	for _, a := range args {
-		if a == "--group" {
+		if a == testTestGroup389856 {
 			groupCount++
 		}
 	}
@@ -135,7 +143,7 @@ func TestBuildPestCommand_Good_JUnit(t *T) {
 	opts := TestOptions{Dir: dir, JUnit: true}
 	_, args := buildPestCommand(opts)
 
-	AssertContains(t, args, "--log-junit")
+	AssertContains(t, args, testTestLogJunit792b50)
 	AssertContains(t, args, "test-results.xml")
 }
 
@@ -153,13 +161,13 @@ func TestBuildPestCommand_Good_AllFlags(t *T) {
 	}
 	_, args := buildPestCommand(opts)
 
-	AssertContains(t, args, "--filter")
+	AssertContains(t, args, testTestFilter946eb5)
 	AssertContains(t, args, "TestFoo")
 	AssertContains(t, args, "--parallel")
-	AssertContains(t, args, "--coverage-clover")
-	AssertContains(t, args, "--group")
+	AssertContains(t, args, testTestCoverageClover2083f2)
+	AssertContains(t, args, testTestGroup389856)
 	AssertContains(t, args, "smoke")
-	AssertContains(t, args, "--log-junit")
+	AssertContains(t, args, testTestLogJunit792b50)
 }
 
 // =============================================================================
@@ -193,7 +201,7 @@ func TestBuildPHPUnitCommand_Good_Filter(t *T) {
 	opts := TestOptions{Dir: dir, Filter: "TestCheckout"}
 	_, args := buildPHPUnitCommand(opts)
 
-	AssertContains(t, args, "--filter")
+	AssertContains(t, args, testTestFilter946eb5)
 	AssertContains(t, args, "TestCheckout")
 }
 
@@ -246,7 +254,7 @@ func TestBuildPHPUnitCommand_Good_CoverageHTML(t *T) {
 	opts := TestOptions{Dir: dir, Coverage: true, CoverageFormat: "html"}
 	_, args := buildPHPUnitCommand(opts)
 
-	AssertContains(t, args, "--coverage-html")
+	AssertContains(t, args, testTestCoverageHtml06c6e2)
 	AssertContains(t, args, "coverage")
 }
 
@@ -256,7 +264,7 @@ func TestBuildPHPUnitCommand_Good_CoverageClover(t *T) {
 	opts := TestOptions{Dir: dir, Coverage: true, CoverageFormat: "clover"}
 	_, args := buildPHPUnitCommand(opts)
 
-	AssertContains(t, args, "--coverage-clover")
+	AssertContains(t, args, testTestCoverageClover2083f2)
 	AssertContains(t, args, "coverage.xml")
 }
 
@@ -268,7 +276,7 @@ func TestBuildPHPUnitCommand_Good_Groups(t *T) {
 
 	groupCount := 0
 	for _, a := range args {
-		if a == "--group" {
+		if a == testTestGroup389856 {
 			groupCount++
 		}
 	}
@@ -283,7 +291,7 @@ func TestBuildPHPUnitCommand_Good_JUnit(t *T) {
 	opts := TestOptions{Dir: dir, JUnit: true}
 	_, args := buildPHPUnitCommand(opts)
 
-	AssertContains(t, args, "--log-junit")
+	AssertContains(t, args, testTestLogJunit792b50)
 	AssertContains(t, args, "test-results.xml")
 	AssertNotContains(t, args, "--testdox")
 }
@@ -304,11 +312,11 @@ func TestBuildPHPUnitCommand_Good_AllFlags(t *T) {
 	cmdName, args := buildPHPUnitCommand(opts)
 
 	AssertEqual(t, filepath.Join(dir, "vendor", "bin", "paratest"), cmdName)
-	AssertContains(t, args, "--filter")
+	AssertContains(t, args, testTestFilter946eb5)
 	AssertContains(t, args, "TestBar")
-	AssertContains(t, args, "--coverage-html")
-	AssertContains(t, args, "--group")
+	AssertContains(t, args, testTestCoverageHtml06c6e2)
+	AssertContains(t, args, testTestGroup389856)
 	AssertContains(t, args, "feature")
-	AssertContains(t, args, "--log-junit")
+	AssertContains(t, args, testTestLogJunit792b50)
 	AssertNotContains(t, args, "--testdox")
 }

@@ -247,78 +247,96 @@ func runHTTPSecurityHeaderChecks(ctx context.Context, rawURL string) []SecurityC
 }
 
 func runEnvSecurityChecks(dir string) []SecurityCheck {
-	var checks []SecurityCheck
-
-	envPath := filepath.Join(dir, ".env")
-	envContent, err := coreio.Local.Read(envPath)
+	envMap, err := readEnvMap(filepath.Join(dir, ".env"))
 	if err != nil {
-		return checks
+		return nil
 	}
-	envLines := strings.Split(envContent, "\n")
+	return envSecurityChecks(envMap)
+}
+
+func readEnvMap(path string) (map[string]string, error) {
+	envContent, err := coreio.Local.Read(path)
+	if err != nil {
+		return nil, err
+	}
 	envMap := make(map[string]string)
-	for _, line := range envLines {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		parts := strings.SplitN(line, "=", 2)
-		if len(parts) == 2 {
-			envMap[parts[0]] = parts[1]
-		}
+	for _, line := range strings.Split(envContent, "\n") {
+		addEnvLine(envMap, line)
 	}
+	return envMap, nil
+}
 
-	// Check APP_DEBUG
+func addEnvLine(envMap map[string]string, line string) {
+	line = strings.TrimSpace(line)
+	if line == "" || strings.HasPrefix(line, "#") {
+		return
+	}
+	parts := strings.SplitN(line, "=", 2)
+	if len(parts) == 2 {
+		envMap[parts[0]] = parts[1]
+	}
+}
+
+func envSecurityChecks(envMap map[string]string) []SecurityCheck {
+	var checks []SecurityCheck
 	if debug, ok := envMap["APP_DEBUG"]; ok {
-		check := SecurityCheck{
-			ID:          "debug_mode",
-			Name:        "Debug Mode Disabled",
-			Description: "APP_DEBUG should be false in production",
-			Severity:    "critical",
-			Passed:      strings.ToLower(debug) != "true",
-			CWE:         "CWE-215",
-		}
-		if !check.Passed {
-			check.Message = "Debug mode exposes sensitive information"
-			check.Fix = "Set APP_DEBUG=false in .env"
-		}
-		checks = append(checks, check)
+		checks = append(checks, appDebugCheck(debug))
 	}
-
-	// Check APP_KEY
 	if key, ok := envMap["APP_KEY"]; ok {
-		check := SecurityCheck{
-			ID:          "app_key_set",
-			Name:        "Application Key Set",
-			Description: "APP_KEY must be set and valid",
-			Severity:    "critical",
-			Passed:      len(key) >= 32,
-			CWE:         "CWE-321",
-		}
-		if !check.Passed {
-			check.Message = "Missing or weak encryption key"
-			check.Fix = "Run: php artisan key:generate"
-		}
-		checks = append(checks, check)
+		checks = append(checks, appKeyCheck(key))
 	}
-
-	// Check APP_URL for HTTPS
 	if url, ok := envMap["APP_URL"]; ok {
-		check := SecurityCheck{
-			ID:          "https_enforced",
-			Name:        "HTTPS Enforced",
-			Description: "APP_URL should use HTTPS in production",
-			Severity:    "high",
-			Passed:      strings.HasPrefix(url, "https://"),
-			CWE:         "CWE-319",
-		}
-		if !check.Passed {
-			check.Message = "Application not using HTTPS"
-			check.Fix = "Update APP_URL to use https://"
-		}
-		checks = append(checks, check)
+		checks = append(checks, appURLCheck(url))
 	}
-
 	return checks
+}
+
+func appDebugCheck(debug string) SecurityCheck {
+	check := SecurityCheck{
+		ID:          "debug_mode",
+		Name:        "Debug Mode Disabled",
+		Description: "APP_DEBUG should be false in production",
+		Severity:    "critical",
+		Passed:      strings.ToLower(debug) != "true",
+		CWE:         "CWE-215",
+	}
+	if !check.Passed {
+		check.Message = "Debug mode exposes sensitive information"
+		check.Fix = "Set APP_DEBUG=false in .env"
+	}
+	return check
+}
+
+func appKeyCheck(key string) SecurityCheck {
+	check := SecurityCheck{
+		ID:          "app_key_set",
+		Name:        "Application Key Set",
+		Description: "APP_KEY must be set and valid",
+		Severity:    "critical",
+		Passed:      len(key) >= 32,
+		CWE:         "CWE-321",
+	}
+	if !check.Passed {
+		check.Message = "Missing or weak encryption key"
+		check.Fix = "Run: php artisan key:generate"
+	}
+	return check
+}
+
+func appURLCheck(url string) SecurityCheck {
+	check := SecurityCheck{
+		ID:          "https_enforced",
+		Name:        "HTTPS Enforced",
+		Description: "APP_URL should use HTTPS in production",
+		Severity:    "high",
+		Passed:      strings.HasPrefix(url, "https://"),
+		CWE:         "CWE-319",
+	}
+	if !check.Passed {
+		check.Message = "Application not using HTTPS"
+		check.Fix = "Update APP_URL to use https://"
+	}
+	return check
 }
 
 func runFilesystemSecurityChecks(dir string) []SecurityCheck {

@@ -13,6 +13,16 @@ import (
 )
 
 const (
+	adapterTestDemoTool3611d0        = "demo-tool"
+	adapterTestInputGo4114eb         = "input.go"
+	adapterTestJsonTool193d87        = "json-tool"
+	adapterTestMissingToola4d8ef     = "missing-tool"
+	adapterTestMixedOutputToold46707 = "mixed-output-tool"
+	adapterTestParseError4a81f1      = "parse-error"
+	adapterTestSlowTool2ca3a7        = "slow-tool"
+)
+
+const (
 	adapterTestCommandEnv = "LINT_ADAPTER_TEST_COMMAND"
 	adapterTestProcessEnv = "LINT_ADAPTER_TEST_PROCESS"
 )
@@ -26,12 +36,12 @@ func TestMain(m *M) {
 
 func TestAdapter_CommandAdapter_Good(t *core.T) {
 	binDir := t.TempDir()
-	installTestCommand(t, binDir, "demo-tool")
+	installTestCommand(t, binDir, adapterTestDemoTool3611d0)
 	prependPath(t, binDir)
 
 	adapter := newCommandAdapter(
-		"demo-tool",
-		[]string{"demo-tool"},
+		adapterTestDemoTool3611d0,
+		[]string{adapterTestDemoTool3611d0},
 		[]string{"go"},
 		"security",
 		"lint.security",
@@ -44,9 +54,9 @@ func TestAdapter_CommandAdapter_Good(t *core.T) {
 	).(CommandAdapter)
 
 	langs := adapter.Languages()
-	core.AssertEqual(t, "demo-tool", adapter.Name())
+	core.AssertEqual(t, adapterTestDemoTool3611d0, adapter.Name())
 	core.AssertTrue(t, adapter.Available())
-	core.AssertEqual(t, "demo-tool", adapter.Command())
+	core.AssertEqual(t, adapterTestDemoTool3611d0, adapter.Command())
 	core.AssertEqual(t, "lint.security", adapter.Entitlement())
 	core.AssertTrue(t, adapter.RequiresEntitlement())
 	core.AssertTrue(t, adapter.MatchesLanguage([]string{"go"}))
@@ -69,8 +79,8 @@ func TestAdapter_CommandAdapter_Good(t *core.T) {
 
 func TestAdapter_CommandAdapter_Bad(t *core.T) {
 	adapter := CommandAdapter{
-		name:      "missing-tool",
-		binaries:  []string{"missing-tool"},
+		name:      adapterTestMissingToola4d8ef,
+		binaries:  []string{adapterTestMissingToola4d8ef},
 		languages: []string{"go"},
 		category:  "security",
 	}
@@ -80,20 +90,20 @@ func TestAdapter_CommandAdapter_Bad(t *core.T) {
 	core.AssertEqual(t, "0s", result.Tool.Duration)
 	RequireLen(t, result.Findings, 1)
 	core.AssertEqual(t, "info", result.Findings[0].Severity)
-	core.AssertEqual(t, "missing-tool", result.Findings[0].Code)
-	core.AssertEqual(t, "missing-tool", result.Findings[0].Tool)
+	core.AssertEqual(t, adapterTestMissingToola4d8ef, result.Findings[0].Code)
+	core.AssertEqual(t, adapterTestMissingToola4d8ef, result.Findings[0].Tool)
 	core.AssertEqual(t, "security", result.Findings[0].Category)
 	core.AssertEqual(t, 1, result.Tool.Findings)
 }
 
 func TestAdapter_CommandAdapter_ParsesStdoutAndStderr(t *core.T) {
 	binDir := t.TempDir()
-	installTestCommand(t, binDir, "mixed-output-tool")
+	installTestCommand(t, binDir, adapterTestMixedOutputToold46707)
 	prependPath(t, binDir)
 
 	adapter := newCommandAdapter(
-		"mixed-output-tool",
-		[]string{"mixed-output-tool"},
+		adapterTestMixedOutputToold46707,
+		[]string{adapterTestMixedOutputToold46707},
 		[]string{"go"},
 		"security",
 		"",
@@ -119,7 +129,7 @@ func TestAdapter_CommandAdapter_ParsesStdoutAndStderr(t *core.T) {
 	var foundParseError bool
 	var foundStderrFinding bool
 	for _, finding := range result.Findings {
-		if finding.Code == "parse-error" {
+		if finding.Code == adapterTestParseError4a81f1 {
 			foundParseError = true
 		}
 		if finding.Code == "S1" && finding.File == "src/secret.go" {
@@ -136,12 +146,12 @@ func TestAdapter_CommandAdapter_ParsesStdoutAndStderr(t *core.T) {
 
 func TestAdapter_CommandAdapter_Ugly(t *core.T) {
 	binDir := t.TempDir()
-	installTestCommand(t, binDir, "slow-tool")
+	installTestCommand(t, binDir, adapterTestSlowTool2ca3a7)
 	prependPath(t, binDir)
 
 	adapter := newCommandAdapter(
-		"slow-tool",
-		[]string{"slow-tool"},
+		adapterTestSlowTool2ca3a7,
+		[]string{adapterTestSlowTool2ca3a7},
 		[]string{"go"},
 		"security",
 		"",
@@ -200,7 +210,7 @@ func TestAdapter_ParseJSONDiagnostics_Bad(t *core.T) {
 	findings := parseJSONDiagnostics("gosec", "security", "{not json")
 	RequireLen(t, findings, 1)
 	core.AssertEqual(t, "error", findings[0].Severity)
-	core.AssertEqual(t, "parse-error", findings[0].Code)
+	core.AssertEqual(t, adapterTestParseError4a81f1, findings[0].Code)
 	core.AssertEqual(t, "gosec", findings[0].Tool)
 	core.AssertEqual(t, "security", findings[0].Category)
 	core.AssertContains(t, findings[0].Message, "failed to parse JSON output")
@@ -223,7 +233,7 @@ not json`
 	findings := parseJSONDiagnostics("gosec", "security", output)
 	RequireLen(t, findings, 2)
 	core.AssertEqual(t, "G104", findings[0].Code)
-	core.AssertEqual(t, "parse-error", findings[1].Code)
+	core.AssertEqual(t, adapterTestParseError4a81f1, findings[1].Code)
 }
 
 func TestAdapter_ParseJSONDiagnostics_Ugly(t *core.T) {
@@ -252,12 +262,12 @@ func TestAdapter_ParseJSONDiagnostics_Ugly(t *core.T) {
 
 func TestAdapter_CommandAdapter_JSONStdoutIgnoresStderr(t *core.T) {
 	binDir := t.TempDir()
-	installTestCommand(t, binDir, "json-tool")
+	installTestCommand(t, binDir, adapterTestJsonTool193d87)
 	prependPath(t, binDir)
 
 	adapter := newCommandAdapter(
-		"json-tool",
-		[]string{"json-tool"},
+		adapterTestJsonTool193d87,
+		[]string{adapterTestJsonTool193d87},
 		[]string{"go"},
 		"security",
 		"",
@@ -332,7 +342,7 @@ func TestAdapter_ParseGovulncheckDiagnostics_Bad(t *core.T) {
 
 func TestAdapter_CatalogAdapter_Good(t *core.T) {
 	dir := t.TempDir()
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, "input.go"), []byte(`package sample
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, adapterTestInputGo4114eb), []byte(`package sample
 
 type service struct{}
 
@@ -357,7 +367,7 @@ func Run() {
 	core.AssertEqual(t, "correctness", adapter.Category())
 	core.AssertTrue(t, adapter.Fast())
 
-	result := adapter.Run(context.Background(), RunInput{Path: dir}, []string{"input.go"})
+	result := adapter.Run(context.Background(), RunInput{Path: dir}, []string{adapterTestInputGo4114eb})
 	RequireEqual(t, "failed", result.Tool.Status)
 	RequireLen(t, result.Findings, 1)
 	core.AssertEqual(t, "catalog", result.Findings[0].Tool)
@@ -367,7 +377,7 @@ func Run() {
 	core.AssertEqual(t, "Silent error swallowing with blank identifier", result.Findings[0].Title)
 	core.AssertEqual(t, result.Findings[0].Title, result.Findings[0].Message)
 
-	filtered := adapter.Run(context.Background(), RunInput{Path: dir, Category: "security"}, []string{"input.go"})
+	filtered := adapter.Run(context.Background(), RunInput{Path: dir, Category: "security"}, []string{adapterTestInputGo4114eb})
 	RequireEqual(t, "passed", filtered.Tool.Status)
 	core.AssertEmpty(t, filtered.Findings)
 }
@@ -380,13 +390,13 @@ func TestAdapter_CatalogAdapter_Bad(t *core.T) {
 
 func TestAdapter_CatalogAdapter_Ugly(t *core.T) {
 	dir := t.TempDir()
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, "input.go"), []byte("package sample\n"), 0o644))
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, adapterTestInputGo4114eb), []byte("package sample\n"), 0o644))
 
 	adapter := CatalogAdapter{}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	result := adapter.Run(ctx, RunInput{Path: dir}, []string{"input.go"})
+	result := adapter.Run(ctx, RunInput{Path: dir}, []string{adapterTestInputGo4114eb})
 	RequireEqual(t, "canceled", result.Tool.Status)
 	core.AssertEmpty(t, result.Findings)
 }
@@ -447,32 +457,32 @@ func linkOrCopyFile(source, target string) error {
 func runAdapterTestCommand(name string, args []string) int {
 	if isVersionCommand(args) {
 		switch name {
-		case "demo-tool":
+		case adapterTestDemoTool3611d0:
 			fmt.Fprintln(os.Stderr, "demo-tool version 1.2.3")
 			return 0
-		case "slow-tool":
+		case adapterTestSlowTool2ca3a7:
 			fmt.Fprintln(os.Stdout, "slow-tool 9.9.9")
 			return 0
-		case "json-tool":
+		case adapterTestJsonTool193d87:
 			fmt.Fprintln(os.Stdout, "json-tool 1.0.0")
 			return 0
-		case "mixed-output-tool":
+		case adapterTestMixedOutputToold46707:
 			fmt.Fprintln(os.Stdout, "mixed-output-tool 1.0.0")
 			return 0
 		}
 	}
 
 	switch name {
-	case "demo-tool":
+	case adapterTestDemoTool3611d0:
 		return 0
-	case "slow-tool":
+	case adapterTestSlowTool2ca3a7:
 		time.Sleep(time.Second)
 		return 0
-	case "json-tool":
+	case adapterTestJsonTool193d87:
 		fmt.Fprintln(os.Stdout, `[{"location":{"path":"src/main.go","start":{"line":12,"column":3}},"message":{"text":"boom"},"rule_id":"X1","severity":"warn"}]`)
 		fmt.Fprintln(os.Stderr, "debug noise")
 		return 0
-	case "mixed-output-tool":
+	case adapterTestMixedOutputToold46707:
 		fmt.Fprintln(os.Stdout, "debug banner")
 		fmt.Fprintln(os.Stderr, `[{"location":{"path":"src/secret.go","start":{"line":9,"column":2}},"message":{"text":"secret leaked"},"rule_id":"S1","severity":"error"}]`)
 		return 1

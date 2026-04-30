@@ -3,4 +3,6 @@
 package sample
 
 // Alpha demonstrates a documented exported function.
-func Alpha() {}
+func Alpha() {
+	// Empty fixture function used by docblock coverage tests.
+}

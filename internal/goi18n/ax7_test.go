@@ -6,8 +6,12 @@ import (
 	core "dappco.re/go"
 )
 
+const (
+	ax7TestEnJsone931b0 = "en.json"
+)
+
 func TestI18N_RegisterLocales_Good(t *core.T) {
-	locales := fstest.MapFS{"en.json": {Data: []byte(`{"ax7":{"register":"ready"}}`)}}
+	locales := fstest.MapFS{ax7TestEnJsone931b0: {Data: []byte(`{"ax7":{"register":"ready"}}`)}}
 	RegisterLocales(locales, ".")
 	got := T("ax7.register")
 	core.AssertEqual(t, "ready", got)
@@ -22,7 +26,7 @@ func TestI18N_RegisterLocales_Bad(t *core.T) {
 }
 
 func TestI18N_RegisterLocales_Ugly(t *core.T) {
-	locales := fstest.MapFS{"en.json": {Data: []byte(`{"ax7":{"emptydir":"ready"}}`)}}
+	locales := fstest.MapFS{ax7TestEnJsone931b0: {Data: []byte(`{"ax7":{"emptydir":"ready"}}`)}}
 	RegisterLocales(locales, "")
 	got := T("ax7.emptydir")
 	core.AssertEqual(t, "ready", got)
@@ -30,7 +34,7 @@ func TestI18N_RegisterLocales_Ugly(t *core.T) {
 }
 
 func TestI18N_T_Good(t *core.T) {
-	locales := fstest.MapFS{"en.json": {Data: []byte(`{"ax7":{"template":"Hello {{.Name}}"}}`)}}
+	locales := fstest.MapFS{ax7TestEnJsone931b0: {Data: []byte(`{"ax7":{"template":"Hello {{.Name}}"}}`)}}
 	RegisterLocales(locales, ".")
 	got := T("ax7.template", map[string]string{"Name": "Codex"})
 	core.AssertEqual(t, "Hello Codex", got)
@@ -44,7 +48,7 @@ func TestI18N_T_Bad(t *core.T) {
 }
 
 func TestI18N_T_Ugly(t *core.T) {
-	locales := fstest.MapFS{"en.json": {Data: []byte(`{"ax7":{"badtemplate":"{{"}}`)}}
+	locales := fstest.MapFS{ax7TestEnJsone931b0: {Data: []byte(`{"ax7":{"badtemplate":"{{"}}`)}}
 	RegisterLocales(locales, ".")
 	got := T("ax7.badtemplate", map[string]string{"Name": "Codex"})
 	core.AssertEqual(t, "{{", got)
@@ -52,7 +56,7 @@ func TestI18N_T_Ugly(t *core.T) {
 }
 
 func TestI18N_Label_Good(t *core.T) {
-	locales := fstest.MapFS{"en.json": {Data: []byte(`{"common":{"label":{"agent":"Agent"}}}`)}}
+	locales := fstest.MapFS{ax7TestEnJsone931b0: {Data: []byte(`{"common":{"label":{"agent":"Agent"}}}`)}}
 	RegisterLocales(locales, ".")
 	got := Label("agent")
 	core.AssertEqual(t, "Agent", got)

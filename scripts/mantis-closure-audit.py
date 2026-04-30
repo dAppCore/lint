@@ -201,10 +201,10 @@ def sha_reachable(repo_paths: dict[str, Path], repo: str, sha: str) -> str:
     return "exists-not-on-mainline"
 
 
-def main():
+def parse_cli_args(argv):
     repo_roots = []
     limit = None
-    args = sys.argv[1:]
+    args = list(argv)
     while args:
         a = args.pop(0)
         if a in ("--repo-root", "--root"):
@@ -217,7 +217,11 @@ def main():
         else:
             sys.stderr.write(f"unknown arg: {a}\n")
             sys.exit(2)
+    return repo_roots, limit
 
+
+def main():
+    repo_roots, limit = parse_cli_args(sys.argv[1:])
     if not repo_roots:
         repo_roots = list(DEFAULT_REPO_ROOTS)
     repo_paths = discover_repos(repo_roots)
@@ -231,34 +235,51 @@ def main():
 
     print("ticket\tproject\trepo\tsha\tstatus\tsummary")
 
-    counts = {"reachable": 0, "reachable-main": 0, "dangling": 0,
-              "exists-not-on-mainline": 0, "unknown-repo": 0, "no-sha": 0}
+    counts = {
+        "reachable": 0,
+        "reachable-main": 0,
+        "dangling": 0,
+        "exists-not-on-mainline": 0,
+        "unknown-repo": 0,
+        "no-sha": 0,
+    }
 
     for i, t in enumerate(tickets, 1):
         if i % 25 == 0:
             sys.stderr.write(f"  ... {i}/{len(tickets)}\n")
-        tid = t.get("id")
-        summary = t.get("summary", "")[:80]
-        project = t.get("project", {}).get("name", "")
-        body = t.get("description", "")
-        # Pull notes for richer SHA evidence
-        notes = fetch_notes(token, tid)
-        full_text = body + "\n" + "\n".join(n.get("text", "") for n in notes)
-        shas = extract_shas(full_text)
-        if not shas:
-            counts["no-sha"] += 1
-            print(f"{tid}\t{project}\t-\t-\tno-sha\t{summary}")
-            continue
-        for sha in shas[:3]:  # cap per-ticket
-            repo = guess_repo(full_text, project, summary)
-            if not repo:
-                counts["unknown-repo"] += 1
-                print(f"{tid}\t{project}\t?\t{sha}\tunknown-repo\t{summary}")
-                continue
-            status = sha_reachable(repo_paths, repo, sha)
-            counts[status] = counts.get(status, 0) + 1
-            print(f"{tid}\t{project}\t{repo}\t{sha}\t{status}\t{summary}")
+        process_ticket(token, repo_paths, counts, t)
 
+    emit_summary(counts)
+
+
+def process_ticket(token, repo_paths, counts, ticket):
+    tid = ticket.get("id")
+    summary = ticket.get("summary", "")[:80]
+    project = ticket.get("project", {}).get("name", "")
+    body = ticket.get("description", "")
+    notes = fetch_notes(token, tid)
+    full_text = body + "\n" + "\n".join(n.get("text", "") for n in notes)
+    shas = extract_shas(full_text)
+    if not shas:
+        counts["no-sha"] += 1
+        print(f"{tid}\t{project}\t-\t-\tno-sha\t{summary}")
+        return
+    for sha in shas[:3]:
+        process_ticket_sha(repo_paths, counts, tid, project, summary, full_text, sha)
+
+
+def process_ticket_sha(repo_paths, counts, tid, project, summary, full_text, sha):
+    repo = guess_repo(full_text, project, summary)
+    if not repo:
+        counts["unknown-repo"] += 1
+        print(f"{tid}\t{project}\t?\t{sha}\tunknown-repo\t{summary}")
+        return
+    status = sha_reachable(repo_paths, repo, sha)
+    counts[status] = counts.get(status, 0) + 1
+    print(f"{tid}\t{project}\t{repo}\t{sha}\t{status}\t{summary}")
+
+
+def emit_summary(counts):
     sys.stderr.write("\n=== Summary ===\n")
     for k, v in sorted(counts.items()):
         sys.stderr.write(f"  {k}: {v}\n")

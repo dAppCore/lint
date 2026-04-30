@@ -10,9 +10,15 @@ import (
 	"dappco.re/go/cli/pkg/cli"
 )
 
+const (
+	cmdPhpTestAppDebugTrueAppKeyShortAppUrlHttbbebce = "APP_DEBUG=true\nAPP_KEY=short\nAPP_URL=http://example.com\n"
+	cmdPhpTestBinShPrintfSNAdvisories73fca5          = "#!/bin/sh\nprintf '%s\\n' '{\"advisories\":{}}'\n"
+	cmdPhpTestComposerJson089de2                     = "composer.json"
+)
+
 func TestPHPStanJSONOutput_DoesNotAppendSuccessBanner(t *T) {
 	dir := t.TempDir()
-	writeTestFile(t, filepath.Join(dir, "composer.json"), "{}")
+	writeTestFile(t, filepath.Join(dir, cmdPhpTestComposerJson089de2), "{}")
 	writeExecutable(t, filepath.Join(dir, "vendor", "bin", "phpstan"), "#!/bin/sh\nprintf '%s\\n' '{\"tool\":\"phpstan\",\"status\":\"ok\"}'\n")
 
 	restoreWorkingDir(t, dir)
@@ -34,7 +40,7 @@ func TestPHPStanJSONOutput_DoesNotAppendSuccessBanner(t *T) {
 
 func TestPHPPsalmJSONOutput_DoesNotAppendSuccessBanner(t *T) {
 	dir := t.TempDir()
-	writeTestFile(t, filepath.Join(dir, "composer.json"), "{}")
+	writeTestFile(t, filepath.Join(dir, cmdPhpTestComposerJson089de2), "{}")
 	writeExecutable(t, filepath.Join(dir, "vendor", "bin", "psalm"), "#!/bin/sh\nprintf '%s\\n' '{\"tool\":\"psalm\",\"status\":\"ok\"}'\n")
 
 	restoreWorkingDir(t, dir)
@@ -56,7 +62,7 @@ func TestPHPPsalmJSONOutput_DoesNotAppendSuccessBanner(t *T) {
 
 func TestPHPStanSARIFOutput_DoesNotAppendSuccessBanner(t *T) {
 	dir := t.TempDir()
-	writeTestFile(t, filepath.Join(dir, "composer.json"), "{}")
+	writeTestFile(t, filepath.Join(dir, cmdPhpTestComposerJson089de2), "{}")
 	writeExecutable(t, filepath.Join(dir, "vendor", "bin", "phpstan"), "#!/bin/sh\nprintf '%s\\n' '{\"version\":\"2.1.0\",\"runs\":[]}'\n")
 
 	restoreWorkingDir(t, dir)
@@ -78,7 +84,7 @@ func TestPHPStanSARIFOutput_DoesNotAppendSuccessBanner(t *T) {
 
 func TestPHPPsalmSARIFOutput_DoesNotAppendSuccessBanner(t *T) {
 	dir := t.TempDir()
-	writeTestFile(t, filepath.Join(dir, "composer.json"), "{}")
+	writeTestFile(t, filepath.Join(dir, cmdPhpTestComposerJson089de2), "{}")
 	writeExecutable(t, filepath.Join(dir, "vendor", "bin", "psalm"), "#!/bin/sh\nprintf '%s\\n' '{\"version\":\"2.1.0\",\"runs\":[]}'\n")
 
 	restoreWorkingDir(t, dir)
@@ -100,9 +106,9 @@ func TestPHPPsalmSARIFOutput_DoesNotAppendSuccessBanner(t *T) {
 
 func TestPHPSecurityJSONOutput_UsesMachineFriendlyKeys(t *T) {
 	dir := t.TempDir()
-	writeTestFile(t, filepath.Join(dir, "composer.json"), "{}")
-	writeTestFile(t, filepath.Join(dir, ".env"), "APP_DEBUG=true\nAPP_KEY=short\nAPP_URL=http://example.com\n")
-	writeExecutable(t, filepath.Join(dir, "bin", "composer"), "#!/bin/sh\nprintf '%s\\n' '{\"advisories\":{}}'\n")
+	writeTestFile(t, filepath.Join(dir, cmdPhpTestComposerJson089de2), "{}")
+	writeTestFile(t, filepath.Join(dir, ".env"), cmdPhpTestAppDebugTrueAppKeyShortAppUrlHttbbebce)
+	writeExecutable(t, filepath.Join(dir, "bin", "composer"), cmdPhpTestBinShPrintfSNAdvisories73fca5)
 
 	restoreWorkingDir(t, dir)
 	prependPath(t, filepath.Join(dir, "bin"))
@@ -126,9 +132,9 @@ func TestPHPSecurityJSONOutput_UsesMachineFriendlyKeys(t *T) {
 
 func TestPHPSecuritySARIFOutput_IsStructuredAndChromeFree(t *T) {
 	dir := t.TempDir()
-	writeTestFile(t, filepath.Join(dir, "composer.json"), "{}")
-	writeTestFile(t, filepath.Join(dir, ".env"), "APP_DEBUG=true\nAPP_KEY=short\nAPP_URL=http://example.com\n")
-	writeExecutable(t, filepath.Join(dir, "bin", "composer"), "#!/bin/sh\nprintf '%s\\n' '{\"advisories\":{}}'\n")
+	writeTestFile(t, filepath.Join(dir, cmdPhpTestComposerJson089de2), "{}")
+	writeTestFile(t, filepath.Join(dir, ".env"), cmdPhpTestAppDebugTrueAppKeyShortAppUrlHttbbebce)
+	writeExecutable(t, filepath.Join(dir, "bin", "composer"), cmdPhpTestBinShPrintfSNAdvisories73fca5)
 
 	restoreWorkingDir(t, dir)
 	prependPath(t, filepath.Join(dir, "bin"))
@@ -153,9 +159,9 @@ func TestPHPSecuritySARIFOutput_IsStructuredAndChromeFree(t *T) {
 
 func TestPHPSecurityJSONOutput_RespectsSeverityFilter(t *T) {
 	dir := t.TempDir()
-	writeTestFile(t, filepath.Join(dir, "composer.json"), "{}")
-	writeTestFile(t, filepath.Join(dir, ".env"), "APP_DEBUG=true\nAPP_KEY=short\nAPP_URL=http://example.com\n")
-	writeExecutable(t, filepath.Join(dir, "bin", "composer"), "#!/bin/sh\nprintf '%s\\n' '{\"advisories\":{}}'\n")
+	writeTestFile(t, filepath.Join(dir, cmdPhpTestComposerJson089de2), "{}")
+	writeTestFile(t, filepath.Join(dir, ".env"), cmdPhpTestAppDebugTrueAppKeyShortAppUrlHttbbebce)
+	writeExecutable(t, filepath.Join(dir, "bin", "composer"), cmdPhpTestBinShPrintfSNAdvisories73fca5)
 
 	restoreWorkingDir(t, dir)
 	prependPath(t, filepath.Join(dir, "bin"))
@@ -194,7 +200,7 @@ func TestPHPSecurityJSONOutput_RespectsSeverityFilter(t *T) {
 
 func TestPHPAuditJSONOutput_UsesLowerCaseAdvisoryKeys(t *T) {
 	dir := t.TempDir()
-	writeTestFile(t, filepath.Join(dir, "composer.json"), "{}")
+	writeTestFile(t, filepath.Join(dir, cmdPhpTestComposerJson089de2), "{}")
 	writeExecutable(t, filepath.Join(dir, "composer"), `#!/bin/sh
 cat <<'JSON'
 {
@@ -251,7 +257,7 @@ JSON
 
 func TestPHPTestJUnitOutput_PrintsOnlyXML(t *T) {
 	dir := t.TempDir()
-	writeTestFile(t, filepath.Join(dir, "composer.json"), "{}")
+	writeTestFile(t, filepath.Join(dir, cmdPhpTestComposerJson089de2), "{}")
 	writeExecutable(t, filepath.Join(dir, "vendor", "bin", "phpunit"), "#!/bin/sh\njunit=''\nwhile [ $# -gt 0 ]; do\n  if [ \"$1\" = \"--log-junit\" ]; then\n    shift\n    junit=\"$1\"\n  fi\n  shift\ndone\nprintf '%s\\n' 'human output should be suppressed'\nprintf '%s' '<testsuite tests=\"1\"></testsuite>' > \"$junit\"\n")
 
 	restoreWorkingDir(t, dir)

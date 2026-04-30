@@ -25,6 +25,15 @@ import (
 	"dappco.re/go/lint/pkg/php"
 )
 
+const (
+	cmdPhpNotAPhpProjectNoComposerJsonFound469a5f = "not a PHP project (no composer.json found)"
+	cmdPhpOutputResultsAsJson30f08f               = "Output results as JSON"
+	cmdPhpOutputResultsInSarifFormat29b025        = "Output results in SARIF format"
+	cmdPhpSSc5e701                                = "%s %s\n"
+	cmdPhpSb4dc47                                 = "  %s\n"
+	cmdPhpSecurityChecksFailed47bd21              = "security checks failed"
+)
+
 // Severity styles for security output.
 var (
 	headerStyle   = cli.HeaderStyle
@@ -64,11 +73,11 @@ func addPHPFmtCommand(parent *cli.Command) {
 				return err
 			}
 			if !detect.IsPHPProject(cwd) {
-				return cli.Err("not a PHP project (no composer.json found)")
+				return cli.Err(cmdPhpNotAPhpProjectNoComposerJsonFound469a5f)
 			}
 
 			if !isMachineReadableOutput(phpFmtJSON) {
-				cli.Print("%s %s\n", headerStyle.Render("PHP Format"), dimStyle.Render("(Pint)"))
+				cli.Print(cmdPhpSSc5e701, headerStyle.Render("PHP Format"), dimStyle.Render("(Pint)"))
 				cli.Blank()
 			}
 
@@ -83,7 +92,7 @@ func addPHPFmtCommand(parent *cli.Command) {
 
 	cmd.Flags().BoolVar(&phpFmtFix, "fix", false, "Apply formatting fixes")
 	cmd.Flags().BoolVar(&phpFmtDiff, "diff", false, "Show diff of changes")
-	cmd.Flags().BoolVar(&phpFmtJSON, "json", false, "Output results as JSON")
+	cmd.Flags().BoolVar(&phpFmtJSON, "json", false, cmdPhpOutputResultsAsJson30f08f)
 
 	parent.AddCommand(cmd)
 }
@@ -107,7 +116,7 @@ func addPHPStanCommand(parent *cli.Command) {
 				return err
 			}
 			if !detect.IsPHPProject(cwd) {
-				return cli.Err("not a PHP project (no composer.json found)")
+				return cli.Err(cmdPhpNotAPhpProjectNoComposerJsonFound469a5f)
 			}
 
 			analyser, found := php.DetectAnalyser(cwd)
@@ -116,7 +125,7 @@ func addPHPStanCommand(parent *cli.Command) {
 			}
 
 			if !isMachineReadableOutput(phpStanJSON, phpStanSARIF) {
-				cli.Print("%s %s\n", headerStyle.Render("PHP Static Analysis"), dimStyle.Render(fmt.Sprintf("(%s)", analyser)))
+				cli.Print(cmdPhpSSc5e701, headerStyle.Render("PHP Static Analysis"), dimStyle.Render(fmt.Sprintf("(%s)", analyser)))
 				cli.Blank()
 			}
 
@@ -141,8 +150,8 @@ func addPHPStanCommand(parent *cli.Command) {
 
 	cmd.Flags().IntVar(&phpStanLevel, "level", 0, "Analysis level (0-9, 0 uses config default)")
 	cmd.Flags().StringVar(&phpStanMemory, "memory", "", "Memory limit (e.g., 2G)")
-	cmd.Flags().BoolVar(&phpStanJSON, "json", false, "Output results as JSON")
-	cmd.Flags().BoolVar(&phpStanSARIF, "sarif", false, "Output results in SARIF format")
+	cmd.Flags().BoolVar(&phpStanJSON, "json", false, cmdPhpOutputResultsAsJson30f08f)
+	cmd.Flags().BoolVar(&phpStanSARIF, "sarif", false, cmdPhpOutputResultsInSarifFormat29b025)
 
 	parent.AddCommand(cmd)
 }
@@ -168,7 +177,7 @@ func addPHPPsalmCommand(parent *cli.Command) {
 				return err
 			}
 			if !detect.IsPHPProject(cwd) {
-				return cli.Err("not a PHP project (no composer.json found)")
+				return cli.Err(cmdPhpNotAPhpProjectNoComposerJsonFound469a5f)
 			}
 
 			_, found := php.DetectPsalm(cwd)
@@ -206,8 +215,8 @@ func addPHPPsalmCommand(parent *cli.Command) {
 	cmd.Flags().BoolVar(&phpPsalmFix, "fix", false, "Auto-fix issues where possible")
 	cmd.Flags().BoolVar(&phpPsalmBaseline, "baseline", false, "Generate/update baseline file")
 	cmd.Flags().BoolVar(&phpPsalmShowInfo, "show-info", false, "Show info-level issues")
-	cmd.Flags().BoolVar(&phpPsalmJSON, "json", false, "Output results as JSON")
-	cmd.Flags().BoolVar(&phpPsalmSARIF, "sarif", false, "Output results in SARIF format")
+	cmd.Flags().BoolVar(&phpPsalmJSON, "json", false, cmdPhpOutputResultsAsJson30f08f)
+	cmd.Flags().BoolVar(&phpPsalmSARIF, "sarif", false, cmdPhpOutputResultsInSarifFormat29b025)
 
 	parent.AddCommand(cmd)
 }
@@ -224,79 +233,88 @@ func addPHPAuditCommand(parent *cli.Command) {
 		Short: "Audit PHP and npm dependencies for vulnerabilities",
 		Long:  "Run composer audit and npm audit to check dependencies for known security vulnerabilities.",
 		RunE: func(cmd *cli.Command, args []string) error {
-			cwd, err := os.Getwd()
-			if err != nil {
-				return err
-			}
-			if !detect.IsPHPProject(cwd) {
-				return cli.Err("not a PHP project (no composer.json found)")
-			}
-
-			if !isMachineReadableOutput(phpAuditJSON) {
-				cli.Print("%s\n", headerStyle.Render("Dependency Audit"))
-				cli.Blank()
-			}
-
-			results, err := php.RunAudit(context.Background(), php.AuditOptions{
-				Dir:  cwd,
-				JSON: phpAuditJSON,
-				Fix:  phpAuditFix,
-			})
-			if err != nil {
-				return err
-			}
-
-			if phpAuditJSON {
-				payload := mapAuditResultsForJSON(results)
-				data, err := json.MarshalIndent(payload, "", "  ")
-				if err != nil {
-					return err
-				}
-				cli.Print("%s\n", string(data))
-
-				if payload.HasVulnerabilities {
-					return cli.Err("vulnerabilities found in dependencies")
-				}
-				return nil
-			}
-
-			hasVulns := false
-			for _, result := range results {
-				if result.Error != nil {
-					cli.Print("%s %s: %s\n", warningStyle.Render("!"), result.Tool, result.Error)
-					continue
-				}
-
-				if result.Vulnerabilities > 0 {
-					hasVulns = true
-					cli.Print("%s %s: %d vulnerabilities found\n",
-						errorStyle.Render(cli.Glyph(":cross:")),
-						result.Tool,
-						result.Vulnerabilities)
-					for _, adv := range result.Advisories {
-						cli.Print("  %s %s: %s\n",
-							dimStyle.Render("->"),
-							adv.Package,
-							adv.Title)
-					}
-				} else {
-					cli.Print("%s %s: no vulnerabilities found\n",
-						successStyle.Render(cli.Glyph(":check:")),
-						result.Tool)
-				}
-			}
-
-			if hasVulns {
-				return cli.Err("vulnerabilities found in dependencies")
-			}
-			return nil
+			return runPHPAudit()
 		},
 	}
 
-	cmd.Flags().BoolVar(&phpAuditJSON, "json", false, "Output results as JSON")
+	cmd.Flags().BoolVar(&phpAuditJSON, "json", false, cmdPhpOutputResultsAsJson30f08f)
 	cmd.Flags().BoolVar(&phpAuditFix, "fix", false, "Auto-fix vulnerabilities (npm only)")
 
 	parent.AddCommand(cmd)
+}
+
+func runPHPAudit() error {
+	cwd, err := requirePHPProjectDir()
+	if err != nil {
+		return err
+	}
+	if !isMachineReadableOutput(phpAuditJSON) {
+		cli.Print("%s\n", headerStyle.Render("Dependency Audit"))
+		cli.Blank()
+	}
+
+	results, err := php.RunAudit(context.Background(), php.AuditOptions{
+		Dir:  cwd,
+		JSON: phpAuditJSON,
+		Fix:  phpAuditFix,
+	})
+	if err != nil {
+		return err
+	}
+	if phpAuditJSON {
+		return printPHPAuditJSON(results)
+	}
+	return printPHPAuditText(results)
+}
+
+func printPHPAuditJSON(results []php.AuditResult) error {
+	payload := mapAuditResultsForJSON(results)
+	data, err := json.MarshalIndent(payload, "", "  ")
+	if err != nil {
+		return err
+	}
+	cli.Print("%s\n", string(data))
+	if payload.HasVulnerabilities {
+		return cli.Err("vulnerabilities found in dependencies")
+	}
+	return nil
+}
+
+func printPHPAuditText(results []php.AuditResult) error {
+	hasVulns := false
+	for _, result := range results {
+		if printPHPAuditResult(result) {
+			hasVulns = true
+		}
+	}
+	if hasVulns {
+		return cli.Err("vulnerabilities found in dependencies")
+	}
+	return nil
+}
+
+func printPHPAuditResult(result php.AuditResult) bool {
+	if result.Error != nil {
+		cli.Print("%s %s: %s\n", warningStyle.Render("!"), result.Tool, result.Error)
+		return false
+	}
+	if result.Vulnerabilities == 0 {
+		cli.Print("%s %s: no vulnerabilities found\n",
+			successStyle.Render(cli.Glyph(":check:")),
+			result.Tool)
+		return false
+	}
+	cli.Print("%s %s: %d vulnerabilities found\n",
+		errorStyle.Render(cli.Glyph(":cross:")),
+		result.Tool,
+		result.Vulnerabilities)
+	for _, adv := range result.Advisories {
+		cli.Print("  %s %s: %s\n",
+			dimStyle.Render("->"),
+			adv.Package,
+			adv.Title)
+	}
+	return true
 }
 
 // PHP security command flags.
@@ -313,114 +331,121 @@ func addPHPSecurityCommand(parent *cli.Command) {
 		Short: "Run security checks on the PHP project",
 		Long:  "Check for common security issues including dependency vulnerabilities, .env exposure, debug mode, and more.",
 		RunE: func(cmd *cli.Command, args []string) error {
-			cwd, err := os.Getwd()
-			if err != nil {
-				return err
-			}
-			if !detect.IsPHPProject(cwd) {
-				return cli.Err("not a PHP project (no composer.json found)")
-			}
-
-			if !isMachineReadableOutput(phpSecurityJSON, phpSecuritySARIF) {
-				cli.Print("%s\n", headerStyle.Render("Security Checks"))
-				cli.Blank()
-			}
-
-			result, err := php.RunSecurityChecks(context.Background(), php.SecurityOptions{
-				Dir:      cwd,
-				Severity: phpSecuritySeverity,
-				JSON:     phpSecurityJSON,
-				SARIF:    phpSecuritySARIF,
-				URL:      phpSecurityURL,
-			})
-			if err != nil {
-				return err
-			}
-
-			result.Checks = sortSecurityChecks(result.Checks)
-
-			if phpSecuritySARIF {
-				data, err := json.MarshalIndent(mapSecurityResultForSARIF(result), "", "  ")
-				if err != nil {
-					return err
-				}
-				cli.Print("%s\n", string(data))
-
-				summary := result.Summary
-				if summary.Critical > 0 || summary.High > 0 {
-					return cli.Err("security checks failed")
-				}
-				return nil
-			}
-
-			if phpSecurityJSON {
-				data, err := json.MarshalIndent(result, "", "  ")
-				if err != nil {
-					return err
-				}
-				cli.Print("%s\n", string(data))
-
-				summary := result.Summary
-				if summary.Critical > 0 || summary.High > 0 {
-					return cli.Err("security checks failed")
-				}
-				return nil
-			}
-
-			// Print each check result
-			for _, check := range result.Checks {
-				if check.Passed {
-					cli.Print("%s %s\n",
-						successStyle.Render(cli.Glyph(":check:")),
-						check.Name)
-				} else {
-					style := getSeverityStyle(check.Severity)
-					cli.Print("%s %s %s\n",
-						errorStyle.Render(cli.Glyph(":cross:")),
-						check.Name,
-						style.Render(fmt.Sprintf("[%s]", check.Severity)))
-					if check.Message != "" {
-						cli.Print("  %s %s\n", dimStyle.Render("->"), check.Message)
-					}
-					if check.Fix != "" {
-						cli.Print("  %s Fix: %s\n", dimStyle.Render("->"), check.Fix)
-					}
-				}
-			}
-
-			// Print summary
-			cli.Blank()
-			summary := result.Summary
-			cli.Print("%s: %d/%d checks passed\n",
-				headerStyle.Render("Summary"),
-				summary.Passed, summary.Total)
-
-			if summary.Critical > 0 {
-				cli.Print("  %s\n", criticalStyle.Render(fmt.Sprintf("%d critical", summary.Critical)))
-			}
-			if summary.High > 0 {
-				cli.Print("  %s\n", highStyle.Render(fmt.Sprintf("%d high", summary.High)))
-			}
-			if summary.Medium > 0 {
-				cli.Print("  %s\n", mediumStyle.Render(fmt.Sprintf("%d medium", summary.Medium)))
-			}
-			if summary.Low > 0 {
-				cli.Print("  %s\n", lowStyle.Render(fmt.Sprintf("%d low", summary.Low)))
-			}
-
-			if summary.Critical > 0 || summary.High > 0 {
-				return cli.Err("security checks failed")
-			}
-			return nil
+			return runPHPSecurity()
 		},
 	}
 
 	cmd.Flags().StringVar(&phpSecuritySeverity, "severity", "", "Minimum severity to report (critical, high, medium, low)")
-	cmd.Flags().BoolVar(&phpSecurityJSON, "json", false, "Output results as JSON")
-	cmd.Flags().BoolVar(&phpSecuritySARIF, "sarif", false, "Output results in SARIF format")
+	cmd.Flags().BoolVar(&phpSecurityJSON, "json", false, cmdPhpOutputResultsAsJson30f08f)
+	cmd.Flags().BoolVar(&phpSecuritySARIF, "sarif", false, cmdPhpOutputResultsInSarifFormat29b025)
 	cmd.Flags().StringVar(&phpSecurityURL, "url", "", "URL to check HTTP security headers")
 
 	parent.AddCommand(cmd)
+}
+
+func runPHPSecurity() error {
+	cwd, err := requirePHPProjectDir()
+	if err != nil {
+		return err
+	}
+	if !isMachineReadableOutput(phpSecurityJSON, phpSecuritySARIF) {
+		cli.Print("%s\n", headerStyle.Render("Security Checks"))
+		cli.Blank()
+	}
+
+	result, err := php.RunSecurityChecks(context.Background(), php.SecurityOptions{
+		Dir:      cwd,
+		Severity: phpSecuritySeverity,
+		JSON:     phpSecurityJSON,
+		SARIF:    phpSecuritySARIF,
+		URL:      phpSecurityURL,
+	})
+	if err != nil {
+		return err
+	}
+
+	result.Checks = sortSecurityChecks(result.Checks)
+	if phpSecuritySARIF {
+		return printPHPSecurityJSON(mapSecurityResultForSARIF(result), result.Summary)
+	}
+	if phpSecurityJSON {
+		return printPHPSecurityJSON(result, result.Summary)
+	}
+	printPHPSecurityText(result)
+	return failOnBlockingSecurity(result.Summary)
+}
+
+func requirePHPProjectDir() (string, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	if !detect.IsPHPProject(cwd) {
+		return "", cli.Err(cmdPhpNotAPhpProjectNoComposerJsonFound469a5f)
+	}
+	return cwd, nil
+}
+
+func printPHPSecurityJSON(payload any, summary php.SecuritySummary) error {
+	data, err := json.MarshalIndent(payload, "", "  ")
+	if err != nil {
+		return err
+	}
+	cli.Print("%s\n", string(data))
+	return failOnBlockingSecurity(summary)
+}
+
+func printPHPSecurityText(result php.SecurityResult) {
+	for _, check := range result.Checks {
+		printPHPSecurityCheck(check)
+	}
+	cli.Blank()
+	printPHPSecuritySummary(result.Summary)
+}
+
+func printPHPSecurityCheck(check php.SecurityCheck) {
+	if check.Passed {
+		cli.Print(cmdPhpSSc5e701,
+			successStyle.Render(cli.Glyph(":check:")),
+			check.Name)
+		return
+	}
+	style := getSeverityStyle(check.Severity)
+	cli.Print("%s %s %s\n",
+		errorStyle.Render(cli.Glyph(":cross:")),
+		check.Name,
+		style.Render(fmt.Sprintf("[%s]", check.Severity)))
+	if check.Message != "" {
+		cli.Print("  %s %s\n", dimStyle.Render("->"), check.Message)
+	}
+	if check.Fix != "" {
+		cli.Print("  %s Fix: %s\n", dimStyle.Render("->"), check.Fix)
+	}
+}
+
+func printPHPSecuritySummary(summary php.SecuritySummary) {
+	cli.Print("%s: %d/%d checks passed\n",
+		headerStyle.Render("Summary"),
+		summary.Passed, summary.Total)
+	if summary.Critical > 0 {
+		cli.Print(cmdPhpSb4dc47, criticalStyle.Render(fmt.Sprintf("%d critical", summary.Critical)))
+	}
+	if summary.High > 0 {
+		cli.Print(cmdPhpSb4dc47, highStyle.Render(fmt.Sprintf("%d high", summary.High)))
+	}
+	if summary.Medium > 0 {
+		cli.Print(cmdPhpSb4dc47, mediumStyle.Render(fmt.Sprintf("%d medium", summary.Medium)))
+	}
+	if summary.Low > 0 {
+		cli.Print(cmdPhpSb4dc47, lowStyle.Render(fmt.Sprintf("%d low", summary.Low)))
+	}
+}
+
+func failOnBlockingSecurity(summary php.SecuritySummary) error {
+	if summary.Critical > 0 || summary.High > 0 {
+		return cli.Err(cmdPhpSecurityChecksFailed47bd21)
+	}
+	return nil
 }
 
 type auditJSONOutput struct {
@@ -509,7 +534,7 @@ func addPHPRectorCommand(parent *cli.Command) {
 				return err
 			}
 			if !detect.IsPHPProject(cwd) {
-				return cli.Err("not a PHP project (no composer.json found)")
+				return cli.Err(cmdPhpNotAPhpProjectNoComposerJsonFound469a5f)
 			}
 
 			if !php.DetectRector(cwd) {
@@ -520,7 +545,7 @@ func addPHPRectorCommand(parent *cli.Command) {
 			if phpRectorFix {
 				mode = "apply"
 			}
-			cli.Print("%s %s\n", headerStyle.Render("Rector Refactoring"), dimStyle.Render(fmt.Sprintf("(%s)", mode)))
+			cli.Print(cmdPhpSSc5e701, headerStyle.Render("Rector Refactoring"), dimStyle.Render(fmt.Sprintf("(%s)", mode)))
 			cli.Blank()
 
 			err = php.RunRector(context.Background(), php.RectorOptions{
@@ -566,7 +591,7 @@ func addPHPInfectionCommand(parent *cli.Command) {
 				return err
 			}
 			if !detect.IsPHPProject(cwd) {
-				return cli.Err("not a PHP project (no composer.json found)")
+				return cli.Err(cmdPhpNotAPhpProjectNoComposerJsonFound469a5f)
 			}
 
 			if !php.DetectInfection(cwd) {
@@ -623,12 +648,12 @@ func addPHPTestCommand(parent *cli.Command) {
 				return err
 			}
 			if !detect.IsPHPProject(cwd) {
-				return cli.Err("not a PHP project (no composer.json found)")
+				return cli.Err(cmdPhpNotAPhpProjectNoComposerJsonFound469a5f)
 			}
 
 			runner := php.DetectTestRunner(cwd)
 			if !isMachineReadableOutput(phpTestJUnit) {
-				cli.Print("%s %s\n", headerStyle.Render("PHP Tests"), dimStyle.Render(fmt.Sprintf("(%s)", runner)))
+				cli.Print(cmdPhpSSc5e701, headerStyle.Render("PHP Tests"), dimStyle.Render(fmt.Sprintf("(%s)", runner)))
 				cli.Blank()
 			}
 

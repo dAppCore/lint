@@ -1,3 +1,4 @@
+---
 - id: go-mod-001
   title: "Manual slice clone (use slices.Clone)"
   severity: info
@@ -19,7 +20,9 @@
   tags: [modernise, stdlib]
   pattern: 'sort\.Strings\(|sort\.Ints\(|sort\.Slice\('
   exclude_pattern: 'sort\.SliceStable'
-  fix: "Replace with slices.Sort() or slices.SortFunc() from the standard library (Go 1.21+)"
+  fix: >-
+    Replace with slices.Sort() or slices.SortFunc() from the standard library
+    (Go 1.21+)
   found_in: [go-io]
   example_bad: 'sort.Strings(names)'
   example_good: 'slices.Sort(names)'
@@ -36,7 +39,8 @@
   fix: "Replace with slices.Reverse() from the standard library (Go 1.21+)"
   found_in: [go-io]
   example_bad: 'for i := len(items) - 1; i >= 0; i-- { process(items[i]) }'
-  example_good: 'slices.Reverse(items); for _, item := range items { process(item) }'
+  example_good: >-
+    slices.Reverse(items); for _, item := range items { process(item) }
   first_seen: "2026-03-09"
   detection: regex
   auto_fixable: false
@@ -47,7 +51,9 @@
   languages: [go]
   tags: [modernise, concurrency]
   pattern: 'wg\.Add\(1\)'
-  fix: "Consider errgroup.Group which manages Add/Done/Wait and collects the first error"
+  fix: >-
+    Consider errgroup.Group which manages Add/Done/Wait and collects the first
+    error
   found_in: [go-process]
   example_bad: |
     wg.Add(1)
@@ -72,7 +78,9 @@
   tags: [modernise, stdlib]
   pattern: 'for\s+\w+\s*:=\s*range\s+\w+\s*\{\s*\n\s*\w+\s*=\s*append'
   exclude_pattern: 'maps\.Keys'
-  fix: "Replace with maps.Keys() or slices.Collect(maps.Keys()) from the standard library"
+  fix: >-
+    Replace with maps.Keys() or slices.Collect(maps.Keys()) from the standard
+    library
   found_in: [go-config]
   example_bad: |
     var keys []string

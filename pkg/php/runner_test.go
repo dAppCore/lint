@@ -6,6 +6,10 @@ import (
 	"path/filepath"
 )
 
+const (
+	runnerTestBinSh70cd30 = "#!/bin/sh"
+)
+
 func TestNewQARunner(t *T) {
 	runner := NewQARunner("/tmp/test", false)
 	AssertNotNil(t, runner)
@@ -26,7 +30,7 @@ func TestBuildSpecs_Fmt_WithPint(t *T) {
 	dir := t.TempDir()
 	vendorBin := filepath.Join(dir, "vendor", "bin")
 	os.MkdirAll(vendorBin, 0755)
-	os.WriteFile(filepath.Join(vendorBin, "pint"), []byte("#!/bin/sh"), 0755)
+	os.WriteFile(filepath.Join(vendorBin, "pint"), []byte(runnerTestBinSh70cd30), 0755)
 
 	runner := NewQARunner(dir, false)
 	specs := runner.BuildSpecs([]string{"fmt"})
@@ -40,7 +44,7 @@ func TestBuildSpecs_Fmt_Fix(t *T) {
 	dir := t.TempDir()
 	vendorBin := filepath.Join(dir, "vendor", "bin")
 	os.MkdirAll(vendorBin, 0755)
-	os.WriteFile(filepath.Join(vendorBin, "pint"), []byte("#!/bin/sh"), 0755)
+	os.WriteFile(filepath.Join(vendorBin, "pint"), []byte(runnerTestBinSh70cd30), 0755)
 
 	runner := NewQARunner(dir, true) // fix mode
 	specs := runner.BuildSpecs([]string{"fmt"})
@@ -59,7 +63,7 @@ func TestBuildSpecs_Stan_WithPHPStan(t *T) {
 	dir := t.TempDir()
 	vendorBin := filepath.Join(dir, "vendor", "bin")
 	os.MkdirAll(vendorBin, 0755)
-	os.WriteFile(filepath.Join(vendorBin, "phpstan"), []byte("#!/bin/sh"), 0755)
+	os.WriteFile(filepath.Join(vendorBin, "phpstan"), []byte(runnerTestBinSh70cd30), 0755)
 
 	runner := NewQARunner(dir, false)
 	specs := runner.BuildSpecs([]string{"stan"})
@@ -80,7 +84,7 @@ func TestBuildSpecs_Psalm_WithPsalm(t *T) {
 	dir := t.TempDir()
 	vendorBin := filepath.Join(dir, "vendor", "bin")
 	os.MkdirAll(vendorBin, 0755)
-	os.WriteFile(filepath.Join(vendorBin, "psalm"), []byte("#!/bin/sh"), 0755)
+	os.WriteFile(filepath.Join(vendorBin, "psalm"), []byte(runnerTestBinSh70cd30), 0755)
 
 	runner := NewQARunner(dir, false)
 	specs := runner.BuildSpecs([]string{"psalm"})
@@ -93,7 +97,7 @@ func TestBuildSpecs_Psalm_Fix(t *T) {
 	dir := t.TempDir()
 	vendorBin := filepath.Join(dir, "vendor", "bin")
 	os.MkdirAll(vendorBin, 0755)
-	os.WriteFile(filepath.Join(vendorBin, "psalm"), []byte("#!/bin/sh"), 0755)
+	os.WriteFile(filepath.Join(vendorBin, "psalm"), []byte(runnerTestBinSh70cd30), 0755)
 
 	runner := NewQARunner(dir, true)
 	specs := runner.BuildSpecs([]string{"psalm"})
@@ -105,7 +109,7 @@ func TestBuildSpecs_Test_Pest(t *T) {
 	dir := t.TempDir()
 	vendorBin := filepath.Join(dir, "vendor", "bin")
 	os.MkdirAll(vendorBin, 0755)
-	os.WriteFile(filepath.Join(vendorBin, "pest"), []byte("#!/bin/sh"), 0755)
+	os.WriteFile(filepath.Join(vendorBin, "pest"), []byte(runnerTestBinSh70cd30), 0755)
 
 	runner := NewQARunner(dir, false)
 	specs := runner.BuildSpecs([]string{"test"})
@@ -118,7 +122,7 @@ func TestBuildSpecs_Test_PHPUnit(t *T) {
 	dir := t.TempDir()
 	vendorBin := filepath.Join(dir, "vendor", "bin")
 	os.MkdirAll(vendorBin, 0755)
-	os.WriteFile(filepath.Join(vendorBin, "phpunit"), []byte("#!/bin/sh"), 0755)
+	os.WriteFile(filepath.Join(vendorBin, "phpunit"), []byte(runnerTestBinSh70cd30), 0755)
 
 	runner := NewQARunner(dir, false)
 	specs := runner.BuildSpecs([]string{"test"})
@@ -130,8 +134,8 @@ func TestBuildSpecs_Test_WithPsalmDep(t *T) {
 	dir := t.TempDir()
 	vendorBin := filepath.Join(dir, "vendor", "bin")
 	os.MkdirAll(vendorBin, 0755)
-	os.WriteFile(filepath.Join(vendorBin, "pest"), []byte("#!/bin/sh"), 0755)
-	os.WriteFile(filepath.Join(vendorBin, "psalm"), []byte("#!/bin/sh"), 0755)
+	os.WriteFile(filepath.Join(vendorBin, "pest"), []byte(runnerTestBinSh70cd30), 0755)
+	os.WriteFile(filepath.Join(vendorBin, "psalm"), []byte(runnerTestBinSh70cd30), 0755)
 
 	runner := NewQARunner(dir, false)
 	specs := runner.BuildSpecs([]string{"test"})
@@ -150,7 +154,7 @@ func TestBuildSpecs_Rector(t *T) {
 	dir := t.TempDir()
 	vendorBin := filepath.Join(dir, "vendor", "bin")
 	os.MkdirAll(vendorBin, 0755)
-	os.WriteFile(filepath.Join(vendorBin, "rector"), []byte("#!/bin/sh"), 0755)
+	os.WriteFile(filepath.Join(vendorBin, "rector"), []byte(runnerTestBinSh70cd30), 0755)
 
 	runner := NewQARunner(dir, false)
 	specs := runner.BuildSpecs([]string{"rector"})
@@ -164,7 +168,7 @@ func TestBuildSpecs_Rector_Fix(t *T) {
 	dir := t.TempDir()
 	vendorBin := filepath.Join(dir, "vendor", "bin")
 	os.MkdirAll(vendorBin, 0755)
-	os.WriteFile(filepath.Join(vendorBin, "rector"), []byte("#!/bin/sh"), 0755)
+	os.WriteFile(filepath.Join(vendorBin, "rector"), []byte(runnerTestBinSh70cd30), 0755)
 
 	runner := NewQARunner(dir, true)
 	specs := runner.BuildSpecs([]string{"rector"})
@@ -176,7 +180,7 @@ func TestBuildSpecs_Infection(t *T) {
 	dir := t.TempDir()
 	vendorBin := filepath.Join(dir, "vendor", "bin")
 	os.MkdirAll(vendorBin, 0755)
-	os.WriteFile(filepath.Join(vendorBin, "infection"), []byte("#!/bin/sh"), 0755)
+	os.WriteFile(filepath.Join(vendorBin, "infection"), []byte(runnerTestBinSh70cd30), 0755)
 
 	runner := NewQARunner(dir, false)
 	specs := runner.BuildSpecs([]string{"infection"})
@@ -195,8 +199,8 @@ func TestBuildSpecs_Multiple(t *T) {
 	dir := t.TempDir()
 	vendorBin := filepath.Join(dir, "vendor", "bin")
 	os.MkdirAll(vendorBin, 0755)
-	os.WriteFile(filepath.Join(vendorBin, "pint"), []byte("#!/bin/sh"), 0755)
-	os.WriteFile(filepath.Join(vendorBin, "phpstan"), []byte("#!/bin/sh"), 0755)
+	os.WriteFile(filepath.Join(vendorBin, "pint"), []byte(runnerTestBinSh70cd30), 0755)
+	os.WriteFile(filepath.Join(vendorBin, "phpstan"), []byte(runnerTestBinSh70cd30), 0755)
 
 	runner := NewQARunner(dir, false)
 	specs := runner.BuildSpecs([]string{"audit", "fmt", "stan"})

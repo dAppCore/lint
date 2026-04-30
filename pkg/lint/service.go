@@ -16,6 +16,13 @@ import (
 )
 
 const (
+	serviceServiceInstallhooke9c9af        = "Service.InstallHook"
+	serviceServiceRemovehook715b44         = "Service.RemoveHook"
+	serviceServiceWritedefaultconfigd06c2e = "Service.WriteDefaultConfig"
+	serviceWrite23fbc8                     = "write "
+)
+
+const (
 	hookStartMarker = "# core-lint hook start"
 	hookEndMarker   = "# core-lint hook end"
 )
@@ -112,50 +119,52 @@ func (service *Service) Run(ctx context.Context, input RunInput) (Report, error)
 	if err != nil {
 		return Report{}, err
 	}
-	if input.Hook && len(files) == 0 {
-		report := Report{
-			Project:   projectName(input.Path),
-			Timestamp: startedAt,
-			Duration:  time.Since(startedAt).Round(time.Millisecond).String(),
-			Languages: []string{},
-			Tools:     []ToolRun{},
-			Findings:  []Finding{},
-			Summary:   Summarise(nil),
-		}
-		report.Summary.Passed = passesThreshold(report.Summary, input.FailOn)
-		return report, nil
-	}
-	if scoped && len(files) == 0 {
-		report := Report{
-			Project:   projectName(input.Path),
-			Timestamp: startedAt,
-			Duration:  time.Since(startedAt).Round(time.Millisecond).String(),
-			Languages: []string{},
-			Tools:     []ToolRun{},
-			Findings:  []Finding{},
-			Summary:   Summarise(nil),
-		}
-		report.Summary.Passed = passesThreshold(report.Summary, input.FailOn)
-		return report, nil
+	if shouldReturnEmptyReport(input, files, scoped) {
+		return emptyRunReport(input.Path, startedAt, input.FailOn), nil
 	}
 
 	languages := service.languagesForInput(input, files, scoped)
 	selectedAdapters := service.selectAdapters(config, languages, input, schedule)
+	findings, toolRuns, err := service.runAdapters(ctx, selectedAdapters, input, files)
+	if err != nil {
+		return Report{}, err
+	}
+	return buildRunReport(input, startedAt, languages, toolRuns, findings), nil
+}
 
+func shouldReturnEmptyReport(input RunInput, files []string, scoped bool) bool {
+	return len(files) == 0 && (input.Hook || scoped)
+}
+
+func emptyRunReport(projectPath string, startedAt time.Time, failOn string) Report {
+	report := Report{
+		Project:   projectName(projectPath),
+		Timestamp: startedAt,
+		Duration:  time.Since(startedAt).Round(time.Millisecond).String(),
+		Languages: []string{},
+		Tools:     []ToolRun{},
+		Findings:  []Finding{},
+		Summary:   Summarise(nil),
+	}
+	report.Summary.Passed = passesThreshold(report.Summary, failOn)
+	return report
+}
+
+func (service *Service) runAdapters(
+	ctx context.Context,
+	selectedAdapters []Adapter,
+	input RunInput,
+	files []string,
+) ([]Finding, []ToolRun, error) {
 	var findings []Finding
 	var toolRuns []ToolRun
 
 	for _, adapter := range selectedAdapters {
 		if err := ctx.Err(); err != nil {
-			return Report{}, err
+			return nil, nil, err
 		}
 		if input.Hook && !adapter.Fast() {
-			toolRuns = append(toolRuns, ToolRun{
-				Name:     adapter.Name(),
-				Status:   "skipped",
-				Duration: "0s",
-				Findings: 0,
-			})
+			toolRuns = append(toolRuns, skippedToolRun(adapter))
 			continue
 		}
 
@@ -163,7 +172,19 @@ func (service *Service) Run(ctx context.Context, input RunInput) (Report, error)
 		toolRuns = append(toolRuns, result.Tool)
 		findings = append(findings, normaliseReportFindings(result.Findings, input.Path)...)
 	}
+	return findings, toolRuns, nil
+}
 
+func skippedToolRun(adapter Adapter) ToolRun {
+	return ToolRun{
+		Name:     adapter.Name(),
+		Status:   "skipped",
+		Duration: "0s",
+		Findings: 0,
+	}
+}
+
+func buildRunReport(input RunInput, startedAt time.Time, languages []string, toolRuns []ToolRun, findings []Finding) Report {
 	findings = dedupeFindings(findings)
 	sortToolRuns(toolRuns)
 	sortFindings(findings)
@@ -188,7 +209,7 @@ func (service *Service) Run(ctx context.Context, input RunInput) (Report, error)
 	}
 	report.Summary.Passed = passesThreshold(report.Summary, input.FailOn)
 
-	return report, nil
+	return report
 }
 
 // Tools returns the current adapter inventory for display in the CLI.
@@ -228,12 +249,12 @@ func (service *Service) WriteDefaultConfig(projectPath string, force bool) (stri
 	targetPath := core.JoinPath(projectPath, DefaultConfigPath)
 	if !force {
 		if _, err := os.Stat(targetPath); err == nil {
-			return "", core.E("Service.WriteDefaultConfig", targetPath+" already exists", nil)
+			return "", core.E(serviceServiceWritedefaultconfigd06c2e, targetPath+" already exists", nil)
 		}
 	}
 
 	if err := os.MkdirAll(core.PathDir(targetPath), 0o755); err != nil {
-		return "", core.E("Service.WriteDefaultConfig", "mkdir "+core.PathDir(targetPath), err)
+		return "", core.E(serviceServiceWritedefaultconfigd06c2e, "mkdir "+core.PathDir(targetPath), err)
 	}
 
 	content, err := DefaultConfigYAML()
@@ -241,7 +262,7 @@ func (service *Service) WriteDefaultConfig(projectPath string, force bool) (stri
 		return "", err
 	}
 	if err := coreio.Local.Write(targetPath, content); err != nil {
-		return "", core.E("Service.WriteDefaultConfig", "write "+targetPath, err)
+		return "", core.E(serviceServiceWritedefaultconfigd06c2e, serviceWrite23fbc8+targetPath, err)
 	}
 
 	return targetPath, nil
@@ -274,13 +295,13 @@ func (service *Service) InstallHook(projectPath string) error {
 	}
 
 	if err := os.MkdirAll(core.PathDir(hookPath), 0o755); err != nil {
-		return core.E("Service.InstallHook", "mkdir "+core.PathDir(hookPath), err)
+		return core.E(serviceServiceInstallhooke9c9af, "mkdir "+core.PathDir(hookPath), err)
 	}
 	if err := coreio.Local.Write(hookPath, content); err != nil {
-		return core.E("Service.InstallHook", "write "+hookPath, err)
+		return core.E(serviceServiceInstallhooke9c9af, serviceWrite23fbc8+hookPath, err)
 	}
 	if err := os.Chmod(hookPath, 0o755); err != nil {
-		return core.E("Service.InstallHook", "chmod "+hookPath, err)
+		return core.E(serviceServiceInstallhooke9c9af, "chmod "+hookPath, err)
 	}
 
 	return nil
@@ -300,7 +321,7 @@ func (service *Service) RemoveHook(projectPath string) error {
 		if isNotExistError(err) {
 			return nil
 		}
-		return core.E("Service.RemoveHook", "read "+hookPath, err)
+		return core.E(serviceServiceRemovehook715b44, "read "+hookPath, err)
 	}
 
 	startIndex := strings.Index(raw, hookStartMarker)
@@ -313,13 +334,13 @@ func (service *Service) RemoveHook(projectPath string) error {
 	content := strings.TrimRight(raw[:startIndex]+raw[endIndex:], "\n")
 	if core.Trim(content) == "" {
 		if err := os.Remove(hookPath); err != nil && !os.IsNotExist(err) {
-			return core.E("Service.RemoveHook", "remove "+hookPath, err)
+			return core.E(serviceServiceRemovehook715b44, "remove "+hookPath, err)
 		}
 		return nil
 	}
 
 	if err := coreio.Local.Write(hookPath, content); err != nil {
-		return core.E("Service.RemoveHook", "write "+hookPath, err)
+		return core.E(serviceServiceRemovehook715b44, serviceWrite23fbc8+hookPath, err)
 	}
 	return nil
 }
@@ -402,71 +423,100 @@ func (service *Service) stagedFiles(projectPath string) ([]string, error) {
 }
 
 func collectConfiguredFiles(projectPath string, paths []string, excludes []string) ([]string, error) {
-	seen := make(map[string]bool)
-	var files []string
+	collector := configuredFileCollector{
+		projectPath: projectPath,
+		excludes:    excludes,
+		seen:        make(map[string]bool),
+	}
 
 	for _, path := range paths {
 		if path == "" {
 			continue
 		}
-
-		absolutePath := path
-		if !core.PathIsAbs(absolutePath) {
-			absolutePath = core.JoinPath(projectPath, path)
-		}
-
-		info, err := os.Stat(absolutePath)
-		if err != nil {
-			return nil, core.E("collectConfiguredFiles", "stat "+absolutePath, err)
-		}
-		if info.IsDir() && shouldSkipTraversalRoot(absolutePath) {
-			continue
-		}
-
-		addFile := func(candidate string) {
-			relativePath := relativeConfiguredPath(projectPath, candidate)
-			if hasHiddenDirectory(relativePath) || hasHiddenDirectory(cleanSlashPath(candidate)) {
-				return
-			}
-			if matchesConfiguredExclude(relativePath, excludes) || matchesConfiguredExclude(cleanSlashPath(candidate), excludes) {
-				return
-			}
-			if seen[relativePath] {
-				return
-			}
-			seen[relativePath] = true
-			files = append(files, relativePath)
-		}
-
-		if !info.IsDir() {
-			addFile(absolutePath)
-			continue
-		}
-
-		walkErr := filepath.WalkDir(absolutePath, func(currentPath string, entry fs.DirEntry, walkErr error) error {
-			if walkErr != nil {
-				return walkErr
-			}
-			if entry.IsDir() {
-				relativeDir := relativeConfiguredPath(projectPath, currentPath)
-				if matchesConfiguredExclude(relativeDir, excludes) || matchesConfiguredExclude(cleanSlashPath(currentPath), excludes) {
-					return filepath.SkipDir
-				}
-				if currentPath != absolutePath && IsExcludedDir(entry.Name()) {
-					return filepath.SkipDir
-				}
-				return nil
-			}
-			addFile(currentPath)
-			return nil
-		})
-		if walkErr != nil {
-			return nil, core.E("collectConfiguredFiles", "walk "+absolutePath, walkErr)
+		if err := collector.collect(path); err != nil {
+			return nil, err
 		}
 	}
 
-	slices.Sort(files)
-	return files, nil
+	slices.Sort(collector.files)
+	return collector.files, nil
+}
+
+type configuredFileCollector struct {
+	projectPath string
+	excludes    []string
+	seen        map[string]bool
+	files       []string
+}
+
+func (collector *configuredFileCollector) collect(path string) error {
+	absolutePath := collector.absolute(path)
+	info, err := os.Stat(absolutePath)
+	if err != nil {
+		return core.E("collectConfiguredFiles", "stat "+absolutePath, err)
+	}
+	if info.IsDir() && shouldSkipTraversalRoot(absolutePath) {
+		return nil
+	}
+	if !info.IsDir() {
+		collector.addFile(absolutePath)
+		return nil
+	}
+	return collector.walkDir(absolutePath)
+}
+
+func (collector *configuredFileCollector) absolute(path string) string {
+	if core.PathIsAbs(path) {
+		return path
+	}
+	return core.JoinPath(collector.projectPath, path)
+}
+
+func (collector *configuredFileCollector) addFile(candidate string) {
+	relativePath := relativeConfiguredPath(collector.projectPath, candidate)
+	if collector.shouldSkipFile(candidate, relativePath) {
+		return
+	}
+	collector.seen[relativePath] = true
+	collector.files = append(collector.files, relativePath)
+}
+
+func (collector *configuredFileCollector) shouldSkipFile(candidate string, relativePath string) bool {
+	if hasHiddenDirectory(relativePath) || hasHiddenDirectory(cleanSlashPath(candidate)) {
+		return true
+	}
+	if matchesConfiguredExclude(relativePath, collector.excludes) || matchesConfiguredExclude(cleanSlashPath(candidate), collector.excludes) {
+		return true
+	}
+	return collector.seen[relativePath]
+}
+
+func (collector *configuredFileCollector) walkDir(absolutePath string) error {
+	walkErr := filepath.WalkDir(absolutePath, func(currentPath string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() {
+			return collector.walkDirEntry(absolutePath, currentPath, entry)
+		}
+		collector.addFile(currentPath)
+		return nil
+	})
+	if walkErr != nil {
+		return core.E("collectConfiguredFiles", "walk "+absolutePath, walkErr)
+	}
+	return nil
+}
+
+func (collector *configuredFileCollector) walkDirEntry(absolutePath string, currentPath string, entry fs.DirEntry) error {
+	relativeDir := relativeConfiguredPath(collector.projectPath, currentPath)
+	if matchesConfiguredExclude(relativeDir, collector.excludes) || matchesConfiguredExclude(cleanSlashPath(currentPath), collector.excludes) {
+		return filepath.SkipDir
+	}
+	if currentPath != absolutePath && IsExcludedDir(entry.Name()) {
+		return filepath.SkipDir
+	}
+	return nil
 }
 
 func cleanSlashPath(path string) string {
@@ -580,18 +630,7 @@ func shouldIncludeLanguageGroups(categories []string) bool {
 }
 
 func shouldIncludeInfraGroups(categories []string) bool {
-	if len(categories) == 0 {
-		return true
-	}
-	for _, category := range categories {
-		switch category {
-		case "security", "compliance":
-			continue
-		default:
-			return true
-		}
-	}
-	return false
+	return shouldIncludeLanguageGroups(categories)
 }
 
 func groupForLanguage(groups ToolGroups, language string) []string {
@@ -656,30 +695,39 @@ func normaliseRunInput(input RunInput) RunInput {
 func normaliseReportFindings(findings []Finding, projectPath string) []Finding {
 	normalised := make([]Finding, 0, len(findings))
 	for _, finding := range findings {
-		if finding.Code == "" {
-			finding.Code = finding.RuleID
-		}
-		if finding.Message == "" {
-			finding.Message = finding.Title
-		}
-		if finding.Tool == "" {
-			finding.Tool = "catalog"
-		}
-		if finding.Severity == "" {
-			finding.Severity = "warning"
-		} else {
-			finding.Severity = normaliseSeverity(finding.Severity)
-		}
-		if finding.File != "" && projectPath != "" {
-			if relativePath, err := filepath.Rel(projectPath, finding.File); err == nil && relativePath != "" && !core.HasPrefix(relativePath, "..") {
-				finding.File = cleanSlashPath(relativePath)
-			} else {
-				finding.File = cleanSlashPath(finding.File)
-			}
-		}
-		normalised = append(normalised, finding)
+		normalised = append(normalised, normaliseReportFinding(finding, projectPath))
 	}
 	return normalised
+}
+
+func normaliseReportFinding(finding Finding, projectPath string) Finding {
+	if finding.Code == "" {
+		finding.Code = finding.RuleID
+	}
+	if finding.Message == "" {
+		finding.Message = finding.Title
+	}
+	if finding.Tool == "" {
+		finding.Tool = "catalog"
+	}
+	if finding.Severity == "" {
+		finding.Severity = "warning"
+	} else {
+		finding.Severity = normaliseSeverity(finding.Severity)
+	}
+	finding.File = normaliseFindingFile(finding.File, projectPath)
+	return finding
+}
+
+func normaliseFindingFile(file string, projectPath string) string {
+	if file == "" || projectPath == "" {
+		return file
+	}
+	relativePath, err := filepath.Rel(projectPath, file)
+	if err == nil && relativePath != "" && !core.HasPrefix(relativePath, "..") {
+		return cleanSlashPath(relativePath)
+	}
+	return cleanSlashPath(file)
 }
 
 func projectName(path string) string {

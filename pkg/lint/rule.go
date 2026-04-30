@@ -8,6 +8,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const (
+	ruleRuleValidate1b496e = "Rule.Validate"
+)
+
 // validSeverities defines the allowed severity levels, ordered from lowest to highest.
 var validSeverities = []string{"info", "low", "medium", "high", "critical"}
 
@@ -32,35 +36,35 @@ type Rule struct {
 // Validate checks that the rule has all required fields and that regex patterns compile.
 func (r *Rule) Validate() error {
 	if r.ID == "" {
-		return core.E("Rule.Validate", "id must not be empty", nil)
+		return core.E(ruleRuleValidate1b496e, "id must not be empty", nil)
 	}
 	if r.Title == "" {
-		return core.E("Rule.Validate", "rule "+r.ID+": title must not be empty", nil)
+		return core.E(ruleRuleValidate1b496e, "rule "+r.ID+": title must not be empty", nil)
 	}
 	if r.Severity == "" {
-		return core.E("Rule.Validate", "rule "+r.ID+": severity must not be empty", nil)
+		return core.E(ruleRuleValidate1b496e, "rule "+r.ID+": severity must not be empty", nil)
 	}
 	if !slices.Contains(validSeverities, r.Severity) {
-		return core.E("Rule.Validate", core.Sprintf("rule %s: severity %q is not valid (want one of %v)", r.ID, r.Severity, validSeverities), nil)
+		return core.E(ruleRuleValidate1b496e, core.Sprintf("rule %s: severity %q is not valid (want one of %v)", r.ID, r.Severity, validSeverities), nil)
 	}
 	if len(r.Languages) == 0 {
-		return core.E("Rule.Validate", "rule "+r.ID+": languages must not be empty", nil)
+		return core.E(ruleRuleValidate1b496e, "rule "+r.ID+": languages must not be empty", nil)
 	}
 	if r.Pattern == "" {
-		return core.E("Rule.Validate", "rule "+r.ID+": pattern must not be empty", nil)
+		return core.E(ruleRuleValidate1b496e, "rule "+r.ID+": pattern must not be empty", nil)
 	}
 	if r.Detection == "" {
-		return core.E("Rule.Validate", "rule "+r.ID+": detection must not be empty", nil)
+		return core.E(ruleRuleValidate1b496e, "rule "+r.ID+": detection must not be empty", nil)
 	}
 
 	// Only validate regex compilation when detection type is regex.
 	if r.Detection == "regex" {
 		if _, err := regexp.Compile(r.Pattern); err != nil {
-			return core.E("Rule.Validate", "rule "+r.ID+": pattern does not compile", err)
+			return core.E(ruleRuleValidate1b496e, "rule "+r.ID+": pattern does not compile", err)
 		}
 		if r.ExcludePattern != "" {
 			if _, err := regexp.Compile(r.ExcludePattern); err != nil {
-				return core.E("Rule.Validate", "rule "+r.ID+": exclude_pattern does not compile", err)
+				return core.E(ruleRuleValidate1b496e, "rule "+r.ID+": exclude_pattern does not compile", err)
 			}
 		}
 	}

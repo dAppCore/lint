@@ -64,139 +64,148 @@ func filterSpecDependencies(specs []RunSpec) {
 func (r *QARunner) buildSpec(check string) *RunSpec {
 	switch check {
 	case "audit":
-		return &RunSpec{
-			Name:    "audit",
-			Command: "composer",
-			Args:    []string{"audit", "--format=summary"},
-			Dir:     r.dir,
-		}
-
+		return r.auditSpec()
 	case "fmt":
-		_, found := DetectFormatter(r.dir)
-		if !found {
-			return nil
-		}
-		vendorBin := filepath.Join(r.dir, "vendor", "bin", "pint")
-		cmd := "pint"
-		if fileExists(vendorBin) {
-			cmd = vendorBin
-		}
-		args := []string{}
-		if !r.fix {
-			args = append(args, "--test")
-		}
-		return &RunSpec{
-			Name:    "fmt",
-			Command: cmd,
-			Args:    args,
-			Dir:     r.dir,
-			After:   []string{"audit"},
-		}
-
+		return r.fmtSpec()
 	case "stan":
-		_, found := DetectAnalyser(r.dir)
-		if !found {
-			return nil
-		}
-		vendorBin := filepath.Join(r.dir, "vendor", "bin", "phpstan")
-		cmd := "phpstan"
-		if fileExists(vendorBin) {
-			cmd = vendorBin
-		}
-		return &RunSpec{
-			Name:    "stan",
-			Command: cmd,
-			Args:    []string{"analyse", "--no-progress"},
-			Dir:     r.dir,
-			After:   []string{"fmt"},
-		}
-
+		return r.stanSpec()
 	case "psalm":
-		_, found := DetectPsalm(r.dir)
-		if !found {
-			return nil
-		}
-		vendorBin := filepath.Join(r.dir, "vendor", "bin", "psalm")
-		cmd := "psalm"
-		if fileExists(vendorBin) {
-			cmd = vendorBin
-		}
-		args := []string{"--no-progress"}
-		if r.fix {
-			args = append(args, "--alter", "--issues=all")
-		}
-		return &RunSpec{
-			Name:    "psalm",
-			Command: cmd,
-			Args:    args,
-			Dir:     r.dir,
-			After:   []string{"stan"},
-		}
-
+		return r.psalmSpec()
 	case "test":
-		pestBin := filepath.Join(r.dir, "vendor", "bin", "pest")
-		phpunitBin := filepath.Join(r.dir, "vendor", "bin", "phpunit")
-		var cmd string
-		if fileExists(pestBin) {
-			cmd = pestBin
-		} else if fileExists(phpunitBin) {
-			cmd = phpunitBin
-		} else {
-			return nil
-		}
-		after := []string{"stan"}
-		if _, found := DetectPsalm(r.dir); found {
-			after = []string{"psalm"}
-		}
-		return &RunSpec{
-			Name:    "test",
-			Command: cmd,
-			Args:    []string{},
-			Dir:     r.dir,
-			After:   after,
-		}
-
+		return r.testSpec()
 	case "rector":
-		if !DetectRector(r.dir) {
-			return nil
-		}
-		vendorBin := filepath.Join(r.dir, "vendor", "bin", "rector")
-		cmd := "rector"
-		if fileExists(vendorBin) {
-			cmd = vendorBin
-		}
-		args := []string{"process"}
-		if !r.fix {
-			args = append(args, "--dry-run")
-		}
-		return &RunSpec{
-			Name:         "rector",
-			Command:      cmd,
-			Args:         args,
-			Dir:          r.dir,
-			After:        []string{"test"},
-			AllowFailure: true,
-		}
-
+		return r.rectorSpec()
 	case "infection":
-		if !DetectInfection(r.dir) {
-			return nil
-		}
-		vendorBin := filepath.Join(r.dir, "vendor", "bin", "infection")
-		cmd := "infection"
-		if fileExists(vendorBin) {
-			cmd = vendorBin
-		}
-		return &RunSpec{
-			Name:         "infection",
-			Command:      cmd,
-			Args:         []string{"--min-msi=50", "--min-covered-msi=70", "--threads=4"},
-			Dir:          r.dir,
-			After:        []string{"test"},
-			AllowFailure: true,
-		}
+		return r.infectionSpec()
 	}
 	return nil
+}
+
+func (r *QARunner) auditSpec() *RunSpec {
+	return &RunSpec{
+		Name:    "audit",
+		Command: "composer",
+		Args:    []string{"audit", "--format=summary"},
+		Dir:     r.dir,
+	}
+}
+
+func (r *QARunner) fmtSpec() *RunSpec {
+	_, found := DetectFormatter(r.dir)
+	if !found {
+		return nil
+	}
+	args := []string{}
+	if !r.fix {
+		args = append(args, "--test")
+	}
+	return &RunSpec{
+		Name:    "fmt",
+		Command: vendorBinOrDefault(r.dir, "pint"),
+		Args:    args,
+		Dir:     r.dir,
+		After:   []string{"audit"},
+	}
+}
+
+func (r *QARunner) stanSpec() *RunSpec {
+	_, found := DetectAnalyser(r.dir)
+	if !found {
+		return nil
+	}
+	return &RunSpec{
+		Name:    "stan",
+		Command: vendorBinOrDefault(r.dir, "phpstan"),
+		Args:    []string{"analyse", "--no-progress"},
+		Dir:     r.dir,
+		After:   []string{"fmt"},
+	}
+}
+
+func (r *QARunner) psalmSpec() *RunSpec {
+	_, found := DetectPsalm(r.dir)
+	if !found {
+		return nil
+	}
+	args := []string{"--no-progress"}
+	if r.fix {
+		args = append(args, "--alter", "--issues=all")
+	}
+	return &RunSpec{
+		Name:    "psalm",
+		Command: vendorBinOrDefault(r.dir, "psalm"),
+		Args:    args,
+		Dir:     r.dir,
+		After:   []string{"stan"},
+	}
+}
+
+func (r *QARunner) testSpec() *RunSpec {
+	cmd := firstExistingVendorBin(r.dir, "pest", "phpunit")
+	if cmd == "" {
+		return nil
+	}
+	after := []string{"stan"}
+	if _, found := DetectPsalm(r.dir); found {
+		after = []string{"psalm"}
+	}
+	return &RunSpec{
+		Name:    "test",
+		Command: cmd,
+		Args:    []string{},
+		Dir:     r.dir,
+		After:   after,
+	}
+}
+
+func (r *QARunner) rectorSpec() *RunSpec {
+	if !DetectRector(r.dir) {
+		return nil
+	}
+	args := []string{"process"}
+	if !r.fix {
+		args = append(args, "--dry-run")
+	}
+	return &RunSpec{
+		Name:         "rector",
+		Command:      vendorBinOrDefault(r.dir, "rector"),
+		Args:         args,
+		Dir:          r.dir,
+		After:        []string{"test"},
+		AllowFailure: true,
+	}
+}
+
+func (r *QARunner) infectionSpec() *RunSpec {
+	if !DetectInfection(r.dir) {
+		return nil
+	}
+	return &RunSpec{
+		Name:         "infection",
+		Command:      vendorBinOrDefault(r.dir, "infection"),
+		Args:         []string{"--min-msi=50", "--min-covered-msi=70", "--threads=4"},
+		Dir:          r.dir,
+		After:        []string{"test"},
+		AllowFailure: true,
+	}
+}
+
+func vendorBinOrDefault(dir string, name string) string {
+	vendorBin := filepath.Join(dir, "vendor", "bin", name)
+	if fileExists(vendorBin) {
+		return vendorBin
+	}
+	return name
+}
+
+func firstExistingVendorBin(dir string, names ...string) string {
+	for _, name := range names {
+		vendorBin := filepath.Join(dir, "vendor", "bin", name)
+		if fileExists(vendorBin) {
+			return vendorBin
+		}
+	}
+	return ""
 }
 
 // QARunResult holds the results of running QA checks.

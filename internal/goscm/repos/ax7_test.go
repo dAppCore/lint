@@ -9,6 +9,12 @@ import (
 	coreio "dappco.re/go/io"
 )
 
+const (
+	ax7TestReposApi34e3c4    = "repos/api"
+	ax7TestReposApiGit64cb4f = "repos/api/.git"
+	ax7TestReposYaml56a034   = "repos.yaml"
+)
+
 func ax7RegistryMedium(t *core.T) coreio.Medium {
 	t.Helper()
 	medium, err := coreio.NewSandboxed(t.TempDir())
@@ -22,8 +28,8 @@ func ax7RegistryYAML() string {
 
 func TestRepos_LoadRegistry_Good(t *core.T) {
 	medium := ax7RegistryMedium(t)
-	core.RequireNoError(t, medium.Write("repos.yaml", ax7RegistryYAML()))
-	registry, err := LoadRegistry(medium, "repos.yaml")
+	core.RequireNoError(t, medium.Write(ax7TestReposYaml56a034, ax7RegistryYAML()))
+	registry, err := LoadRegistry(medium, ax7TestReposYaml56a034)
 	core.AssertNoError(t, err)
 	core.AssertEqual(t, "test", registry.Org)
 	core.AssertLen(t, registry.Repos, 2)
@@ -38,22 +44,22 @@ func TestRepos_LoadRegistry_Bad(t *core.T) {
 
 func TestRepos_LoadRegistry_Ugly(t *core.T) {
 	medium := ax7RegistryMedium(t)
-	core.RequireNoError(t, medium.Write("repos.yaml", "version: 1\nbase_path: ~/Code\nrepos:\n  api:\n    path: custom/api\n"))
-	registry, err := LoadRegistry(medium, "repos.yaml")
+	core.RequireNoError(t, medium.Write(ax7TestReposYaml56a034, "version: 1\nbase_path: ~/Code\nrepos:\n  api:\n    path: custom/api\n"))
+	registry, err := LoadRegistry(medium, ax7TestReposYaml56a034)
 	core.AssertNoError(t, err)
 	core.AssertContains(t, registry.Repos["api"].Path, filepath.Join("custom", "api"))
 }
 
 func TestRepos_FindRegistry_Good(t *core.T) {
 	dir := t.TempDir()
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, "repos.yaml"), []byte(ax7RegistryYAML()), 0o644))
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, ax7TestReposYaml56a034), []byte(ax7RegistryYAML()), 0o644))
 	old, err := os.Getwd()
 	core.RequireNoError(t, err)
 	t.Cleanup(func() { core.RequireNoError(t, os.Chdir(old)) })
 	core.RequireNoError(t, os.Chdir(dir))
 	path, err := FindRegistry(coreio.Local)
 	core.AssertNoError(t, err)
-	core.AssertContains(t, path, "repos.yaml")
+	core.AssertContains(t, path, ax7TestReposYaml56a034)
 }
 
 func TestRepos_FindRegistry_Bad(t *core.T) {
@@ -71,14 +77,14 @@ func TestRepos_FindRegistry_Bad(t *core.T) {
 func TestRepos_FindRegistry_Ugly(t *core.T) {
 	dir := t.TempDir()
 	core.RequireNoError(t, os.MkdirAll(filepath.Join(dir, ".core"), 0o755))
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, ".core", "repos.yaml"), []byte(ax7RegistryYAML()), 0o644))
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, ".core", ax7TestReposYaml56a034), []byte(ax7RegistryYAML()), 0o644))
 	old, err := os.Getwd()
 	core.RequireNoError(t, err)
 	t.Cleanup(func() { core.RequireNoError(t, os.Chdir(old)) })
 	core.RequireNoError(t, os.Chdir(dir))
 	path, err := FindRegistry(coreio.Local)
 	core.AssertNoError(t, err)
-	core.AssertContains(t, path, filepath.Join(".core", "repos.yaml"))
+	core.AssertContains(t, path, filepath.Join(".core", ax7TestReposYaml56a034))
 }
 
 func TestRepos_Registry_List_Good(t *core.T) {
@@ -146,11 +152,11 @@ func TestRepos_Registry_ByType_Ugly(t *core.T) {
 
 func TestRepos_Repo_Exists_Good(t *core.T) {
 	medium := ax7RegistryMedium(t)
-	core.RequireNoError(t, medium.EnsureDir("repos/api"))
-	repo := &Repo{Path: "repos/api", registry: &Registry{medium: medium}}
+	core.RequireNoError(t, medium.EnsureDir(ax7TestReposApi34e3c4))
+	repo := &Repo{Path: ax7TestReposApi34e3c4, registry: &Registry{medium: medium}}
 	got := repo.Exists()
 	core.AssertTrue(t, got)
-	core.AssertTrue(t, medium.IsDir("repos/api"))
+	core.AssertTrue(t, medium.IsDir(ax7TestReposApi34e3c4))
 }
 
 func TestRepos_Repo_Exists_Bad(t *core.T) {
@@ -171,27 +177,27 @@ func TestRepos_Repo_Exists_Ugly(t *core.T) {
 
 func TestRepos_Repo_IsGitRepo_Good(t *core.T) {
 	medium := ax7RegistryMedium(t)
-	core.RequireNoError(t, medium.EnsureDir("repos/api/.git"))
-	repo := &Repo{Path: "repos/api", registry: &Registry{medium: medium}}
+	core.RequireNoError(t, medium.EnsureDir(ax7TestReposApiGit64cb4f))
+	repo := &Repo{Path: ax7TestReposApi34e3c4, registry: &Registry{medium: medium}}
 	got := repo.IsGitRepo()
 	core.AssertTrue(t, got)
-	core.AssertTrue(t, medium.IsDir("repos/api/.git"))
+	core.AssertTrue(t, medium.IsDir(ax7TestReposApiGit64cb4f))
 }
 
 func TestRepos_Repo_IsGitRepo_Bad(t *core.T) {
 	medium := ax7RegistryMedium(t)
-	core.RequireNoError(t, medium.EnsureDir("repos/api"))
-	repo := &Repo{Path: "repos/api", registry: &Registry{medium: medium}}
+	core.RequireNoError(t, medium.EnsureDir(ax7TestReposApi34e3c4))
+	repo := &Repo{Path: ax7TestReposApi34e3c4, registry: &Registry{medium: medium}}
 	got := repo.IsGitRepo()
 	core.AssertFalse(t, got)
-	core.AssertFalse(t, medium.IsDir("repos/api/.git"))
+	core.AssertFalse(t, medium.IsDir(ax7TestReposApiGit64cb4f))
 }
 
 func TestRepos_Repo_IsGitRepo_Ugly(t *core.T) {
 	medium := ax7RegistryMedium(t)
-	core.RequireNoError(t, medium.Write("repos/api/.git", "file-not-dir"))
-	repo := &Repo{Path: "repos/api", registry: &Registry{medium: medium}}
+	core.RequireNoError(t, medium.Write(ax7TestReposApiGit64cb4f, "file-not-dir"))
+	repo := &Repo{Path: ax7TestReposApi34e3c4, registry: &Registry{medium: medium}}
 	got := repo.IsGitRepo()
 	core.AssertFalse(t, got)
-	core.AssertTrue(t, medium.IsFile("repos/api/.git"))
+	core.AssertTrue(t, medium.IsFile(ax7TestReposApiGit64cb4f))
 }

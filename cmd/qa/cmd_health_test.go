@@ -8,9 +8,13 @@ import (
 	"dappco.re/go/cli/pkg/cli"
 )
 
+const (
+	cmdHealthTestReposYaml3b1ae7 = "repos.yaml"
+)
+
 func TestRunHealthJSONOutput_UsesMachineFriendlyKeysAndKeepsFetchErrors(t *T) {
 	dir := t.TempDir()
-	writeTestFile(t, filepath.Join(dir, "repos.yaml"), `version: 1
+	writeTestFile(t, filepath.Join(dir, cmdHealthTestReposYaml3b1ae7), `version: 1
 org: forge
 base_path: .
 repos:
@@ -56,7 +60,7 @@ esac
 	parent := &cli.Command{Use: "qa"}
 	addHealthCommand(parent)
 	command := findSubcommand(t, parent, "health")
-	RequireNoError(t, command.Flags().Set("registry", filepath.Join(dir, "repos.yaml")))
+	RequireNoError(t, command.Flags().Set("registry", filepath.Join(dir, cmdHealthTestReposYaml3b1ae7)))
 	RequireNoError(t, command.Flags().Set("json", "true"))
 
 	output := captureStdout(t, func() {
@@ -87,7 +91,7 @@ esac
 
 func TestRunHealthJSONOutput_ProblemsOnlyKeepsOverallSummary(t *T) {
 	dir := t.TempDir()
-	writeTestFile(t, filepath.Join(dir, "repos.yaml"), `version: 1
+	writeTestFile(t, filepath.Join(dir, cmdHealthTestReposYaml3b1ae7), `version: 1
 org: forge
 base_path: .
 repos:
@@ -133,7 +137,7 @@ esac
 	parent := &cli.Command{Use: "qa"}
 	addHealthCommand(parent)
 	command := findSubcommand(t, parent, "health")
-	RequireNoError(t, command.Flags().Set("registry", filepath.Join(dir, "repos.yaml")))
+	RequireNoError(t, command.Flags().Set("registry", filepath.Join(dir, cmdHealthTestReposYaml3b1ae7)))
 	RequireNoError(t, command.Flags().Set("json", "true"))
 	RequireNoError(t, command.Flags().Set("problems", "true"))
 
@@ -161,7 +165,7 @@ esac
 
 func TestRunHealthHumanOutput_ShowsFetchErrorsAsErrors(t *T) {
 	dir := t.TempDir()
-	writeTestFile(t, filepath.Join(dir, "repos.yaml"), `version: 1
+	writeTestFile(t, filepath.Join(dir, cmdHealthTestReposYaml3b1ae7), `version: 1
 org: forge
 base_path: .
 repos:
@@ -207,7 +211,7 @@ esac
 	parent := &cli.Command{Use: "qa"}
 	addHealthCommand(parent)
 	command := findSubcommand(t, parent, "health")
-	RequireNoError(t, command.Flags().Set("registry", filepath.Join(dir, "repos.yaml")))
+	RequireNoError(t, command.Flags().Set("registry", filepath.Join(dir, cmdHealthTestReposYaml3b1ae7)))
 
 	output := captureStdout(t, func() {
 		RequireNoError(t, command.RunE(command, nil))

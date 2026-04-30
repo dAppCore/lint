@@ -8,9 +8,23 @@ import (
 	"path/filepath"
 )
 
+const (
+	serviceTestComposerJson84d91a         = "composer.json"
+	serviceTestGitNotAvailable3b9d08      = "git not available"
+	serviceTestGoMod12bb12                = "go.mod"
+	serviceTestHidden35c0dc               = ".hidden"
+	serviceTestIndexJs22f9ba              = "index.js"
+	serviceTestLintYamle8fcb1             = "lint.yaml"
+	serviceTestModuleExampleComTesta4210c = "module example.com/test\n"
+	serviceTestNameExampleTestb3f36f      = "{\n  \"name\": \"example/test\"\n}\n"
+	serviceTestRootGo4c7d7a               = "root.go"
+	serviceTestScopedGod6adbc             = "scoped.go"
+	serviceTestStagedGo033be3             = "staged.go"
+)
+
 func TestServiceRun_Good_CatalogFindings(t *core.T) {
 	dir := t.TempDir()
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/test\n"), 0o644))
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, serviceTestGoMod12bb12), []byte(serviceTestModuleExampleComTesta4210c), 0o644))
 	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, "input.go"), []byte(`package sample
 
 type service struct{}
@@ -45,8 +59,8 @@ func Run() {
 
 func TestServiceRun_Good_UsesConfiguredPaths(t *core.T) {
 	dir := t.TempDir()
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/test\n"), 0o644))
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, "root.go"), []byte(`package sample
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, serviceTestGoMod12bb12), []byte(serviceTestModuleExampleComTesta4210c), 0o644))
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, serviceTestRootGo4c7d7a), []byte(`package sample
 
 type service struct{}
 
@@ -58,7 +72,7 @@ func Run() {
 }
 `), 0o644))
 	core.RequireNoError(t, os.MkdirAll(filepath.Join(dir, "services"), 0o755))
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, "services", "scoped.go"), []byte(`package sample
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, "services", serviceTestScopedGod6adbc), []byte(`package sample
 
 type service struct{}
 
@@ -70,7 +84,7 @@ func Run() {
 }
 `), 0o644))
 	core.RequireNoError(t, os.MkdirAll(filepath.Join(dir, ".core"), 0o755))
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, ".core", "lint.yaml"), []byte("paths:\n  - services\n"), 0o644))
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, ".core", serviceTestLintYamle8fcb1), []byte("paths:\n  - services\n"), 0o644))
 
 	svc := &Service{adapters: []Adapter{newCatalogAdapter()}}
 	report, err := svc.Run(context.Background(), RunInput{
@@ -87,8 +101,8 @@ func Run() {
 
 func TestServiceRun_Good_ExplicitEmptyFilesSkipsScanning(t *core.T) {
 	dir := t.TempDir()
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/test\n"), 0o644))
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, "root.go"), []byte(`package sample
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, serviceTestGoMod12bb12), []byte(serviceTestModuleExampleComTesta4210c), 0o644))
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, serviceTestRootGo4c7d7a), []byte(`package sample
 
 type service struct{}
 
@@ -116,8 +130,8 @@ func Run() {
 
 func TestServiceRun_Good_UsesConfiguredExclude(t *core.T) {
 	dir := t.TempDir()
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/test\n"), 0o644))
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, "root.go"), []byte(`package sample
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, serviceTestGoMod12bb12), []byte(serviceTestModuleExampleComTesta4210c), 0o644))
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, serviceTestRootGo4c7d7a), []byte(`package sample
 
 type service struct{}
 
@@ -129,7 +143,7 @@ func Run() {
 }
 `), 0o644))
 	core.RequireNoError(t, os.MkdirAll(filepath.Join(dir, "services"), 0o755))
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, "services", "scoped.go"), []byte(`package sample
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, "services", serviceTestScopedGod6adbc), []byte(`package sample
 
 type service struct{}
 
@@ -141,7 +155,7 @@ func Run() {
 }
 `), 0o644))
 	core.RequireNoError(t, os.MkdirAll(filepath.Join(dir, ".core"), 0o755))
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, ".core", "lint.yaml"), []byte("exclude:\n  - services\n"), 0o644))
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, ".core", serviceTestLintYamle8fcb1), []byte("exclude:\n  - services\n"), 0o644))
 
 	svc := &Service{adapters: []Adapter{newCatalogAdapter()}}
 	report, err := svc.Run(context.Background(), RunInput{
@@ -151,16 +165,16 @@ func Run() {
 	core.RequireNoError(t, err)
 
 	RequireLen(t, report.Findings, 1)
-	core.AssertEqual(t, "root.go", report.Findings[0].File)
+	core.AssertEqual(t, serviceTestRootGo4c7d7a, report.Findings[0].File)
 	core.AssertEqual(t, 1, report.Summary.Total)
 	core.AssertFalse(t, report.Summary.Passed)
 }
 
 func TestServiceRun_Good_SkipsHiddenConfiguredRootDirectory(t *core.T) {
 	dir := t.TempDir()
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/test\n"), 0o644))
-	core.RequireNoError(t, os.MkdirAll(filepath.Join(dir, ".hidden"), 0o755))
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, ".hidden", "scoped.go"), []byte(`package sample
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, serviceTestGoMod12bb12), []byte(serviceTestModuleExampleComTesta4210c), 0o644))
+	core.RequireNoError(t, os.MkdirAll(filepath.Join(dir, serviceTestHidden35c0dc), 0o755))
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, serviceTestHidden35c0dc, serviceTestScopedGod6adbc), []byte(`package sample
 
 type service struct{}
 
@@ -172,7 +186,7 @@ func Run() {
 }
 `), 0o644))
 	core.RequireNoError(t, os.MkdirAll(filepath.Join(dir, ".core"), 0o755))
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, ".core", "lint.yaml"), []byte("paths:\n  - .hidden\n"), 0o644))
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, ".core", serviceTestLintYamle8fcb1), []byte("paths:\n  - .hidden\n"), 0o644))
 
 	svc := &Service{adapters: []Adapter{newCatalogAdapter()}}
 	report, err := svc.Run(context.Background(), RunInput{
@@ -188,8 +202,8 @@ func Run() {
 
 func TestServiceRun_Good_SkipsHiddenConfiguredFilePath(t *core.T) {
 	dir := t.TempDir()
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/test\n"), 0o644))
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, "root.go"), []byte(`package sample
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, serviceTestGoMod12bb12), []byte(serviceTestModuleExampleComTesta4210c), 0o644))
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, serviceTestRootGo4c7d7a), []byte(`package sample
 
 type service struct{}
 
@@ -200,8 +214,8 @@ func Run() {
 	_ = svc.Process("root")
 }
 `), 0o644))
-	core.RequireNoError(t, os.MkdirAll(filepath.Join(dir, ".hidden"), 0o755))
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, ".hidden", "scoped.go"), []byte(`package sample
+	core.RequireNoError(t, os.MkdirAll(filepath.Join(dir, serviceTestHidden35c0dc), 0o755))
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, serviceTestHidden35c0dc, serviceTestScopedGod6adbc), []byte(`package sample
 
 type service struct{}
 
@@ -213,7 +227,7 @@ func Run() {
 }
 `), 0o644))
 	core.RequireNoError(t, os.MkdirAll(filepath.Join(dir, ".core"), 0o755))
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, ".core", "lint.yaml"), []byte("paths:\n  - root.go\n  - .hidden/scoped.go\n"), 0o644))
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, ".core", serviceTestLintYamle8fcb1), []byte("paths:\n  - root.go\n  - .hidden/scoped.go\n"), 0o644))
 
 	svc := &Service{adapters: []Adapter{newCatalogAdapter()}}
 	report, err := svc.Run(context.Background(), RunInput{
@@ -223,15 +237,15 @@ func Run() {
 	core.RequireNoError(t, err)
 
 	RequireLen(t, report.Findings, 1)
-	core.AssertEqual(t, "root.go", report.Findings[0].File)
+	core.AssertEqual(t, serviceTestRootGo4c7d7a, report.Findings[0].File)
 	core.AssertEqual(t, 1, report.Summary.Total)
 	core.AssertFalse(t, report.Summary.Passed)
 }
 
 func TestServiceRun_Good_UsesNamedSchedule(t *core.T) {
 	dir := t.TempDir()
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/test\n"), 0o644))
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, "root.go"), []byte(`package sample
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, serviceTestGoMod12bb12), []byte(serviceTestModuleExampleComTesta4210c), 0o644))
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, serviceTestRootGo4c7d7a), []byte(`package sample
 
 type service struct{}
 
@@ -243,7 +257,7 @@ func Run() {
 }
 `), 0o644))
 	core.RequireNoError(t, os.MkdirAll(filepath.Join(dir, "services"), 0o755))
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, "services", "scoped.go"), []byte(`package sample
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, "services", serviceTestScopedGod6adbc), []byte(`package sample
 
 type service struct{}
 
@@ -255,7 +269,7 @@ func Run() {
 }
 `), 0o644))
 	core.RequireNoError(t, os.MkdirAll(filepath.Join(dir, ".core"), 0o755))
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, ".core", "lint.yaml"), []byte(`schedules:
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, ".core", serviceTestLintYamle8fcb1), []byte(`schedules:
   nightly:
     fail_on: warning
     paths:
@@ -277,9 +291,9 @@ func Run() {
 
 func TestServiceRun_Good_LanguageShortcutIgnoresCiAndSbomGroups(t *core.T) {
 	dir := t.TempDir()
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/test\n"), 0o644))
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, serviceTestGoMod12bb12), []byte(serviceTestModuleExampleComTesta4210c), 0o644))
 	core.RequireNoError(t, os.MkdirAll(filepath.Join(dir, ".core"), 0o755))
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, ".core", "lint.yaml"), []byte(`lint:
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, ".core", serviceTestLintYamle8fcb1), []byte(`lint:
   go:
     - catalog
     - go-tool
@@ -310,9 +324,9 @@ func TestServiceRun_Good_LanguageShortcutIgnoresCiAndSbomGroups(t *core.T) {
 
 func TestServiceRun_Good_LanguageShortcutExcludesInfraGroup(t *core.T) {
 	dir := t.TempDir()
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, "composer.json"), []byte("{\n  \"name\": \"example/test\"\n}\n"), 0o644))
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, serviceTestComposerJson84d91a), []byte(serviceTestNameExampleTestb3f36f), 0o644))
 	core.RequireNoError(t, os.MkdirAll(filepath.Join(dir, ".core"), 0o755))
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, ".core", "lint.yaml"), []byte(`lint:
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, ".core", serviceTestLintYamle8fcb1), []byte(`lint:
   php:
     - php-tool
   infra:
@@ -337,15 +351,15 @@ func TestServiceRun_Good_LanguageShortcutExcludesInfraGroup(t *core.T) {
 
 func TestServiceRun_Good_HookModeUsesStagedFiles(t *core.T) {
 	if _, err := exec.LookPath("git"); err != nil {
-		t.Skip("git not available")
+		t.Skip(serviceTestGitNotAvailable3b9d08)
 	}
 
 	dir := t.TempDir()
 	runTestCommand(t, dir, "git", "init")
 	runTestCommand(t, dir, "git", "config", "user.email", "test@example.com")
 	runTestCommand(t, dir, "git", "config", "user.name", "Test User")
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/test\n"), 0o644))
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, "staged.go"), []byte(`package sample
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, serviceTestGoMod12bb12), []byte(serviceTestModuleExampleComTesta4210c), 0o644))
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, serviceTestStagedGo033be3), []byte(`package sample
 
 type service struct{}
 
@@ -363,7 +377,7 @@ func run2() {
 }
 `), 0o644))
 
-	runTestCommand(t, dir, "git", "add", "go.mod", "staged.go")
+	runTestCommand(t, dir, "git", "add", serviceTestGoMod12bb12, serviceTestStagedGo033be3)
 
 	svc := &Service{adapters: []Adapter{newCatalogAdapter()}}
 	report, err := svc.Run(context.Background(), RunInput{
@@ -374,21 +388,21 @@ func run2() {
 	core.RequireNoError(t, err)
 
 	RequireLen(t, report.Findings, 1)
-	core.AssertEqual(t, "staged.go", report.Findings[0].File)
+	core.AssertEqual(t, serviceTestStagedGo033be3, report.Findings[0].File)
 	core.AssertEqual(t, "go-cor-003", report.Findings[0].Code)
 	core.AssertFalse(t, report.Summary.Passed)
 }
 
 func TestServiceRun_Good_HookModeWithNoStagedFilesSkipsScanning(t *core.T) {
 	if _, err := exec.LookPath("git"); err != nil {
-		t.Skip("git not available")
+		t.Skip(serviceTestGitNotAvailable3b9d08)
 	}
 
 	dir := t.TempDir()
 	runTestCommand(t, dir, "git", "init")
 	runTestCommand(t, dir, "git", "config", "user.email", "test@example.com")
 	runTestCommand(t, dir, "git", "config", "user.name", "Test User")
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/test\n"), 0o644))
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, serviceTestGoMod12bb12), []byte(serviceTestModuleExampleComTesta4210c), 0o644))
 	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, "unstaged.go"), []byte(`package sample
 
 func run() {
@@ -412,7 +426,7 @@ func run() {
 
 func TestServiceRemoveHook_PreservesExistingHookContent(t *core.T) {
 	if _, err := exec.LookPath("git"); err != nil {
-		t.Skip("git not available")
+		t.Skip(serviceTestGitNotAvailable3b9d08)
 	}
 
 	dir := t.TempDir()
@@ -435,7 +449,7 @@ func TestServiceRemoveHook_PreservesExistingHookContent(t *core.T) {
 func TestServiceRun_JS_PrettierFindings(t *core.T) {
 	dir := t.TempDir()
 	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, "package.json"), []byte("{\n  \"name\": \"example\"\n}\n"), 0o644))
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, "index.js"), []byte("const value = 1;\n"), 0o644))
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, serviceTestIndexJs22f9ba), []byte("const value = 1;\n"), 0o644))
 
 	setupMockCmdExit(t, "prettier", "index.js\n", "", 1)
 
@@ -451,7 +465,7 @@ func TestServiceRun_JS_PrettierFindings(t *core.T) {
 	RequireLen(t, report.Findings, 1)
 	RequireLen(t, report.Tools, 1)
 	core.AssertEqual(t, "prettier", report.Findings[0].Tool)
-	core.AssertEqual(t, "index.js", report.Findings[0].File)
+	core.AssertEqual(t, serviceTestIndexJs22f9ba, report.Findings[0].File)
 	core.AssertEqual(t, "prettier-format", report.Findings[0].Code)
 	core.AssertEqual(t, "warning", report.Findings[0].Severity)
 	core.AssertFalse(t, report.Summary.Passed)
@@ -463,7 +477,7 @@ func TestServiceRun_JS_PrettierFindings(t *core.T) {
 func TestServiceRun_CapturesToolVersion(t *core.T) {
 	dir := t.TempDir()
 	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, "package.json"), []byte("{\n  \"name\": \"example\"\n}\n"), 0o644))
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, "index.js"), []byte("const value = 1;\n"), 0o644))
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, serviceTestIndexJs22f9ba), []byte("const value = 1;\n"), 0o644))
 
 	binDir := t.TempDir()
 	scriptPath := filepath.Join(binDir, "prettier")
@@ -500,10 +514,10 @@ exit 0
 
 func TestServiceRun_Good_ReportsMissingToolAsInfoFinding(t *core.T) {
 	dir := t.TempDir()
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, "composer.json"), []byte("{\n  \"name\": \"example/test\"\n}\n"), 0o644))
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, serviceTestComposerJson84d91a), []byte(serviceTestNameExampleTestb3f36f), 0o644))
 	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, "index.php"), []byte("<?php\n"), 0o644))
 	core.RequireNoError(t, os.MkdirAll(filepath.Join(dir, ".core"), 0o755))
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, ".core", "lint.yaml"), []byte("lint:\n  php:\n    - missing-tool\n"), 0o644))
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, ".core", serviceTestLintYamle8fcb1), []byte("lint:\n  php:\n    - missing-tool\n"), 0o644))
 
 	svc := &Service{adapters: []Adapter{
 		newCommandAdapter("missing-tool", []string{"definitely-not-installed-xyz"}, []string{"php"}, "correctness", "", false, true, projectPathArguments(), parseTextDiagnostics),
@@ -526,9 +540,9 @@ func TestServiceRun_Good_ReportsMissingToolAsInfoFinding(t *core.T) {
 
 func TestServiceRun_Good_DeduplicatesMergedFindings(t *core.T) {
 	dir := t.TempDir()
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/test\n"), 0o644))
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, serviceTestGoMod12bb12), []byte(serviceTestModuleExampleComTesta4210c), 0o644))
 	core.RequireNoError(t, os.MkdirAll(filepath.Join(dir, ".core"), 0o755))
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, ".core", "lint.yaml"), []byte("lint:\n  go:\n    - dup\n"), 0o644))
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, ".core", serviceTestLintYamle8fcb1), []byte("lint:\n  go:\n    - dup\n"), 0o644))
 
 	finding := Finding{
 		Tool:     "dup",
@@ -565,9 +579,9 @@ func TestServiceTools_EmptyInventoryReturnsEmptySlice(t *core.T) {
 
 func TestServiceRun_Good_StopsDispatchingAfterContextCancel(t *core.T) {
 	dir := t.TempDir()
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, "composer.json"), []byte("{\n  \"name\": \"example/test\"\n}\n"), 0o644))
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, serviceTestComposerJson84d91a), []byte(serviceTestNameExampleTestb3f36f), 0o644))
 	core.RequireNoError(t, os.MkdirAll(filepath.Join(dir, ".core"), 0o755))
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, ".core", "lint.yaml"), []byte(`lint:
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, ".core", serviceTestLintYamle8fcb1), []byte(`lint:
   php:
     - first
     - second

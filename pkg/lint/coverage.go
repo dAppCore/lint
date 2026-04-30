@@ -13,12 +13,21 @@ import (
 	coreio "dappco.re/go/io"
 )
 
+const (
+	coverageCoveragestoreAppend1a31c1 = "CoverageStore.Append"
+)
+
 // CoverageSnapshot represents a point-in-time coverage measurement.
 type CoverageSnapshot struct {
 	Timestamp time.Time          `json:"timestamp"`
 	Packages  map[string]float64 `json:"packages"`       // package → coverage %
 	Total     float64            `json:"total"`          // overall coverage %
 	Meta      map[string]string  `json:"meta,omitempty"` // optional metadata (commit, branch, etc.)
+}
+
+type coveragePkgStats struct {
+	covered int
+	total   int
 }
 
 // CoverageRegression flags a package whose coverage changed between runs.
@@ -52,19 +61,19 @@ func NewCoverageStore(path string) *CoverageStore {
 func (s *CoverageStore) Append(snap CoverageSnapshot) error {
 	snapshots, err := s.Load()
 	if err != nil && !isNotExistError(err) {
-		return core.E("CoverageStore.Append", "load snapshots", err)
+		return core.E(coverageCoveragestoreAppend1a31c1, "load snapshots", err)
 	}
 
 	snapshots = append(snapshots, snap)
 
 	r := core.JSONMarshal(snapshots)
 	if !r.OK {
-		return core.E("CoverageStore.Append", "marshal snapshots", r.Value.(error))
+		return core.E(coverageCoveragestoreAppend1a31c1, "marshal snapshots", r.Value.(error))
 	}
 	data := r.Value.([]byte)
 
 	if err := coreio.Local.Write(s.Path, string(data)); err != nil {
-		return core.E("CoverageStore.Append", "write "+s.Path, err)
+		return core.E(coverageCoveragestoreAppend1a31c1, "write "+s.Path, err)
 	}
 	return nil
 }
@@ -112,73 +121,80 @@ func ParseCoverProfile(data string) (CoverageSnapshot, error) {
 		Packages:  make(map[string]float64),
 	}
 
-	type pkgStats struct {
-		covered int
-		total   int
-	}
-	packages := make(map[string]*pkgStats)
+	packages := make(map[string]*coveragePkgStats)
 
 	scanner := bufio.NewScanner(core.NewReader(data))
 	for scanner.Scan() {
-		line := scanner.Text()
-		if core.HasPrefix(line, "mode:") {
+		pkg, stmts, count, ok := parseCoverProfileLine(scanner.Text())
+		if !ok {
 			continue
 		}
-
-		parts := coverageFields(line)
-		if len(parts) != 3 {
-			continue
-		}
-
-		filePath := parts[0]
-		fileParts := core.Split(filePath, ":")
-		if len(fileParts) < 2 {
-			continue
-		}
-		file := fileParts[0]
-
-		pkg := file
-		fileSegments := core.Split(file, "/")
-		if len(fileSegments) > 1 {
-			pkg = core.Join("/", fileSegments[:len(fileSegments)-1]...)
-		}
-
-		stmts, err := strconv.Atoi(parts[1])
-		if err != nil {
-			continue
-		}
-		count, err := strconv.Atoi(parts[2])
-		if err != nil {
-			continue
-		}
-
-		if _, ok := packages[pkg]; !ok {
-			packages[pkg] = &pkgStats{}
-		}
-		packages[pkg].total += stmts
-		if count > 0 {
-			packages[pkg].covered += stmts
-		}
+		addCoverageStats(packages, pkg, stmts, count)
 	}
 
+	setCoveragePercentages(&snap, packages)
+	return snap, nil
+}
+
+func parseCoverProfileLine(line string) (string, int, int, bool) {
+	if core.HasPrefix(line, "mode:") {
+		return "", 0, 0, false
+	}
+	parts := coverageFields(line)
+	if len(parts) != 3 {
+		return "", 0, 0, false
+	}
+	fileParts := core.Split(parts[0], ":")
+	if len(fileParts) < 2 {
+		return "", 0, 0, false
+	}
+	stmts, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return "", 0, 0, false
+	}
+	count, err := strconv.Atoi(parts[2])
+	if err != nil {
+		return "", 0, 0, false
+	}
+	return coveragePackage(fileParts[0]), stmts, count, true
+}
+
+func coveragePackage(file string) string {
+	fileSegments := core.Split(file, "/")
+	if len(fileSegments) <= 1 {
+		return file
+	}
+	return core.Join("/", fileSegments[:len(fileSegments)-1]...)
+}
+
+func addCoverageStats(packages map[string]*coveragePkgStats, pkg string, stmts int, count int) {
+	if _, ok := packages[pkg]; !ok {
+		packages[pkg] = &coveragePkgStats{}
+	}
+	packages[pkg].total += stmts
+	if count > 0 {
+		packages[pkg].covered += stmts
+	}
+}
+
+func setCoveragePercentages(snap *CoverageSnapshot, packages map[string]*coveragePkgStats) {
 	totalCovered := 0
 	totalStmts := 0
-
 	for pkg, stats := range packages {
-		if stats.total > 0 {
-			snap.Packages[pkg] = math.Round(float64(stats.covered)/float64(stats.total)*1000) / 10
-		} else {
-			snap.Packages[pkg] = 0
-		}
+		snap.Packages[pkg] = coveragePercent(stats.covered, stats.total)
 		totalCovered += stats.covered
 		totalStmts += stats.total
 	}
-
 	if totalStmts > 0 {
-		snap.Total = math.Round(float64(totalCovered)/float64(totalStmts)*1000) / 10
+		snap.Total = coveragePercent(totalCovered, totalStmts)
 	}
+}
 
-	return snap, nil
+func coveragePercent(covered int, total int) float64 {
+	if total == 0 {
+		return 0
+	}
+	return math.Round(float64(covered)/float64(total)*1000) / 10
 }
 
 // ParseCoverOutput parses the human-readable `go test -cover ./...` output.

@@ -6,6 +6,11 @@ import (
 	"path/filepath"
 )
 
+const (
+	detectProjectTestIgnoredGoba2352      = "ignored.go"
+	detectProjectTestPackageIgnored145cee = "package ignored\n"
+)
+
 func TestDetect_Good_ProjectMarkersAndFiles(t *core.T) {
 	dir := t.TempDir()
 
@@ -18,7 +23,7 @@ func TestDetect_Good_ProjectMarkersAndFiles(t *core.T) {
 	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, "run.sh"), []byte("#!/bin/sh\n"), 0o644))
 	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, "README.md"), []byte("# Test\n"), 0o644))
 	core.RequireNoError(t, os.MkdirAll(filepath.Join(dir, "vendor"), 0o755))
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, "vendor", "ignored.go"), []byte("package ignored\n"), 0o644))
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, "vendor", detectProjectTestIgnoredGoba2352), []byte(detectProjectTestPackageIgnored145cee), 0o644))
 
 	core.AssertEqual(t,
 		[]string{"cpp", "dockerfile", "go", "js", "markdown", "python", "shell", "ts"},
@@ -90,11 +95,11 @@ func TestDetect_Ugly_SkipsNestedHiddenAndExcludedDirectories(t *core.T) {
 
 	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, "root.go"), []byte("package main\n"), 0o644))
 	core.RequireNoError(t, os.MkdirAll(filepath.Join(dir, "vendor"), 0o755))
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, "vendor", "ignored.go"), []byte("package ignored\n"), 0o644))
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, "vendor", detectProjectTestIgnoredGoba2352), []byte(detectProjectTestPackageIgnored145cee), 0o644))
 	core.RequireNoError(t, os.MkdirAll(filepath.Join(dir, ".core"), 0o755))
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, ".core", "ignored.go"), []byte("package ignored\n"), 0o644))
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, ".core", detectProjectTestIgnoredGoba2352), []byte(detectProjectTestPackageIgnored145cee), 0o644))
 	core.RequireNoError(t, os.MkdirAll(filepath.Join(dir, "services", ".generated"), 0o755))
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, "services", ".generated", "ignored.go"), []byte("package ignored\n"), 0o644))
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, "services", ".generated", detectProjectTestIgnoredGoba2352), []byte(detectProjectTestPackageIgnored145cee), 0o644))
 
 	core.AssertEqual(t, []string{"go"}, Detect(dir))
 }

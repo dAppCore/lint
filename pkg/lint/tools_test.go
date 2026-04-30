@@ -8,6 +8,10 @@ import (
 	"time"
 )
 
+const (
+	toolsTestModaV14379dd = "modA@v1"
+)
+
 // setupMockCmd creates a shell script in a temp dir that echoes predetermined
 // content, and prepends that dir to PATH so Run() picks it up.
 func setupMockCmd(t *core.T, name, content string) {
@@ -130,7 +134,7 @@ func TestToolkit_DepGraph_Good(t *core.T) {
 	graph, err := tk.DepGraph("./...")
 	core.RequireNoError(t, err)
 	core.AssertLen(t, graph.Nodes, 4)
-	core.AssertLen(t, graph.Edges["modA@v1"], 2)
+	core.AssertLen(t, graph.Edges[toolsTestModaV14379dd], 2)
 }
 
 func TestToolkit_DepGraph_SortsNodesAndEdges(t *core.T) {
@@ -141,8 +145,8 @@ func TestToolkit_DepGraph_SortsNodesAndEdges(t *core.T) {
 	graph, err := tk.DepGraph("./...")
 	core.RequireNoError(t, err)
 
-	core.AssertEqual(t, []string{"modA@v1", "modB@v2", "modC@v3", "modD@v1"}, graph.Nodes)
-	core.AssertEqual(t, []string{"modB@v2", "modC@v3"}, graph.Edges["modA@v1"])
+	core.AssertEqual(t, []string{toolsTestModaV14379dd, "modB@v2", "modC@v3", "modD@v1"}, graph.Nodes)
+	core.AssertEqual(t, []string{"modB@v2", "modC@v3"}, graph.Edges[toolsTestModaV14379dd])
 }
 
 func TestToolkit_RaceDetect_Good(t *core.T) {

@@ -4,10 +4,16 @@ import (
 	core "dappco.re/go"
 )
 
+const (
+	matcherTestFoundATodo28bce4 = "Found a TODO"
+	matcherTestMainGo3f3621     = "main.go"
+	matcherTestTest00137e60a    = "test-001"
+)
+
 func TestNewMatcher_Good(t *core.T) {
 	rules := []Rule{
 		{
-			ID:        "test-001",
+			ID:        matcherTestTest00137e60a,
 			Title:     "Test rule",
 			Severity:  "high",
 			Languages: []string{"go"},
@@ -43,8 +49,8 @@ func TestNewMatcher_Bad_InvalidRegex(t *core.T) {
 func TestMatch_Good_Found(t *core.T) {
 	rules := []Rule{
 		{
-			ID:        "test-001",
-			Title:     "Found a TODO",
+			ID:        matcherTestTest00137e60a,
+			Title:     matcherTestFoundATodo28bce4,
 			Severity:  "medium",
 			Languages: []string{"go"},
 			Pattern:   `TODO`,
@@ -57,13 +63,13 @@ func TestMatch_Good_Found(t *core.T) {
 	core.RequireNoError(t, err)
 
 	content := []byte("package main\n\n// TODO: fix this later\nfunc main() {}\n")
-	findings := m.Match("main.go", content)
+	findings := m.Match(matcherTestMainGo3f3621, content)
 
 	RequireLen(t, findings, 1)
-	core.AssertEqual(t, "test-001", findings[0].RuleID)
-	core.AssertEqual(t, "Found a TODO", findings[0].Title)
+	core.AssertEqual(t, matcherTestTest00137e60a, findings[0].RuleID)
+	core.AssertEqual(t, matcherTestFoundATodo28bce4, findings[0].Title)
 	core.AssertEqual(t, "medium", findings[0].Severity)
-	core.AssertEqual(t, "main.go", findings[0].File)
+	core.AssertEqual(t, matcherTestMainGo3f3621, findings[0].File)
 	core.AssertEqual(t, 3, findings[0].Line)
 	core.AssertContains(t, findings[0].Match, "TODO")
 	core.AssertEqual(t, "Remove TODO comments", findings[0].Fix)
@@ -106,8 +112,8 @@ func TestMatch_Good_ExcludePattern(t *core.T) {
 func TestMatch_Good_NoMatch(t *core.T) {
 	rules := []Rule{
 		{
-			ID:        "test-001",
-			Title:     "Found a TODO",
+			ID:        matcherTestTest00137e60a,
+			Title:     matcherTestFoundATodo28bce4,
 			Severity:  "medium",
 			Languages: []string{"go"},
 			Pattern:   `TODO`,
@@ -120,7 +126,7 @@ func TestMatch_Good_NoMatch(t *core.T) {
 	core.RequireNoError(t, err)
 
 	content := []byte("package main\n\nfunc main() {}\n")
-	findings := m.Match("main.go", content)
+	findings := m.Match(matcherTestMainGo3f3621, content)
 	core.AssertEmpty(t, findings)
 }
 
@@ -150,7 +156,7 @@ func TestMatch_Good_MultipleRules(t *core.T) {
 	core.RequireNoError(t, err)
 
 	content := []byte("// TODO: something\n// FIXME: something else\n")
-	findings := m.Match("main.go", content)
+	findings := m.Match(matcherTestMainGo3f3621, content)
 	core.AssertLen(t, findings, 2)
 }
 
@@ -171,7 +177,7 @@ func TestMatch_Good_MultipleMatchesSameRule(t *core.T) {
 	core.RequireNoError(t, err)
 
 	content := []byte("// TODO: first\n// TODO: second\n")
-	findings := m.Match("main.go", content)
+	findings := m.Match(matcherTestMainGo3f3621, content)
 	core.AssertLen(t, findings, 2)
 	core.AssertEqual(t, 1, findings[0].Line)
 	core.AssertEqual(t, 2, findings[1].Line)
@@ -194,6 +200,6 @@ func TestNewMatcher_Good_SkipsNonRegex(t *core.T) {
 	core.RequireNoError(t, err)
 
 	content := []byte("not a regex match\n")
-	findings := m.Match("main.go", content)
+	findings := m.Match(matcherTestMainGo3f3621, content)
 	core.AssertEmpty(t, findings) // AST rules are not matched by regex matcher.
 }

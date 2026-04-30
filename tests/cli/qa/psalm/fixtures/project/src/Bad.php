@@ -1,5 +1,5 @@
 <?php
 
-function bad_example() {
+function badExample() {
     return $anotherMissingVariable;
 }

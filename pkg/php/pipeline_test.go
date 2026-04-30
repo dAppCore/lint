@@ -6,6 +6,10 @@ import (
 	"path/filepath"
 )
 
+const (
+	pipelineTestBinSh8c90ea = "#!/bin/sh"
+)
+
 func TestGetQAStages_Default(t *T) {
 	stages := GetQAStages(QAOptions{})
 	AssertEqual(t, []QAStage{QAStageQuick, QAStageStandard}, stages)
@@ -41,7 +45,7 @@ func TestGetQAChecks_Standard_WithPsalm(t *T) {
 	// Create vendor/bin/psalm
 	vendorBin := filepath.Join(dir, "vendor", "bin")
 	os.MkdirAll(vendorBin, 0755)
-	os.WriteFile(filepath.Join(vendorBin, "psalm"), []byte("#!/bin/sh"), 0755)
+	os.WriteFile(filepath.Join(vendorBin, "psalm"), []byte(pipelineTestBinSh8c90ea), 0755)
 	checks := GetQAChecks(dir, QAStageStandard)
 	AssertContains(t, checks, "psalm")
 	AssertContains(t, checks, "test")
@@ -57,8 +61,8 @@ func TestGetQAChecks_Full_WithRectorAndInfection(t *T) {
 	dir := t.TempDir()
 	vendorBin := filepath.Join(dir, "vendor", "bin")
 	os.MkdirAll(vendorBin, 0755)
-	os.WriteFile(filepath.Join(vendorBin, "rector"), []byte("#!/bin/sh"), 0755)
-	os.WriteFile(filepath.Join(vendorBin, "infection"), []byte("#!/bin/sh"), 0755)
+	os.WriteFile(filepath.Join(vendorBin, "rector"), []byte(pipelineTestBinSh8c90ea), 0755)
+	os.WriteFile(filepath.Join(vendorBin, "infection"), []byte(pipelineTestBinSh8c90ea), 0755)
 	checks := GetQAChecks(dir, QAStageFull)
 	AssertContains(t, checks, "rector")
 	AssertContains(t, checks, "infection")

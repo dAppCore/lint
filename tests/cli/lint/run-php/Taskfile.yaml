@@ -1,39 +1,74 @@
+---
 version: "3"
 
 tasks:
   test:
-    desc: Verify PHPStan + Psalm adapters parse type-error and taint-flow fixtures.
+    desc: >
+      Verify PHPStan + Psalm adapters parse type-error and taint-flow fixtures.
     cmds:
       - |
           bash <<'EOF'
           set -euo pipefail
           source ../../_lib/run.sh
 
-          go build -trimpath -ldflags="-s -w" -o bin/core-lint ../../../../cmd/core-lint
+          go build -trimpath -ldflags="-s -w" \
+            -o bin/core-lint ../../../../cmd/core-lint
 
           type_out=""
           taint_out=""
           clean_out=""
-          cleanup() { rm -f "${type_out:-}" "${taint_out:-}" "${clean_out:-}" 2>/dev/null || true; }
+          cleanup() {
+            rm -f "${type_out:-}" "${taint_out:-}" "${clean_out:-}" \
+              2>/dev/null || true
+          }
           trap cleanup EXIT
 
-          # Stub phpstan + psalm binaries that emit canned JSON for each fixture.
+          # Stub phpstan + psalm binaries that emit canned JSON for fixtures.
           export PATH="$PWD/fixtures/bin:$PATH"
 
           # Type-error fixture: PHPStan + Psalm both emit a correctness finding.
           type_out="$(mktemp)"
-          run_capture_stdout 1 "$type_out" ./bin/core-lint run --output json --lang php --fail-on warning fixtures/type-error
-          jq -e '[.findings[] | select(.tool == "phpstan")] | length >= 1' "$type_out" >/dev/null
-          jq -e '[.findings[] | select(.tool == "phpstan" and .category == "correctness")] | length >= 1' "$type_out" >/dev/null
+          run_capture_stdout 1 "$type_out" ./bin/core-lint run \
+            --output json --lang php --fail-on warning fixtures/type-error
+          jq -e '
+            [.findings[] | select(.tool == "phpstan")] | length >= 1
+          ' "$type_out" >/dev/null
+          jq -e '
+            [
+              .findings[]
+              | select(.tool == "phpstan" and .category == "correctness")
+            ] | length >= 1
+          ' "$type_out" >/dev/null
 
-          # Taint-flow fixture: Psalm emits a security-category error preserving taint signal.
+          # Taint-flow fixture: Psalm preserves taint signal as security.
           taint_out="$(mktemp)"
-          run_capture_stdout 1 "$taint_out" ./bin/core-lint run --output json --lang php --fail-on warning fixtures/taint-flow
-          jq -e '[.findings[] | select(.tool == "psalm" and .category == "security" and .severity == "error")] | length >= 1' "$taint_out" >/dev/null
-          jq -e '[.findings[] | select(.tool == "psalm" and .code == "TaintedSql")] | length >= 1' "$taint_out" >/dev/null
+          run_capture_stdout 1 "$taint_out" ./bin/core-lint run \
+            --output json --lang php --fail-on warning fixtures/taint-flow
+          jq -e '
+            [
+              .findings[]
+              | select(
+                  .tool == "psalm"
+                  and .category == "security"
+                  and .severity == "error"
+                )
+            ] | length >= 1
+          ' "$taint_out" >/dev/null
+          jq -e '
+            [
+              .findings[]
+              | select(.tool == "psalm" and .code == "TaintedSql")
+            ] | length >= 1
+          ' "$taint_out" >/dev/null
 
           # Clean fixture: PHPStan and Psalm emit zero findings.
           clean_out="$(mktemp)"
-          run_capture_stdout 0 "$clean_out" ./bin/core-lint run --output json --lang php --fail-on warning fixtures/clean
-          jq -e '[.findings[] | select(.tool == "phpstan" or .tool == "psalm")] | length == 0' "$clean_out" >/dev/null
+          run_capture_stdout 0 "$clean_out" ./bin/core-lint run \
+            --output json --lang php --fail-on warning fixtures/clean
+          jq -e '
+            [
+              .findings[]
+              | select(.tool == "phpstan" or .tool == "psalm")
+            ] | length == 0
+          ' "$clean_out" >/dev/null
           EOF

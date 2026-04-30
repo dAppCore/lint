@@ -15,16 +15,34 @@ import (
 	core "dappco.re/go"
 )
 
+const (
+	ax7TestCoverageJsonc56d9c       = "coverage.json"
+	ax7TestExampleComPkg637f74      = "example.com/pkg"
+	ax7TestExit07c72ff              = "exit 0"
+	ax7TestGoModf65e50              = "go.mod"
+	ax7TestGoTest0013c61e5          = "go-test-001"
+	ax7TestLintSecurity5f4c16       = "lint.security"
+	ax7TestMainGo347781             = "main.go"
+	ax7TestModuleExampleTestdbd43d  = "module example.test\n"
+	ax7TestPreCommitde5a5c          = "pre-commit"
+	ax7TestPrintfFailed2Exit1b9d47d = "printf failed >&2; exit 1"
+	ax7TestPrintfFatal2Exit13caa91  = "printf fatal >&2; exit 1"
+	ax7TestPrintfFatal2Exit24aa7f5  = "printf fatal >&2; exit 2"
+	ax7TestPrintfGitd1e155          = "printf .git"
+	ax7TestTestRule154a18           = "Test rule"
+	ax7TestWriteFailed9b8161        = "write failed"
+)
+
 type ax7ErrWriter struct{}
 
 func (ax7ErrWriter) Write([]byte) (int, error) {
-	return 0, errors.New("write failed")
+	return 0, errors.New(ax7TestWriteFailed9b8161)
 }
 
 func ax7Rule() Rule {
 	return Rule{
-		ID:        "go-test-001",
-		Title:     "Test rule",
+		ID:        ax7TestGoTest0013c61e5,
+		Title:     ax7TestTestRule154a18,
 		Severity:  "medium",
 		Languages: []string{"go"},
 		Pattern:   "TODO",
@@ -59,11 +77,11 @@ func ax7Executable(t *core.T, name string, body string) string {
 func ax7Report() Report {
 	findings := []Finding{{
 		Tool:     "catalog",
-		File:     "main.go",
+		File:     ax7TestMainGo347781,
 		Line:     3,
 		Severity: "warning",
-		Code:     "go-test-001",
-		Message:  "Test rule",
+		Code:     ax7TestGoTest0013c61e5,
+		Message:  ax7TestTestRule154a18,
 	}}
 	return Report{Project: "repo", Timestamp: time.Unix(0, 0), Duration: "1ms", Findings: findings, Summary: Summarise(findings)}
 }
@@ -72,7 +90,7 @@ func TestLint_Rule_Validate_Good(t *core.T) {
 	rule := ax7Rule()
 	err := rule.Validate()
 	core.AssertNoError(t, err)
-	core.AssertEqual(t, "go-test-001", rule.ID)
+	core.AssertEqual(t, ax7TestGoTest0013c61e5, rule.ID)
 }
 
 func TestLint_Rule_Validate_Bad(t *core.T) {
@@ -97,7 +115,7 @@ func TestLint_ParseRules_Good(t *core.T) {
 	rules, err := ParseRules(data)
 	core.AssertNoError(t, err)
 	core.AssertLen(t, rules, 1)
-	core.AssertEqual(t, "go-test-001", rules[0].ID)
+	core.AssertEqual(t, ax7TestGoTest0013c61e5, rules[0].ID)
 }
 
 func TestLint_ParseRules_Bad(t *core.T) {
@@ -118,7 +136,7 @@ func TestLint_LoadDir_Good(t *core.T) {
 	catalog, err := LoadDir(dir)
 	core.AssertNoError(t, err)
 	core.AssertLen(t, catalog.Rules, 1)
-	core.AssertEqual(t, "go-test-001", catalog.Rules[0].ID)
+	core.AssertEqual(t, ax7TestGoTest0013c61e5, catalog.Rules[0].ID)
 }
 
 func TestLint_LoadDir_Bad(t *core.T) {
@@ -140,7 +158,7 @@ func TestLint_LoadFS_Good(t *core.T) {
 	catalog, err := LoadFS(fsys, "catalog")
 	core.AssertNoError(t, err)
 	core.AssertLen(t, catalog.Rules, 1)
-	core.AssertEqual(t, "go-test-001", catalog.Rules[0].ID)
+	core.AssertEqual(t, ax7TestGoTest0013c61e5, catalog.Rules[0].ID)
 }
 
 func TestLint_LoadFS_Bad(t *core.T) {
@@ -160,7 +178,7 @@ func TestLint_Catalog_ForLanguage_Good(t *core.T) {
 	catalog := &Catalog{Rules: []Rule{ax7Rule()}}
 	rules := catalog.ForLanguage("go")
 	core.AssertLen(t, rules, 1)
-	core.AssertEqual(t, "go-test-001", rules[0].ID)
+	core.AssertEqual(t, ax7TestGoTest0013c61e5, rules[0].ID)
 }
 
 func TestLint_Catalog_ForLanguage_Bad(t *core.T) {
@@ -181,7 +199,7 @@ func TestLint_Catalog_AtSeverity_Good(t *core.T) {
 	catalog := &Catalog{Rules: []Rule{ax7Rule(), {ID: "critical", Severity: "critical"}}}
 	rules := catalog.AtSeverity("medium")
 	core.AssertLen(t, rules, 2)
-	core.AssertEqual(t, "go-test-001", rules[0].ID)
+	core.AssertEqual(t, ax7TestGoTest0013c61e5, rules[0].ID)
 }
 
 func TestLint_Catalog_AtSeverity_Bad(t *core.T) {
@@ -200,9 +218,9 @@ func TestLint_Catalog_AtSeverity_Ugly(t *core.T) {
 
 func TestLint_Catalog_ByID_Good(t *core.T) {
 	catalog := &Catalog{Rules: []Rule{ax7Rule()}}
-	rule := catalog.ByID("go-test-001")
+	rule := catalog.ByID(ax7TestGoTest0013c61e5)
 	core.AssertNotNil(t, rule)
-	core.AssertEqual(t, "Test rule", rule.Title)
+	core.AssertEqual(t, ax7TestTestRule154a18, rule.Title)
 }
 
 func TestLint_Catalog_ByID_Bad(t *core.T) {
@@ -245,7 +263,7 @@ func TestLint_NewMatcher_Ugly(t *core.T) {
 func TestLint_Matcher_Match_Good(t *core.T) {
 	matcher, err := NewMatcher([]Rule{ax7Rule()})
 	core.RequireNoError(t, err)
-	findings := matcher.Match("main.go", []byte("// TODO: fix\n"))
+	findings := matcher.Match(ax7TestMainGo347781, []byte("// TODO: fix\n"))
 	core.AssertLen(t, findings, 1)
 	core.AssertEqual(t, 1, findings[0].Line)
 }
@@ -253,7 +271,7 @@ func TestLint_Matcher_Match_Good(t *core.T) {
 func TestLint_Matcher_Match_Bad(t *core.T) {
 	matcher, err := NewMatcher([]Rule{ax7Rule()})
 	core.RequireNoError(t, err)
-	findings := matcher.Match("main.go", []byte("package main\n"))
+	findings := matcher.Match(ax7TestMainGo347781, []byte("package main\n"))
 	core.AssertEmpty(t, findings)
 	core.AssertNil(t, findings)
 }
@@ -268,7 +286,7 @@ func TestLint_Matcher_Match_Ugly(t *core.T) {
 }
 
 func TestLint_DetectLanguage_Good(t *core.T) {
-	got := DetectLanguage("main.go")
+	got := DetectLanguage(ax7TestMainGo347781)
 	core.AssertEqual(t, "go", got)
 	core.AssertNotEqual(t, "", got)
 }
@@ -327,7 +345,7 @@ func TestLint_NewScanner_Ugly(t *core.T) {
 
 func TestLint_Scanner_ScanFile_Good(t *core.T) {
 	dir := t.TempDir()
-	path := ax7WriteFile(t, dir, "main.go", "package main\n// TODO: fix\n")
+	path := ax7WriteFile(t, dir, ax7TestMainGo347781, "package main\n// TODO: fix\n")
 	scanner, err := NewScanner([]Rule{ax7Rule()})
 	core.RequireNoError(t, err)
 	findings, err := scanner.ScanFile(path)
@@ -355,7 +373,7 @@ func TestLint_Scanner_ScanFile_Ugly(t *core.T) {
 
 func TestLint_Scanner_ScanDir_Good(t *core.T) {
 	dir := t.TempDir()
-	ax7WriteFile(t, dir, "main.go", "package main\n// TODO: fix\n")
+	ax7WriteFile(t, dir, ax7TestMainGo347781, "package main\n// TODO: fix\n")
 	scanner, err := NewScanner([]Rule{ax7Rule()})
 	core.RequireNoError(t, err)
 	findings, err := scanner.ScanDir(dir)
@@ -424,7 +442,7 @@ func TestLint_AnalyseComplexitySource_Ugly(t *core.T) {
 
 func TestLint_AnalyseComplexity_Good(t *core.T) {
 	dir := t.TempDir()
-	ax7WriteFile(t, dir, "main.go", "package sample\nfunc Run() { if true { for i:=0; i<1; i++ {} } }\n")
+	ax7WriteFile(t, dir, ax7TestMainGo347781, "package sample\nfunc Run() { if true { for i:=0; i<1; i++ {} } }\n")
 	results, err := AnalyseComplexity(ComplexityConfig{Path: dir, Threshold: 2})
 	core.AssertNoError(t, err)
 	core.AssertLen(t, results, 1)
@@ -445,7 +463,7 @@ func TestLint_AnalyseComplexity_Ugly(t *core.T) {
 }
 
 func TestLint_NewCoverageStore_Good(t *core.T) {
-	path := filepath.Join(t.TempDir(), "coverage.json")
+	path := filepath.Join(t.TempDir(), ax7TestCoverageJsonc56d9c)
 	store := NewCoverageStore(path)
 	core.AssertNotNil(t, store)
 	core.AssertEqual(t, path, store.Path)
@@ -458,14 +476,14 @@ func TestLint_NewCoverageStore_Bad(t *core.T) {
 }
 
 func TestLint_NewCoverageStore_Ugly(t *core.T) {
-	path := filepath.Join(t.TempDir(), "nested", "coverage.json")
+	path := filepath.Join(t.TempDir(), "nested", ax7TestCoverageJsonc56d9c)
 	store := NewCoverageStore(path)
 	core.AssertNotNil(t, store)
 	core.AssertContains(t, store.Path, "nested")
 }
 
 func TestLint_CoverageStore_Append_Good(t *core.T) {
-	store := NewCoverageStore(filepath.Join(t.TempDir(), "coverage.json"))
+	store := NewCoverageStore(filepath.Join(t.TempDir(), ax7TestCoverageJsonc56d9c))
 	snap := CoverageSnapshot{Timestamp: time.Unix(1, 0), Packages: map[string]float64{"pkg": 80}, Total: 80}
 	err := store.Append(snap)
 	core.AssertNoError(t, err)
@@ -480,14 +498,14 @@ func TestLint_CoverageStore_Append_Bad(t *core.T) {
 }
 
 func TestLint_CoverageStore_Append_Ugly(t *core.T) {
-	store := NewCoverageStore(filepath.Join(t.TempDir(), "nested", "coverage.json"))
+	store := NewCoverageStore(filepath.Join(t.TempDir(), "nested", ax7TestCoverageJsonc56d9c))
 	err := store.Append(CoverageSnapshot{Packages: map[string]float64{}})
 	core.AssertNoError(t, err)
 	core.AssertTrue(t, ax7FileExists(store.Path))
 }
 
 func TestLint_CoverageStore_Load_Good(t *core.T) {
-	store := NewCoverageStore(filepath.Join(t.TempDir(), "coverage.json"))
+	store := NewCoverageStore(filepath.Join(t.TempDir(), ax7TestCoverageJsonc56d9c))
 	core.RequireNoError(t, store.Append(CoverageSnapshot{Timestamp: time.Unix(1, 0), Packages: map[string]float64{"pkg": 80}, Total: 80}))
 	snapshots, err := store.Load()
 	core.AssertNoError(t, err)
@@ -502,7 +520,7 @@ func TestLint_CoverageStore_Load_Bad(t *core.T) {
 }
 
 func TestLint_CoverageStore_Load_Ugly(t *core.T) {
-	path := ax7WriteFile(t, t.TempDir(), "coverage.json", "not-json")
+	path := ax7WriteFile(t, t.TempDir(), ax7TestCoverageJsonc56d9c, "not-json")
 	store := NewCoverageStore(path)
 	snapshots, err := store.Load()
 	core.AssertError(t, err)
@@ -510,7 +528,7 @@ func TestLint_CoverageStore_Load_Ugly(t *core.T) {
 }
 
 func TestLint_CoverageStore_Latest_Good(t *core.T) {
-	store := NewCoverageStore(filepath.Join(t.TempDir(), "coverage.json"))
+	store := NewCoverageStore(filepath.Join(t.TempDir(), ax7TestCoverageJsonc56d9c))
 	core.RequireNoError(t, store.Append(CoverageSnapshot{Timestamp: time.Unix(1, 0), Packages: map[string]float64{"old": 50}}))
 	core.RequireNoError(t, store.Append(CoverageSnapshot{Timestamp: time.Unix(2, 0), Packages: map[string]float64{"new": 90}}))
 	latest, err := store.Latest()
@@ -526,7 +544,7 @@ func TestLint_CoverageStore_Latest_Bad(t *core.T) {
 }
 
 func TestLint_CoverageStore_Latest_Ugly(t *core.T) {
-	path := ax7WriteFile(t, t.TempDir(), "coverage.json", "[]")
+	path := ax7WriteFile(t, t.TempDir(), ax7TestCoverageJsonc56d9c, "[]")
 	store := NewCoverageStore(path)
 	latest, err := store.Latest()
 	core.AssertNoError(t, err)
@@ -538,7 +556,7 @@ func TestLint_ParseCoverProfile_Good(t *core.T) {
 	snap, err := ParseCoverProfile(data)
 	core.AssertNoError(t, err)
 	core.AssertEqual(t, 100.0, snap.Total)
-	core.AssertEqual(t, 100.0, snap.Packages["example.com/pkg"])
+	core.AssertEqual(t, 100.0, snap.Packages[ax7TestExampleComPkg637f74])
 }
 
 func TestLint_ParseCoverProfile_Bad(t *core.T) {
@@ -553,7 +571,7 @@ func TestLint_ParseCoverProfile_Ugly(t *core.T) {
 	snap, err := ParseCoverProfile(data)
 	core.AssertNoError(t, err)
 	core.AssertEqual(t, 0.0, snap.Total)
-	core.AssertEqual(t, 0.0, snap.Packages["example.com/pkg"])
+	core.AssertEqual(t, 0.0, snap.Packages[ax7TestExampleComPkg637f74])
 }
 
 func TestLint_ParseCoverOutput_Good(t *core.T) {
@@ -561,7 +579,7 @@ func TestLint_ParseCoverOutput_Good(t *core.T) {
 	snap, err := ParseCoverOutput(output)
 	core.AssertNoError(t, err)
 	core.AssertEqual(t, 75.0, snap.Total)
-	core.AssertEqual(t, 75.0, snap.Packages["example.com/pkg"])
+	core.AssertEqual(t, 75.0, snap.Packages[ax7TestExampleComPkg637f74])
 }
 
 func TestLint_ParseCoverOutput_Bad(t *core.T) {
@@ -639,7 +657,7 @@ func TestLint_ResolveRunOutputFormat_Ugly(t *core.T) {
 
 func TestLint_Detect_Good(t *core.T) {
 	dir := t.TempDir()
-	ax7WriteFile(t, dir, "go.mod", "module example.test\n")
+	ax7WriteFile(t, dir, ax7TestGoModf65e50, ax7TestModuleExampleTestdbd43d)
 	got := Detect(dir)
 	core.AssertEqual(t, []string{"go"}, got)
 	core.AssertLen(t, got, 1)
@@ -680,15 +698,15 @@ func TestLint_Summarise_Ugly(t *core.T) {
 
 func TestLint_WriteJSON_Good(t *core.T) {
 	var out bytes.Buffer
-	err := WriteJSON(&out, []Finding{{File: "main.go"}})
+	err := WriteJSON(&out, []Finding{{File: ax7TestMainGo347781}})
 	core.AssertNoError(t, err)
-	core.AssertContains(t, out.String(), "main.go")
+	core.AssertContains(t, out.String(), ax7TestMainGo347781)
 }
 
 func TestLint_WriteJSON_Bad(t *core.T) {
-	err := WriteJSON(ax7ErrWriter{}, []Finding{{File: "main.go"}})
+	err := WriteJSON(ax7ErrWriter{}, []Finding{{File: ax7TestMainGo347781}})
 	core.AssertError(t, err)
-	core.AssertContains(t, err.Error(), "write failed")
+	core.AssertContains(t, err.Error(), ax7TestWriteFailed9b8161)
 }
 
 func TestLint_WriteJSON_Ugly(t *core.T) {
@@ -700,15 +718,15 @@ func TestLint_WriteJSON_Ugly(t *core.T) {
 
 func TestLint_WriteJSONL_Good(t *core.T) {
 	var out bytes.Buffer
-	err := WriteJSONL(&out, []Finding{{File: "main.go"}, {File: "other.go"}})
+	err := WriteJSONL(&out, []Finding{{File: ax7TestMainGo347781}, {File: "other.go"}})
 	core.AssertNoError(t, err)
 	core.AssertEqual(t, 2, strings.Count(out.String(), "\n"))
 }
 
 func TestLint_WriteJSONL_Bad(t *core.T) {
-	err := WriteJSONL(ax7ErrWriter{}, []Finding{{File: "main.go"}})
+	err := WriteJSONL(ax7ErrWriter{}, []Finding{{File: ax7TestMainGo347781}})
 	core.AssertError(t, err)
-	core.AssertContains(t, err.Error(), "write failed")
+	core.AssertContains(t, err.Error(), ax7TestWriteFailed9b8161)
 }
 
 func TestLint_WriteJSONL_Ugly(t *core.T) {
@@ -720,20 +738,20 @@ func TestLint_WriteJSONL_Ugly(t *core.T) {
 
 func TestLint_WriteText_Good(t *core.T) {
 	var out bytes.Buffer
-	err := WriteText(&out, []Finding{{File: "main.go", Line: 7, Severity: "warning", Message: "Fix", Code: "R"}})
+	err := WriteText(&out, []Finding{{File: ax7TestMainGo347781, Line: 7, Severity: "warning", Message: "Fix", Code: "R"}})
 	core.AssertNoError(t, err)
 	core.AssertContains(t, out.String(), "main.go:7")
 }
 
 func TestLint_WriteText_Bad(t *core.T) {
-	err := WriteText(ax7ErrWriter{}, []Finding{{File: "main.go", Line: 7}})
+	err := WriteText(ax7ErrWriter{}, []Finding{{File: ax7TestMainGo347781, Line: 7}})
 	core.AssertError(t, err)
-	core.AssertContains(t, err.Error(), "write failed")
+	core.AssertContains(t, err.Error(), ax7TestWriteFailed9b8161)
 }
 
 func TestLint_WriteText_Ugly(t *core.T) {
 	var out bytes.Buffer
-	err := WriteText(&out, []Finding{{File: "main.go", Line: 7, Severity: "warning", Title: "Title", RuleID: "R"}})
+	err := WriteText(&out, []Finding{{File: ax7TestMainGo347781, Line: 7, Severity: "warning", Title: "Title", RuleID: "R"}})
 	core.AssertNoError(t, err)
 	core.AssertContains(t, out.String(), "Title")
 }
@@ -748,7 +766,7 @@ func TestLint_WriteReportJSON_Good(t *core.T) {
 func TestLint_WriteReportJSON_Bad(t *core.T) {
 	err := WriteReportJSON(ax7ErrWriter{}, ax7Report())
 	core.AssertError(t, err)
-	core.AssertContains(t, err.Error(), "write failed")
+	core.AssertContains(t, err.Error(), ax7TestWriteFailed9b8161)
 }
 
 func TestLint_WriteReportJSON_Ugly(t *core.T) {
@@ -768,7 +786,7 @@ func TestLint_WriteReportText_Good(t *core.T) {
 func TestLint_WriteReportText_Bad(t *core.T) {
 	err := WriteReportText(ax7ErrWriter{}, ax7Report())
 	core.AssertError(t, err)
-	core.AssertContains(t, err.Error(), "write failed")
+	core.AssertContains(t, err.Error(), ax7TestWriteFailed9b8161)
 }
 
 func TestLint_WriteReportText_Ugly(t *core.T) {
@@ -788,7 +806,7 @@ func TestLint_WriteReportGitHub_Good(t *core.T) {
 func TestLint_WriteReportGitHub_Bad(t *core.T) {
 	err := WriteReportGitHub(ax7ErrWriter{}, ax7Report())
 	core.AssertError(t, err)
-	core.AssertContains(t, err.Error(), "write failed")
+	core.AssertContains(t, err.Error(), ax7TestWriteFailed9b8161)
 }
 
 func TestLint_WriteReportGitHub_Ugly(t *core.T) {
@@ -809,7 +827,7 @@ func TestLint_WriteReportSARIF_Good(t *core.T) {
 func TestLint_WriteReportSARIF_Bad(t *core.T) {
 	err := WriteReportSARIF(ax7ErrWriter{}, ax7Report())
 	core.AssertError(t, err)
-	core.AssertContains(t, err.Error(), "write failed")
+	core.AssertContains(t, err.Error(), ax7TestWriteFailed9b8161)
 }
 
 func TestLint_WriteReportSARIF_Ugly(t *core.T) {
@@ -862,7 +880,7 @@ func TestLint_CommandAdapter_Name_Ugly(t *core.T) {
 }
 
 func TestLint_CommandAdapter_Available_Good(t *core.T) {
-	ax7Executable(t, "tool", "exit 0")
+	ax7Executable(t, "tool", ax7TestExit07c72ff)
 	adapter := CommandAdapter{binaries: []string{"tool"}}
 	got := adapter.Available()
 	core.AssertTrue(t, got)
@@ -878,7 +896,7 @@ func TestLint_CommandAdapter_Available_Bad(t *core.T) {
 }
 
 func TestLint_CommandAdapter_Available_Ugly(t *core.T) {
-	ax7Executable(t, "second", "exit 0")
+	ax7Executable(t, "second", ax7TestExit07c72ff)
 	adapter := CommandAdapter{binaries: []string{"missing", "second"}}
 	got := adapter.Available()
 	core.AssertTrue(t, got)
@@ -929,9 +947,9 @@ func TestLint_CommandAdapter_Command_Ugly(t *core.T) {
 }
 
 func TestLint_CommandAdapter_Entitlement_Good(t *core.T) {
-	adapter := CommandAdapter{entitlement: "lint.security"}
+	adapter := CommandAdapter{entitlement: ax7TestLintSecurity5f4c16}
 	got := adapter.Entitlement()
-	core.AssertEqual(t, "lint.security", got)
+	core.AssertEqual(t, ax7TestLintSecurity5f4c16, got)
 	core.AssertContains(t, got, "security")
 }
 
@@ -1034,7 +1052,7 @@ func TestLint_CommandAdapter_Fast_Ugly(t *core.T) {
 }
 
 func TestLint_CommandAdapter_Run_Good(t *core.T) {
-	ax7Executable(t, "tool", "exit 0")
+	ax7Executable(t, "tool", ax7TestExit07c72ff)
 	adapter := newCommandAdapter("tool", []string{"tool"}, []string{"go"}, "correctness", "", false, true, projectPathArguments(), parseTextDiagnostics)
 	result := adapter.(CommandAdapter).Run(context.Background(), RunInput{Path: t.TempDir()}, nil)
 	core.AssertEqual(t, "passed", result.Tool.Status)
@@ -1151,7 +1169,7 @@ func TestLint_CatalogAdapter_Entitlement_Good(t *core.T) {
 func TestLint_CatalogAdapter_Entitlement_Bad(t *core.T) {
 	adapter := CatalogAdapter{}
 	got := adapter.Entitlement()
-	core.AssertNotEqual(t, "lint.security", got)
+	core.AssertNotEqual(t, ax7TestLintSecurity5f4c16, got)
 	core.AssertEqual(t, "", got)
 }
 
@@ -1248,7 +1266,7 @@ func TestLint_CatalogAdapter_Fast_Ugly(t *core.T) {
 
 func TestLint_CatalogAdapter_Run_Good(t *core.T) {
 	dir := t.TempDir()
-	ax7WriteFile(t, dir, "main.go", "package main\nfunc Run() {}\n")
+	ax7WriteFile(t, dir, ax7TestMainGo347781, "package main\nfunc Run() {}\n")
 	result := CatalogAdapter{}.Run(context.Background(), RunInput{Path: dir}, nil)
 	core.AssertEqual(t, "passed", result.Tool.Status)
 	core.AssertEmpty(t, result.Findings)
@@ -1264,8 +1282,8 @@ func TestLint_CatalogAdapter_Run_Bad(t *core.T) {
 
 func TestLint_CatalogAdapter_Run_Ugly(t *core.T) {
 	dir := t.TempDir()
-	ax7WriteFile(t, dir, "main.go", "package sample\nfunc Run() {\n\t_ =svc.Process(\"data\")\n}\n")
-	result := CatalogAdapter{}.Run(context.Background(), RunInput{Path: dir}, []string{"main.go"})
+	ax7WriteFile(t, dir, ax7TestMainGo347781, "package sample\nfunc Run() {\n\t_ =svc.Process(\"data\")\n}\n")
+	result := CatalogAdapter{}.Run(context.Background(), RunInput{Path: dir}, []string{ax7TestMainGo347781})
 	core.AssertEqual(t, "failed", result.Tool.Status)
 	core.AssertLen(t, result.Findings, 1)
 }
@@ -1290,8 +1308,8 @@ func TestLint_NewService_Ugly(t *core.T) {
 
 func TestLint_Service_Run_Good(t *core.T) {
 	dir := t.TempDir()
-	ax7WriteFile(t, dir, "go.mod", "module example.test\n")
-	ax7WriteFile(t, dir, "main.go", "package main\nfunc Run() {}\n")
+	ax7WriteFile(t, dir, ax7TestGoModf65e50, ax7TestModuleExampleTestdbd43d)
+	ax7WriteFile(t, dir, ax7TestMainGo347781, "package main\nfunc Run() {}\n")
 	report, err := (&Service{adapters: []Adapter{CatalogAdapter{}}}).Run(context.Background(), RunInput{Path: dir, Lang: "go"})
 	core.AssertNoError(t, err)
 	core.AssertTrue(t, report.Summary.Passed)
@@ -1308,8 +1326,8 @@ func TestLint_Service_Run_Bad(t *core.T) {
 
 func TestLint_Service_Run_Ugly(t *core.T) {
 	dir := t.TempDir()
-	ax7WriteFile(t, dir, "go.mod", "module example.test\n")
-	ax7WriteFile(t, dir, "main.go", "package sample\nfunc Run() {\n\t_ =svc.Process(\"data\")\n}\n")
+	ax7WriteFile(t, dir, ax7TestGoModf65e50, ax7TestModuleExampleTestdbd43d)
+	ax7WriteFile(t, dir, ax7TestMainGo347781, "package sample\nfunc Run() {\n\t_ =svc.Process(\"data\")\n}\n")
 	report, err := (&Service{adapters: []Adapter{CatalogAdapter{}}}).Run(context.Background(), RunInput{Path: dir, Lang: "go"})
 	core.AssertNoError(t, err)
 	core.AssertTrue(t, report.Summary.Passed)
@@ -1361,15 +1379,15 @@ func TestLint_Service_WriteDefaultConfig_Ugly(t *core.T) {
 func TestLint_Service_InstallHook_Good(t *core.T) {
 	dir := t.TempDir()
 	core.RequireNoError(t, os.MkdirAll(filepath.Join(dir, ".git"), 0o755))
-	ax7Executable(t, "git", "printf .git")
+	ax7Executable(t, "git", ax7TestPrintfGitd1e155)
 	err := NewService().InstallHook(dir)
 	core.AssertNoError(t, err)
-	core.AssertTrue(t, ax7FileExists(filepath.Join(dir, ".git", "hooks", "pre-commit")))
+	core.AssertTrue(t, ax7FileExists(filepath.Join(dir, ".git", "hooks", ax7TestPreCommitde5a5c)))
 }
 
 func TestLint_Service_InstallHook_Bad(t *core.T) {
 	dir := t.TempDir()
-	ax7Executable(t, "git", "printf fatal >&2; exit 1")
+	ax7Executable(t, "git", ax7TestPrintfFatal2Exit13caa91)
 	err := NewService().InstallHook(dir)
 	core.AssertError(t, err)
 	core.AssertContains(t, err.Error(), "git rev-parse")
@@ -1378,27 +1396,27 @@ func TestLint_Service_InstallHook_Bad(t *core.T) {
 func TestLint_Service_InstallHook_Ugly(t *core.T) {
 	dir := t.TempDir()
 	core.RequireNoError(t, os.MkdirAll(filepath.Join(dir, ".git", "hooks"), 0o755))
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, ".git", "hooks", "pre-commit"), []byte("#!/bin/sh\necho existing\n"), 0o755))
-	ax7Executable(t, "git", "printf .git")
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, ".git", "hooks", ax7TestPreCommitde5a5c), []byte("#!/bin/sh\necho existing\n"), 0o755))
+	ax7Executable(t, "git", ax7TestPrintfGitd1e155)
 	err := NewService().InstallHook(dir)
 	core.AssertNoError(t, err)
-	core.AssertTrue(t, ax7FileExists(filepath.Join(dir, ".git", "hooks", "pre-commit")))
+	core.AssertTrue(t, ax7FileExists(filepath.Join(dir, ".git", "hooks", ax7TestPreCommitde5a5c)))
 }
 
 func TestLint_Service_RemoveHook_Good(t *core.T) {
 	dir := t.TempDir()
 	core.RequireNoError(t, os.MkdirAll(filepath.Join(dir, ".git"), 0o755))
-	ax7Executable(t, "git", "printf .git")
+	ax7Executable(t, "git", ax7TestPrintfGitd1e155)
 	service := NewService()
 	core.RequireNoError(t, service.InstallHook(dir))
 	err := service.RemoveHook(dir)
 	core.AssertNoError(t, err)
-	core.AssertTrue(t, ax7FileExists(filepath.Join(dir, ".git", "hooks", "pre-commit")))
+	core.AssertTrue(t, ax7FileExists(filepath.Join(dir, ".git", "hooks", ax7TestPreCommitde5a5c)))
 }
 
 func TestLint_Service_RemoveHook_Bad(t *core.T) {
 	dir := t.TempDir()
-	ax7Executable(t, "git", "printf fatal >&2; exit 1")
+	ax7Executable(t, "git", ax7TestPrintfFatal2Exit13caa91)
 	err := NewService().RemoveHook(dir)
 	core.AssertError(t, err)
 	core.AssertContains(t, err.Error(), "git rev-parse")
@@ -1407,9 +1425,9 @@ func TestLint_Service_RemoveHook_Bad(t *core.T) {
 func TestLint_Service_RemoveHook_Ugly(t *core.T) {
 	dir := t.TempDir()
 	core.RequireNoError(t, os.MkdirAll(filepath.Join(dir, ".git", "hooks"), 0o755))
-	hook := filepath.Join(dir, ".git", "hooks", "pre-commit")
+	hook := filepath.Join(dir, ".git", "hooks", ax7TestPreCommitde5a5c)
 	core.RequireNoError(t, os.WriteFile(hook, []byte("#!/bin/sh\necho before\n"+hookScriptBlock(true)+"echo after\n"), 0o755))
-	ax7Executable(t, "git", "printf .git")
+	ax7Executable(t, "git", ax7TestPrintfGitd1e155)
 	err := NewService().RemoveHook(dir)
 	core.AssertNoError(t, err)
 	core.AssertTrue(t, ax7FileExists(hook))
@@ -1522,7 +1540,7 @@ func TestLint_Toolkit_AuditDeps_Bad(t *core.T) {
 }
 
 func TestLint_Toolkit_AuditDeps_Ugly(t *core.T) {
-	ax7Executable(t, "govulncheck", "exit 0")
+	ax7Executable(t, "govulncheck", ax7TestExit07c72ff)
 	vulns, err := NewToolkit(t.TempDir()).AuditDeps()
 	core.AssertNoError(t, err)
 	core.AssertEmpty(t, vulns)
@@ -1537,14 +1555,14 @@ func TestLint_Toolkit_DiffStat_Good(t *core.T) {
 }
 
 func TestLint_Toolkit_DiffStat_Bad(t *core.T) {
-	ax7Executable(t, "git", "printf fatal >&2; exit 2")
+	ax7Executable(t, "git", ax7TestPrintfFatal2Exit24aa7f5)
 	summary, err := NewToolkit(t.TempDir()).DiffStat()
 	core.AssertError(t, err)
 	core.AssertEqual(t, DiffSummary{}, summary)
 }
 
 func TestLint_Toolkit_DiffStat_Ugly(t *core.T) {
-	ax7Executable(t, "git", "exit 0")
+	ax7Executable(t, "git", ax7TestExit07c72ff)
 	summary, err := NewToolkit(t.TempDir()).DiffStat()
 	core.AssertNoError(t, err)
 	core.AssertEqual(t, DiffSummary{}, summary)
@@ -1554,18 +1572,18 @@ func TestLint_Toolkit_UncommittedFiles_Good(t *core.T) {
 	ax7Executable(t, "git", "printf 'MM main.go\\n?? new.go\\n'")
 	files, err := NewToolkit(t.TempDir()).UncommittedFiles()
 	core.AssertNoError(t, err)
-	core.AssertEqual(t, []string{"main.go", "new.go"}, files)
+	core.AssertEqual(t, []string{ax7TestMainGo347781, "new.go"}, files)
 }
 
 func TestLint_Toolkit_UncommittedFiles_Bad(t *core.T) {
-	ax7Executable(t, "git", "printf fatal >&2; exit 2")
+	ax7Executable(t, "git", ax7TestPrintfFatal2Exit24aa7f5)
 	files, err := NewToolkit(t.TempDir()).UncommittedFiles()
 	core.AssertError(t, err)
 	core.AssertNil(t, files)
 }
 
 func TestLint_Toolkit_UncommittedFiles_Ugly(t *core.T) {
-	ax7Executable(t, "git", "exit 0")
+	ax7Executable(t, "git", ax7TestExit07c72ff)
 	files, err := NewToolkit(t.TempDir()).UncommittedFiles()
 	core.AssertNoError(t, err)
 	core.AssertEmpty(t, files)
@@ -1580,14 +1598,14 @@ func TestLint_Toolkit_Lint_Good(t *core.T) {
 }
 
 func TestLint_Toolkit_Lint_Bad(t *core.T) {
-	ax7Executable(t, "go", "printf fatal >&2; exit 1")
+	ax7Executable(t, "go", ax7TestPrintfFatal2Exit13caa91)
 	findings, err := NewToolkit(t.TempDir()).Lint("./...")
 	core.AssertError(t, err)
 	core.AssertNil(t, findings)
 }
 
 func TestLint_Toolkit_Lint_Ugly(t *core.T) {
-	ax7Executable(t, "go", "exit 0")
+	ax7Executable(t, "go", ax7TestExit07c72ff)
 	findings, err := NewToolkit(t.TempDir()).Lint("./...")
 	core.AssertNoError(t, err)
 	core.AssertNil(t, findings)
@@ -1602,28 +1620,28 @@ func TestLint_Toolkit_ScanSecrets_Good(t *core.T) {
 }
 
 func TestLint_Toolkit_ScanSecrets_Bad(t *core.T) {
-	ax7Executable(t, "gitleaks", "printf fatal >&2; exit 2")
+	ax7Executable(t, "gitleaks", ax7TestPrintfFatal2Exit24aa7f5)
 	leaks, err := NewToolkit(t.TempDir()).ScanSecrets(".")
 	core.AssertError(t, err)
 	core.AssertNil(t, leaks)
 }
 
 func TestLint_Toolkit_ScanSecrets_Ugly(t *core.T) {
-	ax7Executable(t, "gitleaks", "exit 0")
+	ax7Executable(t, "gitleaks", ax7TestExit07c72ff)
 	leaks, err := NewToolkit(t.TempDir()).ScanSecrets(".")
 	core.AssertNoError(t, err)
 	core.AssertNil(t, leaks)
 }
 
 func TestLint_Toolkit_ModTidy_Good(t *core.T) {
-	ax7Executable(t, "go", "exit 0")
+	ax7Executable(t, "go", ax7TestExit07c72ff)
 	err := NewToolkit(t.TempDir()).ModTidy()
 	core.AssertNoError(t, err)
 	core.AssertTrue(t, true)
 }
 
 func TestLint_Toolkit_ModTidy_Bad(t *core.T) {
-	ax7Executable(t, "go", "printf failed >&2; exit 1")
+	ax7Executable(t, "go", ax7TestPrintfFailed2Exit1b9d47d)
 	err := NewToolkit(t.TempDir()).ModTidy()
 	core.AssertError(t, err)
 	core.AssertContains(t, err.Error(), "go mod tidy")
@@ -1637,7 +1655,7 @@ func TestLint_Toolkit_ModTidy_Ugly(t *core.T) {
 }
 
 func TestLint_Toolkit_Build_Good(t *core.T) {
-	ax7Executable(t, "go", "exit 0")
+	ax7Executable(t, "go", ax7TestExit07c72ff)
 	results, err := NewToolkit(t.TempDir()).Build("./...")
 	core.AssertNoError(t, err)
 	core.AssertLen(t, results, 1)
@@ -1645,7 +1663,7 @@ func TestLint_Toolkit_Build_Good(t *core.T) {
 }
 
 func TestLint_Toolkit_Build_Bad(t *core.T) {
-	ax7Executable(t, "go", "printf failed >&2; exit 1")
+	ax7Executable(t, "go", ax7TestPrintfFailed2Exit1b9d47d)
 	results, err := NewToolkit(t.TempDir()).Build("./...")
 	core.AssertNoError(t, err)
 	core.AssertLen(t, results, 1)
@@ -1653,7 +1671,7 @@ func TestLint_Toolkit_Build_Bad(t *core.T) {
 }
 
 func TestLint_Toolkit_Build_Ugly(t *core.T) {
-	ax7Executable(t, "go", "exit 0")
+	ax7Executable(t, "go", ax7TestExit07c72ff)
 	results, err := NewToolkit(t.TempDir()).Build("./a", "./b")
 	core.AssertNoError(t, err)
 	core.AssertLen(t, results, 2)
@@ -1667,7 +1685,7 @@ func TestLint_Toolkit_TestCount_Good(t *core.T) {
 }
 
 func TestLint_Toolkit_TestCount_Bad(t *core.T) {
-	ax7Executable(t, "go", "printf failed >&2; exit 1")
+	ax7Executable(t, "go", ax7TestPrintfFailed2Exit1b9d47d)
 	count, err := NewToolkit(t.TempDir()).TestCount("./...")
 	core.AssertError(t, err)
 	core.AssertEqual(t, 0, count)
@@ -1689,14 +1707,14 @@ func TestLint_Toolkit_Coverage_Good(t *core.T) {
 }
 
 func TestLint_Toolkit_Coverage_Bad(t *core.T) {
-	ax7Executable(t, "go", "printf fatal >&2; exit 1")
+	ax7Executable(t, "go", ax7TestPrintfFatal2Exit13caa91)
 	reports, err := NewToolkit(t.TempDir()).Coverage("./...")
 	core.AssertError(t, err)
 	core.AssertNil(t, reports)
 }
 
 func TestLint_Toolkit_Coverage_Ugly(t *core.T) {
-	ax7Executable(t, "go", "exit 0")
+	ax7Executable(t, "go", ax7TestExit07c72ff)
 	reports, err := NewToolkit(t.TempDir()).Coverage("")
 	core.AssertNoError(t, err)
 	core.AssertEmpty(t, reports)
@@ -1711,14 +1729,14 @@ func TestLint_Toolkit_RaceDetect_Good(t *core.T) {
 }
 
 func TestLint_Toolkit_RaceDetect_Bad(t *core.T) {
-	ax7Executable(t, "go", "printf fatal >&2; exit 1")
+	ax7Executable(t, "go", ax7TestPrintfFatal2Exit13caa91)
 	races, err := NewToolkit(t.TempDir()).RaceDetect("./...")
 	core.AssertError(t, err)
 	core.AssertNil(t, races)
 }
 
 func TestLint_Toolkit_RaceDetect_Ugly(t *core.T) {
-	ax7Executable(t, "go", "exit 0")
+	ax7Executable(t, "go", ax7TestExit07c72ff)
 	races, err := NewToolkit(t.TempDir()).RaceDetect("")
 	core.AssertNoError(t, err)
 	core.AssertEmpty(t, races)
@@ -1754,14 +1772,14 @@ func TestLint_Toolkit_DepGraph_Good(t *core.T) {
 }
 
 func TestLint_Toolkit_DepGraph_Bad(t *core.T) {
-	ax7Executable(t, "go", "printf failed >&2; exit 1")
+	ax7Executable(t, "go", ax7TestPrintfFailed2Exit1b9d47d)
 	graph, err := NewToolkit(t.TempDir()).DepGraph("")
 	core.AssertError(t, err)
 	core.AssertNil(t, graph)
 }
 
 func TestLint_Toolkit_DepGraph_Ugly(t *core.T) {
-	ax7Executable(t, "go", "exit 0")
+	ax7Executable(t, "go", ax7TestExit07c72ff)
 	graph, err := NewToolkit(t.TempDir()).DepGraph("")
 	core.AssertNoError(t, err)
 	core.AssertEmpty(t, graph.Nodes)
@@ -1776,7 +1794,7 @@ func TestLint_Toolkit_GitLog_Good(t *core.T) {
 }
 
 func TestLint_Toolkit_GitLog_Bad(t *core.T) {
-	ax7Executable(t, "git", "printf fatal >&2; exit 1")
+	ax7Executable(t, "git", ax7TestPrintfFatal2Exit13caa91)
 	commits, err := NewToolkit(t.TempDir()).GitLog(1)
 	core.AssertError(t, err)
 	core.AssertNil(t, commits)
@@ -1828,7 +1846,7 @@ func TestLint_Toolkit_VulnCheck_Bad(t *core.T) {
 }
 
 func TestLint_Toolkit_VulnCheck_Ugly(t *core.T) {
-	ax7Executable(t, "govulncheck", "exit 0")
+	ax7Executable(t, "govulncheck", ax7TestExit07c72ff)
 	result, err := NewToolkit(t.TempDir()).VulnCheck("")
 	core.AssertNoError(t, err)
 	core.AssertNotNil(t, result)

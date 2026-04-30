@@ -9,6 +9,16 @@ import (
 	. "dappco.re/go"
 )
 
+const (
+	ax7TestExit05c15a7            = "exit 0"
+	ax7TestInfectionJsona68fc9    = "infection.json"
+	ax7TestPestPhpcefea2          = "Pest.php"
+	ax7TestPhp96d681              = "<?php\n"
+	ax7TestPintJson7e00da         = "pint.json"
+	ax7TestPrintfAdvisories19e053 = "printf '{\"advisories\":{}}'"
+	ax7TestRectorPhp92466b        = "rector.php"
+)
+
 func ax7PHPProject(t *T) string {
 	t.Helper()
 	dir := t.TempDir()
@@ -35,7 +45,7 @@ func ax7PATHExecutable(t *T, name string, body string) string {
 
 func TestPHP_DetectFormatter_Good(t *T) {
 	dir := ax7PHPProject(t)
-	RequireNoError(t, os.WriteFile(filepath.Join(dir, "pint.json"), []byte(`{}`), 0o644))
+	RequireNoError(t, os.WriteFile(filepath.Join(dir, ax7TestPintJson7e00da), []byte(`{}`), 0o644))
 	formatter, ok := DetectFormatter(dir)
 	AssertTrue(t, ok)
 	AssertEqual(t, FormatterPint, formatter)
@@ -50,7 +60,7 @@ func TestPHP_DetectFormatter_Bad(t *T) {
 
 func TestPHP_DetectFormatter_Ugly(t *T) {
 	dir := ax7PHPProject(t)
-	ax7PHPExecutable(t, dir, "pint", "exit 0")
+	ax7PHPExecutable(t, dir, "pint", ax7TestExit05c15a7)
 	formatter, ok := DetectFormatter(dir)
 	AssertTrue(t, ok)
 	AssertEqual(t, FormatterPint, formatter)
@@ -58,8 +68,8 @@ func TestPHP_DetectFormatter_Ugly(t *T) {
 
 func TestPHP_Format_Good(t *T) {
 	dir := ax7PHPProject(t)
-	RequireNoError(t, os.WriteFile(filepath.Join(dir, "pint.json"), []byte(`{}`), 0o644))
-	ax7PHPExecutable(t, dir, "pint", "exit 0")
+	RequireNoError(t, os.WriteFile(filepath.Join(dir, ax7TestPintJson7e00da), []byte(`{}`), 0o644))
+	ax7PHPExecutable(t, dir, "pint", ax7TestExit05c15a7)
 	var output bytes.Buffer
 	err := Format(context.Background(), FormatOptions{Dir: dir, Output: &output})
 	AssertNoError(t, err)
@@ -75,7 +85,7 @@ func TestPHP_Format_Bad(t *T) {
 
 func TestPHP_Format_Ugly(t *T) {
 	dir := ax7PHPProject(t)
-	RequireNoError(t, os.WriteFile(filepath.Join(dir, "pint.json"), []byte(`{}`), 0o644))
+	RequireNoError(t, os.WriteFile(filepath.Join(dir, ax7TestPintJson7e00da), []byte(`{}`), 0o644))
 	ax7PHPExecutable(t, dir, "pint", "printf formatted")
 	var output bytes.Buffer
 	err := Format(context.Background(), FormatOptions{Dir: dir, Fix: true, Diff: true, JSON: true, Output: &output})
@@ -101,7 +111,7 @@ func TestPHP_DetectAnalyser_Bad(t *T) {
 func TestPHP_DetectAnalyser_Ugly(t *T) {
 	dir := ax7PHPProject(t)
 	RequireNoError(t, os.MkdirAll(filepath.Join(dir, "vendor", "larastan", "larastan"), 0o755))
-	ax7PHPExecutable(t, dir, "phpstan", "exit 0")
+	ax7PHPExecutable(t, dir, "phpstan", ax7TestExit05c15a7)
 	analyser, ok := DetectAnalyser(dir)
 	AssertTrue(t, ok)
 	AssertEqual(t, AnalyserLarastan, analyser)
@@ -110,7 +120,7 @@ func TestPHP_DetectAnalyser_Ugly(t *T) {
 func TestPHP_Analyse_Good(t *T) {
 	dir := ax7PHPProject(t)
 	RequireNoError(t, os.WriteFile(filepath.Join(dir, "phpstan.neon"), []byte("parameters: {}\n"), 0o644))
-	ax7PHPExecutable(t, dir, "phpstan", "exit 0")
+	ax7PHPExecutable(t, dir, "phpstan", ax7TestExit05c15a7)
 	var output bytes.Buffer
 	err := Analyse(context.Background(), AnalyseOptions{Dir: dir, Output: &output})
 	AssertNoError(t, err)
@@ -150,7 +160,7 @@ func TestPHP_DetectPsalm_Bad(t *T) {
 
 func TestPHP_DetectPsalm_Ugly(t *T) {
 	dir := ax7PHPProject(t)
-	ax7PHPExecutable(t, dir, "psalm", "exit 0")
+	ax7PHPExecutable(t, dir, "psalm", ax7TestExit05c15a7)
 	psalm, ok := DetectPsalm(dir)
 	AssertTrue(t, ok)
 	AssertEqual(t, PsalmStandard, psalm)
@@ -158,7 +168,7 @@ func TestPHP_DetectPsalm_Ugly(t *T) {
 
 func TestPHP_RunPsalm_Good(t *T) {
 	dir := ax7PHPProject(t)
-	ax7PHPExecutable(t, dir, "psalm", "exit 0")
+	ax7PHPExecutable(t, dir, "psalm", ax7TestExit05c15a7)
 	var output bytes.Buffer
 	err := RunPsalm(context.Background(), PsalmOptions{Dir: dir, Output: &output})
 	AssertNoError(t, err)
@@ -185,7 +195,7 @@ func TestPHP_RunPsalm_Ugly(t *T) {
 func TestPHP_DetectTestRunner_Good(t *T) {
 	dir := ax7PHPProject(t)
 	RequireNoError(t, os.MkdirAll(filepath.Join(dir, "tests"), 0o755))
-	RequireNoError(t, os.WriteFile(filepath.Join(dir, "tests", "Pest.php"), []byte("<?php\n"), 0o644))
+	RequireNoError(t, os.WriteFile(filepath.Join(dir, "tests", ax7TestPestPhpcefea2), []byte(ax7TestPhp96d681), 0o644))
 	runner := DetectTestRunner(dir)
 	AssertEqual(t, TestRunnerPest, runner)
 	AssertNotEqual(t, TestRunnerPHPUnit, runner)
@@ -202,7 +212,7 @@ func TestPHP_DetectTestRunner_Ugly(t *T) {
 	dir := filepath.Join(t.TempDir(), "missing")
 	runner := DetectTestRunner(dir)
 	AssertEqual(t, TestRunnerPHPUnit, runner)
-	AssertFalse(t, fileExists(filepath.Join(dir, "tests", "Pest.php")))
+	AssertFalse(t, fileExists(filepath.Join(dir, "tests", ax7TestPestPhpcefea2)))
 }
 
 func TestPHP_RunTests_Good(t *T) {
@@ -225,7 +235,7 @@ func TestPHP_RunTests_Bad(t *T) {
 func TestPHP_RunTests_Ugly(t *T) {
 	dir := ax7PHPProject(t)
 	RequireNoError(t, os.MkdirAll(filepath.Join(dir, "tests"), 0o755))
-	RequireNoError(t, os.WriteFile(filepath.Join(dir, "tests", "Pest.php"), []byte("<?php\n"), 0o644))
+	RequireNoError(t, os.WriteFile(filepath.Join(dir, "tests", ax7TestPestPhpcefea2), []byte(ax7TestPhp96d681), 0o644))
 	ax7PHPExecutable(t, dir, "pest", "printf pest")
 	var output bytes.Buffer
 	err := RunTests(context.Background(), TestOptions{Dir: dir, Parallel: true, Coverage: true, CoverageFormat: "clover", Groups: []string{"unit"}, Output: &output})
@@ -253,7 +263,7 @@ func TestPHP_RunParallel_Bad(t *T) {
 func TestPHP_RunParallel_Ugly(t *T) {
 	dir := ax7PHPProject(t)
 	RequireNoError(t, os.MkdirAll(filepath.Join(dir, "tests"), 0o755))
-	RequireNoError(t, os.WriteFile(filepath.Join(dir, "tests", "Pest.php"), []byte("<?php\n"), 0o644))
+	RequireNoError(t, os.WriteFile(filepath.Join(dir, "tests", ax7TestPestPhpcefea2), []byte(ax7TestPhp96d681), 0o644))
 	ax7PHPExecutable(t, dir, "pest", "printf parallel-pest")
 	var output bytes.Buffer
 	err := RunParallel(context.Background(), TestOptions{Dir: dir, Output: &output})
@@ -263,22 +273,22 @@ func TestPHP_RunParallel_Ugly(t *T) {
 
 func TestPHP_DetectRector_Good(t *T) {
 	dir := ax7PHPProject(t)
-	RequireNoError(t, os.WriteFile(filepath.Join(dir, "rector.php"), []byte("<?php\n"), 0o644))
+	RequireNoError(t, os.WriteFile(filepath.Join(dir, ax7TestRectorPhp92466b), []byte(ax7TestPhp96d681), 0o644))
 	got := DetectRector(dir)
 	AssertTrue(t, got)
-	AssertTrue(t, fileExists(filepath.Join(dir, "rector.php")))
+	AssertTrue(t, fileExists(filepath.Join(dir, ax7TestRectorPhp92466b)))
 }
 
 func TestPHP_DetectRector_Bad(t *T) {
 	dir := t.TempDir()
 	got := DetectRector(dir)
 	AssertFalse(t, got)
-	AssertFalse(t, fileExists(filepath.Join(dir, "rector.php")))
+	AssertFalse(t, fileExists(filepath.Join(dir, ax7TestRectorPhp92466b)))
 }
 
 func TestPHP_DetectRector_Ugly(t *T) {
 	dir := ax7PHPProject(t)
-	ax7PHPExecutable(t, dir, "rector", "exit 0")
+	ax7PHPExecutable(t, dir, "rector", ax7TestExit05c15a7)
 	got := DetectRector(dir)
 	AssertTrue(t, got)
 	AssertTrue(t, fileExists(filepath.Join(dir, "vendor", "bin", "rector")))
@@ -312,22 +322,22 @@ func TestPHP_RunRector_Ugly(t *T) {
 
 func TestPHP_DetectInfection_Good(t *T) {
 	dir := ax7PHPProject(t)
-	RequireNoError(t, os.WriteFile(filepath.Join(dir, "infection.json"), []byte(`{}`), 0o644))
+	RequireNoError(t, os.WriteFile(filepath.Join(dir, ax7TestInfectionJsona68fc9), []byte(`{}`), 0o644))
 	got := DetectInfection(dir)
 	AssertTrue(t, got)
-	AssertTrue(t, fileExists(filepath.Join(dir, "infection.json")))
+	AssertTrue(t, fileExists(filepath.Join(dir, ax7TestInfectionJsona68fc9)))
 }
 
 func TestPHP_DetectInfection_Bad(t *T) {
 	dir := t.TempDir()
 	got := DetectInfection(dir)
 	AssertFalse(t, got)
-	AssertFalse(t, fileExists(filepath.Join(dir, "infection.json")))
+	AssertFalse(t, fileExists(filepath.Join(dir, ax7TestInfectionJsona68fc9)))
 }
 
 func TestPHP_DetectInfection_Ugly(t *T) {
 	dir := ax7PHPProject(t)
-	ax7PHPExecutable(t, dir, "infection", "exit 0")
+	ax7PHPExecutable(t, dir, "infection", ax7TestExit05c15a7)
 	got := DetectInfection(dir)
 	AssertTrue(t, got)
 	AssertTrue(t, fileExists(filepath.Join(dir, "vendor", "bin", "infection")))
@@ -360,7 +370,7 @@ func TestPHP_RunInfection_Ugly(t *T) {
 }
 
 func TestPHP_RunAudit_Good(t *T) {
-	ax7PATHExecutable(t, "composer", "printf '{\"advisories\":{}}'")
+	ax7PATHExecutable(t, "composer", ax7TestPrintfAdvisories19e053)
 	dir := t.TempDir()
 	results, err := RunAudit(context.Background(), AuditOptions{Dir: dir, Output: &bytes.Buffer{}})
 	AssertNoError(t, err)
@@ -391,7 +401,7 @@ func TestPHP_RunAudit_Ugly(t *T) {
 }
 
 func TestPHP_RunSecurityChecks_Good(t *T) {
-	ax7PATHExecutable(t, "composer", "printf '{\"advisories\":{}}'")
+	ax7PATHExecutable(t, "composer", ax7TestPrintfAdvisories19e053)
 	dir := t.TempDir()
 	RequireNoError(t, os.WriteFile(filepath.Join(dir, ".env"), []byte("APP_DEBUG=false\nAPP_KEY=12345678901234567890123456789012\nAPP_URL=https://example.test\n"), 0o644))
 	result, err := RunSecurityChecks(context.Background(), SecurityOptions{Dir: dir})
@@ -401,7 +411,7 @@ func TestPHP_RunSecurityChecks_Good(t *T) {
 }
 
 func TestPHP_RunSecurityChecks_Bad(t *T) {
-	ax7PATHExecutable(t, "composer", "printf '{\"advisories\":{}}'")
+	ax7PATHExecutable(t, "composer", ax7TestPrintfAdvisories19e053)
 	dir := t.TempDir()
 	result, err := RunSecurityChecks(context.Background(), SecurityOptions{Dir: dir, Severity: "impossible"})
 	AssertError(t, err)
@@ -409,7 +419,7 @@ func TestPHP_RunSecurityChecks_Bad(t *T) {
 }
 
 func TestPHP_RunSecurityChecks_Ugly(t *T) {
-	ax7PATHExecutable(t, "composer", "printf '{\"advisories\":{}}'")
+	ax7PATHExecutable(t, "composer", ax7TestPrintfAdvisories19e053)
 	dir := t.TempDir()
 	result, err := RunSecurityChecks(context.Background(), SecurityOptions{Dir: dir, URL: "://bad-url"})
 	AssertNoError(t, err)
@@ -449,8 +459,8 @@ func TestPHP_GetQAChecks_Bad(t *T) {
 
 func TestPHP_GetQAChecks_Ugly(t *T) {
 	dir := ax7PHPProject(t)
-	RequireNoError(t, os.WriteFile(filepath.Join(dir, "rector.php"), []byte("<?php\n"), 0o644))
-	RequireNoError(t, os.WriteFile(filepath.Join(dir, "infection.json"), []byte(`{}`), 0o644))
+	RequireNoError(t, os.WriteFile(filepath.Join(dir, ax7TestRectorPhp92466b), []byte(ax7TestPhp96d681), 0o644))
+	RequireNoError(t, os.WriteFile(filepath.Join(dir, ax7TestInfectionJsona68fc9), []byte(`{}`), 0o644))
 	checks := GetQAChecks(dir, QAStageFull)
 	AssertEqual(t, []string{"rector", "infection"}, checks)
 	AssertLen(t, checks, 2)
@@ -479,7 +489,7 @@ func TestPHP_NewQARunner_Ugly(t *T) {
 
 func TestPHP_QARunner_BuildSpecs_Good(t *T) {
 	dir := ax7PHPProject(t)
-	RequireNoError(t, os.WriteFile(filepath.Join(dir, "pint.json"), []byte(`{}`), 0o644))
+	RequireNoError(t, os.WriteFile(filepath.Join(dir, ax7TestPintJson7e00da), []byte(`{}`), 0o644))
 	specs := NewQARunner(dir, false).BuildSpecs([]string{"audit", "fmt"})
 	AssertLen(t, specs, 2)
 	AssertEqual(t, "fmt", specs[1].Name)
@@ -493,7 +503,7 @@ func TestPHP_QARunner_BuildSpecs_Bad(t *T) {
 
 func TestPHP_QARunner_BuildSpecs_Ugly(t *T) {
 	dir := ax7PHPProject(t)
-	RequireNoError(t, os.WriteFile(filepath.Join(dir, "rector.php"), []byte("<?php\n"), 0o644))
+	RequireNoError(t, os.WriteFile(filepath.Join(dir, ax7TestRectorPhp92466b), []byte(ax7TestPhp96d681), 0o644))
 	specs := NewQARunner(dir, true).BuildSpecs([]string{"rector"})
 	AssertLen(t, specs, 1)
 	AssertTrue(t, specs[0].AllowFailure)

@@ -366,7 +366,7 @@ def compare_trees(nested: Path, sibling: Path) -> CompareResult:
         common_file_count=len(common),
         unique_nested_files=unique_nested,
         content_mismatches=tuple(mismatches),
-        errors=tuple([*nested_walk.errors, *sibling_walk.errors]),
+        errors=(*nested_walk.errors, *sibling_walk.errors),
     )
 
 

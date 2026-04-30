@@ -13,6 +13,14 @@ import (
 	lintpkg "dappco.re/go/lint/pkg/lint"
 )
 
+const (
+	mainTestCleanGob56c68              = "clean.go"
+	mainTestGoMod3af676                = "go.mod"
+	mainTestMissingTool5b8a4a          = "missing-tool"
+	mainTestModuleExampleComTeste3feb4 = "module example.com/test\n"
+	mainTestOutput231216               = "--output"
+)
+
 var (
 	buildBinaryOnce sync.Once
 	builtBinaryPath string
@@ -23,7 +31,7 @@ func TestCLI_Run_JSON(t *T) {
 	dir := t.TempDir()
 	buildCLI(t)
 	t.Setenv("PATH", t.TempDir())
-	RequireNoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/test\n"), 0o644))
+	RequireNoError(t, os.WriteFile(filepath.Join(dir, mainTestGoMod3af676), []byte(mainTestModuleExampleComTeste3feb4), 0o644))
 	RequireNoError(t, os.WriteFile(filepath.Join(dir, "input.go"), []byte(`package sample
 
 type service struct{}
@@ -36,7 +44,7 @@ func Run() {
 }
 `), 0o644))
 
-	stdout, stderr, exitCode := runCLI(t, dir, "run", "--output", "json", "--fail-on", "warning", dir)
+	stdout, stderr, exitCode := runCLI(t, dir, "run", mainTestOutput231216, "json", "--fail-on", "warning", dir)
 	AssertEqual(t, 1, exitCode, stderr)
 	AssertContains(t, stderr, "lint failed (fail-on=warning)")
 
@@ -54,7 +62,7 @@ func Run() {
 		switch finding.Code {
 		case "go-cor-003":
 			hasCatalogFinding = true
-		case "missing-tool":
+		case mainTestMissingTool5b8a4a:
 			hasMissingToolFinding = true
 		}
 	}
@@ -68,8 +76,8 @@ func TestCLI_Run_FilesFlagLimitsScanning(t *T) {
 	buildCLI(t)
 	t.Setenv("PATH", t.TempDir())
 
-	RequireNoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/test\n"), 0o644))
-	RequireNoError(t, os.WriteFile(filepath.Join(dir, "clean.go"), []byte(`package sample
+	RequireNoError(t, os.WriteFile(filepath.Join(dir, mainTestGoMod3af676), []byte(mainTestModuleExampleComTeste3feb4), 0o644))
+	RequireNoError(t, os.WriteFile(filepath.Join(dir, mainTestCleanGob56c68), []byte(`package sample
 
 func Clean() {}
 `), 0o644))
@@ -82,7 +90,7 @@ func Run() {
 func helper() error { return nil }
 `), 0o644))
 
-	stdout, stderr, exitCode := runCLI(t, dir, "run", "--output", "json", "--files", "clean.go", dir)
+	stdout, stderr, exitCode := runCLI(t, dir, "run", mainTestOutput231216, "json", "--files", mainTestCleanGob56c68, dir)
 	AssertEqual(t, 0, exitCode, stderr)
 
 	var report lintpkg.Report
@@ -90,7 +98,7 @@ func helper() error { return nil }
 	RequireNotEmpty(t, report.Findings)
 	infoCount := 0
 	for _, finding := range report.Findings {
-		AssertEqual(t, "missing-tool", finding.Code)
+		AssertEqual(t, mainTestMissingTool5b8a4a, finding.Code)
 		AssertEqual(t, "info", finding.Severity)
 		if finding.Severity == "info" {
 			infoCount++
@@ -106,7 +114,7 @@ func TestCLI_Run_ScheduleAppliesPreset(t *T) {
 	buildCLI(t)
 	t.Setenv("PATH", t.TempDir())
 
-	RequireNoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/test\n"), 0o644))
+	RequireNoError(t, os.WriteFile(filepath.Join(dir, mainTestGoMod3af676), []byte(mainTestModuleExampleComTeste3feb4), 0o644))
 	RequireNoError(t, os.WriteFile(filepath.Join(dir, "root.go"), []byte(`package sample
 
 type service struct{}
@@ -119,7 +127,7 @@ func Run() {
 }
 `), 0o644))
 	RequireNoError(t, os.MkdirAll(filepath.Join(dir, "services"), 0o755))
-	RequireNoError(t, os.WriteFile(filepath.Join(dir, "services", "clean.go"), []byte(`package sample
+	RequireNoError(t, os.WriteFile(filepath.Join(dir, "services", mainTestCleanGob56c68), []byte(`package sample
 
 func Clean() {}
 `), 0o644))
@@ -140,7 +148,7 @@ schedules:
 	RequireNotEmpty(t, report.Findings)
 	infoCount := 0
 	for _, finding := range report.Findings {
-		AssertEqual(t, "missing-tool", finding.Code)
+		AssertEqual(t, mainTestMissingTool5b8a4a, finding.Code)
 		AssertEqual(t, "info", finding.Severity)
 		if finding.Severity == "info" {
 			infoCount++
@@ -153,10 +161,10 @@ schedules:
 
 func TestCLI_Detect_JSON(t *T) {
 	dir := t.TempDir()
-	RequireNoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/test\n"), 0o644))
+	RequireNoError(t, os.WriteFile(filepath.Join(dir, mainTestGoMod3af676), []byte(mainTestModuleExampleComTeste3feb4), 0o644))
 	RequireNoError(t, os.WriteFile(filepath.Join(dir, "package.json"), []byte("{}\n"), 0o644))
 
-	stdout, stderr, exitCode := runCLI(t, dir, "detect", "--output", "json", dir)
+	stdout, stderr, exitCode := runCLI(t, dir, "detect", mainTestOutput231216, "json", dir)
 	AssertEqual(t, 0, exitCode, stderr)
 
 	var languages []string

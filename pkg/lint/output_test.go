@@ -6,10 +6,14 @@ import (
 	"path/filepath"
 )
 
+const (
+	outputTestLintYaml412c86 = "lint.yaml"
+)
+
 func TestResolveRunOutputFormat_Good_Precedence(t *core.T) {
 	dir := t.TempDir()
 	core.RequireNoError(t, os.MkdirAll(filepath.Join(dir, ".core"), 0o755))
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, ".core", "lint.yaml"), []byte(`output: text
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, ".core", outputTestLintYaml412c86), []byte(`output: text
 schedules:
   nightly:
     output: json
@@ -63,7 +67,7 @@ func TestResolveRunOutputFormat_Good_ExplicitOutputBypassesConfigLoading(t *core
 func TestResolveRunOutputFormat_Bad_BrokenConfig(t *core.T) {
 	dir := t.TempDir()
 	core.RequireNoError(t, os.MkdirAll(filepath.Join(dir, ".core"), 0o755))
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, ".core", "lint.yaml"), []byte("{not: yaml"), 0o644))
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, ".core", outputTestLintYaml412c86), []byte("{not: yaml"), 0o644))
 
 	_, err := ResolveRunOutputFormat(RunInput{
 		Path: dir,
@@ -74,7 +78,7 @@ func TestResolveRunOutputFormat_Bad_BrokenConfig(t *core.T) {
 func TestResolveRunOutputFormat_Ugly_MissingSchedule(t *core.T) {
 	dir := t.TempDir()
 	core.RequireNoError(t, os.MkdirAll(filepath.Join(dir, ".core"), 0o755))
-	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, ".core", "lint.yaml"), []byte("output: text\n"), 0o644))
+	core.RequireNoError(t, os.WriteFile(filepath.Join(dir, ".core", outputTestLintYaml412c86), []byte("output: text\n"), 0o644))
 
 	_, err := ResolveRunOutputFormat(RunInput{
 		Path:     dir,

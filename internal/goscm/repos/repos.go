@@ -10,6 +10,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const (
+	reposReposYaml9e36f4 = "repos.yaml"
+)
+
 type Registry struct {
 	Version  int              `yaml:"version"`
 	Org      string           `yaml:"org"`
@@ -71,8 +75,8 @@ func FindRegistry(m coreio.Medium) (string, error) {
 	}
 	for {
 		for _, candidate := range []string{
-			filepath.Join(dir, "repos.yaml"),
-			filepath.Join(dir, ".core", "repos.yaml"),
+			filepath.Join(dir, reposReposYaml9e36f4),
+			filepath.Join(dir, ".core", reposReposYaml9e36f4),
 		} {
 			if m.Exists(candidate) {
 				return candidate, nil
@@ -87,9 +91,9 @@ func FindRegistry(m coreio.Medium) (string, error) {
 	home, err := os.UserHomeDir()
 	if err == nil {
 		for _, candidate := range []string{
-			filepath.Join(home, "Code", "host-uk", ".core", "repos.yaml"),
-			filepath.Join(home, "Code", "host-uk", "repos.yaml"),
-			filepath.Join(home, ".config", "core", "repos.yaml"),
+			filepath.Join(home, "Code", "host-uk", ".core", reposReposYaml9e36f4),
+			filepath.Join(home, "Code", "host-uk", reposReposYaml9e36f4),
+			filepath.Join(home, ".config", "core", reposReposYaml9e36f4),
 		} {
 			if m.Exists(candidate) {
 				return candidate, nil

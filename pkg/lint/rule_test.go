@@ -4,9 +4,13 @@ import (
 	core "dappco.re/go"
 )
 
+const (
+	ruleTestGoSec0016d3cb3 = "go-sec-001"
+)
+
 func validRule() Rule {
 	return Rule{
-		ID:        "go-sec-001",
+		ID:        ruleTestGoSec0016d3cb3,
 		Title:     "SQL wildcard injection in LIKE clauses",
 		Severity:  "high",
 		Languages: []string{"go"},
@@ -40,7 +44,7 @@ func TestParseRules_Good(t *core.T) {
 	rules, err := ParseRules(data)
 	core.RequireNoError(t, err)
 	core.AssertLen(t, rules, 2)
-	core.AssertEqual(t, "go-sec-001", rules[0].ID)
+	core.AssertEqual(t, ruleTestGoSec0016d3cb3, rules[0].ID)
 	core.AssertEqual(t, "go-sec-002", rules[1].ID)
 	core.AssertEqual(t, []string{"go"}, rules[0].Languages)
 	core.AssertFalse(t, rules[0].AutoFixable)
@@ -61,7 +65,7 @@ func TestParseRules_Bad_EmptyInput(t *core.T) {
 func TestValidate_Good(t *core.T) {
 	r := validRule()
 	core.AssertNoError(t, r.Validate())
-	core.AssertEqual(t, "go-sec-001", r.ID)
+	core.AssertEqual(t, ruleTestGoSec0016d3cb3, r.ID)
 }
 
 func TestValidate_Good_WithExcludePattern(t *core.T) {

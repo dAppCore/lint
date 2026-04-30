@@ -9,6 +9,11 @@ import (
 	coreio "dappco.re/go/io"
 )
 
+const (
+	catalogCatalogLoaddir13dba1 = "Catalog.LoadDir"
+	catalogCatalogLoadfs363359  = "Catalog.LoadFS"
+)
+
 // severityOrder maps severity names to numeric ranks for threshold comparison.
 var severityOrder = map[string]int{
 	"info":     0,
@@ -27,7 +32,7 @@ type Catalog struct {
 func LoadDir(dir string) (*Catalog, error) {
 	entries, err := coreio.Local.List(dir)
 	if err != nil {
-		return nil, core.E("Catalog.LoadDir", "loading catalog from "+dir, err)
+		return nil, core.E(catalogCatalogLoaddir13dba1, "loading catalog from "+dir, err)
 	}
 	sortDirEntries(entries)
 
@@ -38,11 +43,11 @@ func LoadDir(dir string) (*Catalog, error) {
 		}
 		raw, err := coreio.Local.Read(core.JoinPath(dir, entry.Name()))
 		if err != nil {
-			return nil, core.E("Catalog.LoadDir", "reading "+entry.Name(), err)
+			return nil, core.E(catalogCatalogLoaddir13dba1, "reading "+entry.Name(), err)
 		}
 		parsed, err := ParseRules([]byte(raw))
 		if err != nil {
-			return nil, core.E("Catalog.LoadDir", "parsing "+entry.Name(), err)
+			return nil, core.E(catalogCatalogLoaddir13dba1, "parsing "+entry.Name(), err)
 		}
 		rules = append(rules, parsed...)
 	}
@@ -54,7 +59,7 @@ func LoadDir(dir string) (*Catalog, error) {
 func LoadFS(fsys fs.FS, dir string) (*Catalog, error) {
 	entries, err := fs.ReadDir(fsys, dir)
 	if err != nil {
-		return nil, core.E("Catalog.LoadFS", "loading catalog from embedded "+dir, err)
+		return nil, core.E(catalogCatalogLoadfs363359, "loading catalog from embedded "+dir, err)
 	}
 	sortDirEntries(entries)
 
@@ -65,11 +70,11 @@ func LoadFS(fsys fs.FS, dir string) (*Catalog, error) {
 		}
 		data, err := fs.ReadFile(fsys, core.JoinPath(dir, entry.Name()))
 		if err != nil {
-			return nil, core.E("Catalog.LoadFS", "reading embedded "+entry.Name(), err)
+			return nil, core.E(catalogCatalogLoadfs363359, "reading embedded "+entry.Name(), err)
 		}
 		parsed, err := ParseRules(data)
 		if err != nil {
-			return nil, core.E("Catalog.LoadFS", "parsing embedded "+entry.Name(), err)
+			return nil, core.E(catalogCatalogLoadfs363359, "parsing embedded "+entry.Name(), err)
 		}
 		rules = append(rules, parsed...)
 	}

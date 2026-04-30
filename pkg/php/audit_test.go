@@ -8,6 +8,11 @@ import (
 	"path/filepath"
 )
 
+const (
+	auditTestVendorPackageA5f7261 = "vendor/package-a"
+	auditTestVendorPackageB7f40b1 = "vendor/package-b"
+)
+
 func TestAuditResult_Fields(t *T) {
 	result := AuditResult{
 		Tool:            "composer",
@@ -46,19 +51,19 @@ func TestAuditAdvisory_Fields(t *T) {
 
 func TestSortAuditAdvisories_Good(t *T) {
 	advisories := []AuditAdvisory{
-		{Package: "vendor/package-b", Title: "Zulu"},
-		{Package: "vendor/package-a", Title: "Beta"},
-		{Package: "vendor/package-b", Title: "Alpha"},
+		{Package: auditTestVendorPackageB7f40b1, Title: "Zulu"},
+		{Package: auditTestVendorPackageA5f7261, Title: "Beta"},
+		{Package: auditTestVendorPackageB7f40b1, Title: "Alpha"},
 	}
 
 	sortAuditAdvisories(advisories)
 
 	RequireLen(t, advisories, 3)
-	AssertEqual(t, "vendor/package-a", advisories[0].Package)
+	AssertEqual(t, auditTestVendorPackageA5f7261, advisories[0].Package)
 	AssertEqual(t, "Beta", advisories[0].Title)
-	AssertEqual(t, "vendor/package-b", advisories[1].Package)
+	AssertEqual(t, auditTestVendorPackageB7f40b1, advisories[1].Package)
 	AssertEqual(t, "Alpha", advisories[1].Title)
-	AssertEqual(t, "vendor/package-b", advisories[2].Package)
+	AssertEqual(t, auditTestVendorPackageB7f40b1, advisories[2].Package)
 	AssertEqual(t, "Zulu", advisories[2].Title)
 }
 
@@ -122,13 +127,13 @@ func TestRunComposerAudit_ParsesJSON(t *T) {
 	AssertEqual(t, "composer", result.Tool)
 	AssertEqual(t, 3, result.Vulnerabilities)
 	AssertLen(t, result.Advisories, 3)
-	AssertEqual(t, "vendor/package-a", result.Advisories[0].Package)
+	AssertEqual(t, auditTestVendorPackageA5f7261, result.Advisories[0].Package)
 	AssertEqual(t, "Remote Code Execution", result.Advisories[0].Title)
 	AssertEqual(t, "https://example.com/advisory/1", result.Advisories[0].URL)
 	AssertEqual(t, []string{"CVE-2025-1234"}, result.Advisories[0].Identifiers)
-	AssertEqual(t, "vendor/package-b", result.Advisories[1].Package)
+	AssertEqual(t, auditTestVendorPackageB7f40b1, result.Advisories[1].Package)
 	AssertEqual(t, "Cross-Site Scripting", result.Advisories[1].Title)
-	AssertEqual(t, "vendor/package-b", result.Advisories[2].Package)
+	AssertEqual(t, auditTestVendorPackageB7f40b1, result.Advisories[2].Package)
 	AssertEqual(t, "Open Redirect", result.Advisories[2].Title)
 }
 

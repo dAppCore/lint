@@ -7,6 +7,11 @@ import (
 	"path/filepath"
 )
 
+const (
+	catalogTestGoSec001f24fa5 = "go-sec-001"
+	catalogTestHigh175d0ae    = "high-1"
+)
+
 //go:embed testdata/catalog/*.yaml
 var testCatalogFS embed.FS
 
@@ -21,7 +26,7 @@ func TestLoadDir_Good(t *core.T) {
 	core.AssertLen(t, cat.Rules, 18)
 
 	// Verify we can find a rule from each file.
-	core.AssertNotNil(t, cat.ByID("go-sec-001"))
+	core.AssertNotNil(t, cat.ByID(catalogTestGoSec001f24fa5))
 	core.AssertNotNil(t, cat.ByID("go-cor-001"))
 	core.AssertNotNil(t, cat.ByID("go-mod-001"))
 }
@@ -116,14 +121,14 @@ func TestAtSeverity_Good(t *core.T) {
 			{ID: "info-1", Severity: "info"},
 			{ID: "low-1", Severity: "low"},
 			{ID: "med-1", Severity: "medium"},
-			{ID: "high-1", Severity: "high"},
+			{ID: catalogTestHigh175d0ae, Severity: "high"},
 			{ID: "crit-1", Severity: "critical"},
 		},
 	}
 
 	high := cat.AtSeverity("high")
 	core.AssertLen(t, high, 2)
-	core.AssertEqual(t, "high-1", high[0].ID)
+	core.AssertEqual(t, catalogTestHigh175d0ae, high[0].ID)
 	core.AssertEqual(t, "crit-1", high[1].ID)
 
 	all := cat.AtSeverity("info")
@@ -136,7 +141,7 @@ func TestAtSeverity_Good(t *core.T) {
 func TestAtSeverity_Bad_UnknownSeverity(t *core.T) {
 	cat := &Catalog{
 		Rules: []Rule{
-			{ID: "high-1", Severity: "high"},
+			{ID: catalogTestHigh175d0ae, Severity: "high"},
 		},
 	}
 	// Unknown severity returns empty.
@@ -146,7 +151,7 @@ func TestAtSeverity_Bad_UnknownSeverity(t *core.T) {
 func TestByID_Good(t *core.T) {
 	cat := &Catalog{
 		Rules: []Rule{
-			{ID: "go-sec-001", Title: "SQL injection"},
+			{ID: catalogTestGoSec001f24fa5, Title: "SQL injection"},
 			{ID: "go-sec-002", Title: "Path traversal"},
 		},
 	}
@@ -159,7 +164,7 @@ func TestByID_Good(t *core.T) {
 func TestByID_Bad_NotFound(t *core.T) {
 	cat := &Catalog{
 		Rules: []Rule{
-			{ID: "go-sec-001"},
+			{ID: catalogTestGoSec001f24fa5},
 		},
 	}
 	core.AssertNil(t, cat.ByID("nonexistent"))

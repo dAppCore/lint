@@ -23,6 +23,12 @@ import (
 	"dappco.re/go/i18n"
 )
 
+const (
+	cmdWatchQaWatchcea0f7 = "qa.watch"
+	cmdWatchRepo644bfb    = "--repo"
+	cmdWatchSS02a8c6      = "%s %s\n"
+)
+
 // Watch command flags
 var (
 	watchRepo    string
@@ -80,55 +86,51 @@ func addWatchCommand(parent *cli.Command) {
 }
 
 func runWatch() error {
-	// Check gh is available
 	if _, err := exec.LookPath("gh"); err != nil {
-		return core.E("qa.watch", i18n.T("error.gh_not_found"), nil)
+		return core.E(cmdWatchQaWatchcea0f7, i18n.T("error.gh_not_found"), nil)
 	}
 
-	// Determine repo
 	repoFullName, err := resolveRepo(watchRepo)
 	if err != nil {
 		return err
 	}
-
-	// Determine commit
 	commitSha, err := resolveCommit(watchCommit)
 	if err != nil {
 		return err
 	}
 
-	cli.Print("%s %s\n", dimStyle.Render(i18n.Label("repo")), repoFullName)
-	// Safe prefix for display - handle short SHAs gracefully
+	printWatchHeader(repoFullName, commitSha)
+	ctx, cancel := context.WithTimeout(context.Background(), watchTimeout)
+	defer cancel()
+	return watchWorkflowRuns(ctx, repoFullName, commitSha)
+}
+
+func printWatchHeader(repoFullName string, commitSha string) {
+	cli.Print(cmdWatchSS02a8c6, dimStyle.Render(i18n.Label("repo")), repoFullName)
 	shaPrefix := commitSha
 	if len(commitSha) > 8 {
 		shaPrefix = commitSha[:8]
 	}
-	cli.Print("%s %s\n", dimStyle.Render(i18n.T("cmd.qa.watch.commit")), shaPrefix)
+	cli.Print(cmdWatchSS02a8c6, dimStyle.Render(i18n.T("cmd.qa.watch.commit")), shaPrefix)
 	cli.Blank()
+}
 
-	// Create context with timeout for all gh commands
-	ctx, cancel := context.WithTimeout(context.Background(), watchTimeout)
-	defer cancel()
-
-	// Poll for workflow runs
+func watchWorkflowRuns(ctx context.Context, repoFullName string, commitSha string) error {
 	pollInterval := 3 * time.Second
 	var lastStatus string
 	waitingStatus := dimStyle.Render(i18n.T("cmd.qa.watch.waiting_for_workflows"))
 
 	for {
-		// Check if context deadline exceeded
 		if ctx.Err() != nil {
 			cli.Blank()
-			return core.E("qa.watch", i18n.T("cmd.qa.watch.timeout", map[string]any{"Duration": watchTimeout}), nil)
+			return core.E(cmdWatchQaWatchcea0f7, i18n.T("cmd.qa.watch.timeout", map[string]any{"Duration": watchTimeout}), nil)
 		}
 
 		runs, err := fetchWorkflowRunsForCommit(ctx, repoFullName, commitSha)
 		if err != nil {
-			return core.Wrap(err, "qa.watch", "failed to fetch workflow runs")
+			return core.Wrap(err, cmdWatchQaWatchcea0f7, "failed to fetch workflow runs")
 		}
-
 		if len(runs) == 0 {
-			// No workflows triggered yet, keep waiting
 			if waitingStatus != lastStatus {
 				cli.Print("%s\n", waitingStatus)
 				lastStatus = waitingStatus
@@ -137,56 +139,61 @@ func runWatch() error {
 			continue
 		}
 
-		// Check status of all runs
-		allComplete := true
-		var pending, success, failed int
-		for _, run := range runs {
-			switch run.Status {
-			case "completed":
-				if run.Conclusion == "success" {
-					success++
-				} else {
-					// Count all non-success conclusions as failed
-					// (failure, cancelled, timed_out, action_required, stale, etc.)
-					failed++
-				}
-			default:
-				allComplete = false
-				pending++
-			}
-		}
-
-		// Build status line
-		status := fmt.Sprintf("%d workflow(s): ", len(runs))
-		if pending > 0 {
-			status += warningStyle.Render(fmt.Sprintf("%d running", pending))
-			if success > 0 || failed > 0 {
-				status += ", "
-			}
-		}
-		if success > 0 {
-			status += successStyle.Render(fmt.Sprintf("%d passed", success))
-			if failed > 0 {
-				status += ", "
-			}
-		}
-		if failed > 0 {
-			status += errorStyle.Render(fmt.Sprintf("%d failed", failed))
-		}
-
-		// Only print if status changed
-		if status != lastStatus {
-			cli.Print("%s\n", status)
-			lastStatus = status
-		}
-
-		if allComplete {
+		counts := countWorkflowRuns(runs)
+		lastStatus = printWatchStatus(formatWorkflowStatus(len(runs), counts), lastStatus)
+		if counts.allComplete {
 			cli.Blank()
 			return printResults(ctx, repoFullName, runs)
 		}
 
 		time.Sleep(pollInterval)
 	}
+}
+
+type workflowRunCounts struct {
+	pending     int
+	success     int
+	failed      int
+	allComplete bool
+}
+
+func countWorkflowRuns(runs []WorkflowRun) workflowRunCounts {
+	counts := workflowRunCounts{allComplete: true}
+	for _, run := range runs {
+		if run.Status != "completed" {
+			counts.allComplete = false
+			counts.pending++
+			continue
+		}
+		if run.Conclusion == "success" {
+			counts.success++
+			continue
+		}
+		counts.failed++
+	}
+	return counts
+}
+
+func formatWorkflowStatus(total int, counts workflowRunCounts) string {
+	parts := make([]string, 0, 3)
+	if counts.pending > 0 {
+		parts = append(parts, warningStyle.Render(fmt.Sprintf("%d running", counts.pending)))
+	}
+	if counts.success > 0 {
+		parts = append(parts, successStyle.Render(fmt.Sprintf("%d passed", counts.success)))
+	}
+	if counts.failed > 0 {
+		parts = append(parts, errorStyle.Render(fmt.Sprintf("%d failed", counts.failed)))
+	}
+	return fmt.Sprintf("%d workflow(s): %s", total, strings.Join(parts, ", "))
+}
+
+func printWatchStatus(status string, lastStatus string) string {
+	if status != lastStatus {
+		cli.Print("%s\n", status)
+		return status
+	}
+	return lastStatus
 }
 
 // resolveRepo determines the repo to watch
@@ -201,7 +208,7 @@ func resolveRepo(specified string) (string, error) {
 		if org != "" {
 			return org + "/" + specified, nil
 		}
-		return "", core.E("qa.watch", i18n.T("cmd.qa.watch.error.repo_format"), nil)
+		return "", core.E(cmdWatchQaWatchcea0f7, i18n.T("cmd.qa.watch.error.repo_format"), nil)
 	}
 
 	// Detect from current directory
@@ -218,7 +225,7 @@ func resolveCommit(specified string) (string, error) {
 	cmd := exec.Command("git", "rev-parse", "HEAD")
 	output, err := cmd.Output()
 	if err != nil {
-		return "", core.Wrap(err, "qa.watch", "failed to get HEAD commit")
+		return "", core.Wrap(err, cmdWatchQaWatchcea0f7, "failed to get HEAD commit")
 	}
 
 	return strings.TrimSpace(string(output)), nil
@@ -229,7 +236,7 @@ func detectRepoFromGit() (string, error) {
 	cmd := exec.Command("git", "remote", "get-url", "origin")
 	output, err := cmd.Output()
 	if err != nil {
-		return "", core.E("qa.watch", i18n.T("cmd.qa.watch.error.not_git_repo"), nil)
+		return "", core.E(cmdWatchQaWatchcea0f7, i18n.T("cmd.qa.watch.error.not_git_repo"), nil)
 	}
 
 	url := strings.TrimSpace(string(output))
@@ -274,7 +281,7 @@ func parseGitHubRepo(url string) (string, error) {
 func fetchWorkflowRunsForCommit(ctx context.Context, repoFullName, commitSha string) ([]WorkflowRun, error) {
 	args := []string{
 		"run", "list",
-		"--repo", repoFullName,
+		cmdWatchRepo644bfb, repoFullName,
 		"--commit", commitSha,
 		"--json", "databaseId,name,displayTitle,status,conclusion,headSha,url,createdAt,updatedAt",
 	}
@@ -319,12 +326,12 @@ func printResults(ctx context.Context, repoFullName string, runs []WorkflowRun) 
 
 	// Print successes briefly
 	for _, run := range successes {
-		cli.Print("%s %s\n", successStyle.Render(i18n.T("common.label.success")), run.Name)
+		cli.Print(cmdWatchSS02a8c6, successStyle.Render(i18n.T("common.label.success")), run.Name)
 	}
 
 	// Print failures with details
 	for _, run := range failures {
-		cli.Print("%s %s\n", errorStyle.Render(i18n.T("common.label.error")), run.Name)
+		cli.Print(cmdWatchSS02a8c6, errorStyle.Render(i18n.T("common.label.error")), run.Name)
 
 		// Fetch failed job details
 		failedJob, failedStep, errorLine := fetchFailureDetails(ctx, repoFullName, run.ID)
@@ -357,7 +364,7 @@ func fetchFailureDetails(ctx context.Context, repoFullName string, runID int64) 
 	// Fetch jobs for this run
 	args := []string{
 		"run", "view", fmt.Sprintf("%d", runID),
-		"--repo", repoFullName,
+		cmdWatchRepo644bfb, repoFullName,
 		"--json", "jobs",
 	}
 
@@ -403,7 +410,7 @@ func fetchErrorFromLogs(ctx context.Context, repoFullName string, runID int64) s
 	// Use gh run view --log-failed to get failed step logs
 	args := []string{
 		"run", "view", fmt.Sprintf("%d", runID),
-		"--repo", repoFullName,
+		cmdWatchRepo644bfb, repoFullName,
 		"--log-failed",
 	}
 

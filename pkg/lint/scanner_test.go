@@ -6,12 +6,19 @@ import (
 	"path/filepath"
 )
 
+const (
+	scannerTestFoundATodoe20638 = "Found a TODO"
+	scannerTestMainGo933828     = "main.go"
+	scannerTestRemoveTodo6b22d4 = "Remove TODO"
+	scannerTestTest001f30bc6    = "test-001"
+)
+
 func TestDetectLanguage_Good(t *core.T) {
 	tests := []struct {
 		filename string
 		want     string
 	}{
-		{"main.go", "go"},
+		{scannerTestMainGo933828, "go"},
 		{"handler.go", "go"},
 		{"model.php", "php"},
 		{"app.ts", "ts"},
@@ -55,18 +62,18 @@ func TestScanDir_Good_FindsMatches(t *core.T) {
 	dir := t.TempDir()
 
 	// Create a Go file with a TODO.
-	goFile := filepath.Join(dir, "main.go")
+	goFile := filepath.Join(dir, scannerTestMainGo933828)
 	err := os.WriteFile(goFile, []byte("package main\n\n// TODO: fix this\nfunc main() {}\n"), 0o644)
 	core.RequireNoError(t, err)
 
 	rules := []Rule{
 		{
-			ID:        "test-001",
-			Title:     "Found a TODO",
+			ID:        scannerTestTest001f30bc6,
+			Title:     scannerTestFoundATodoe20638,
 			Severity:  "low",
 			Languages: []string{"go"},
 			Pattern:   `TODO`,
-			Fix:       "Remove TODO",
+			Fix:       scannerTestRemoveTodo6b22d4,
 			Detection: "regex",
 		},
 	}
@@ -77,7 +84,7 @@ func TestScanDir_Good_FindsMatches(t *core.T) {
 	findings, err := s.ScanDir(dir)
 	core.RequireNoError(t, err)
 	RequireLen(t, findings, 1)
-	core.AssertEqual(t, "test-001", findings[0].RuleID)
+	core.AssertEqual(t, scannerTestTest001f30bc6, findings[0].RuleID)
 	core.AssertEqual(t, 3, findings[0].Line)
 }
 
@@ -116,12 +123,12 @@ func TestScanDir_Good_ExcludesVendor(t *core.T) {
 
 	rules := []Rule{
 		{
-			ID:        "test-001",
-			Title:     "Found a TODO",
+			ID:        scannerTestTest001f30bc6,
+			Title:     scannerTestFoundATodoe20638,
 			Severity:  "low",
 			Languages: []string{"go", "js"},
 			Pattern:   `TODO`,
-			Fix:       "Remove TODO",
+			Fix:       scannerTestRemoveTodo6b22d4,
 			Detection: "regex",
 		},
 	}
@@ -138,7 +145,7 @@ func TestScanDir_Good_LanguageFiltering(t *core.T) {
 	dir := t.TempDir()
 
 	// Create Go file with a match.
-	err := os.WriteFile(filepath.Join(dir, "main.go"), []byte("// TODO: go\n"), 0o644)
+	err := os.WriteFile(filepath.Join(dir, scannerTestMainGo933828), []byte("// TODO: go\n"), 0o644)
 	core.RequireNoError(t, err)
 
 	// Create PHP file with a match — rule only targets Go.
@@ -152,7 +159,7 @@ func TestScanDir_Good_LanguageFiltering(t *core.T) {
 			Severity:  "low",
 			Languages: []string{"go"},
 			Pattern:   `TODO`,
-			Fix:       "Remove TODO",
+			Fix:       scannerTestRemoveTodo6b22d4,
 			Detection: "regex",
 		},
 	}
@@ -163,7 +170,7 @@ func TestScanDir_Good_LanguageFiltering(t *core.T) {
 	findings, err := s.ScanDir(dir)
 	core.RequireNoError(t, err)
 	RequireLen(t, findings, 1)
-	core.AssertContains(t, findings[0].File, "main.go")
+	core.AssertContains(t, findings[0].File, scannerTestMainGo933828)
 }
 
 func TestScanFile_Good(t *core.T) {
@@ -206,7 +213,7 @@ func TestScanFile_Good_Python(t *core.T) {
 			Severity:  "low",
 			Languages: []string{"python"},
 			Pattern:   `TODO`,
-			Fix:       "Remove TODO",
+			Fix:       scannerTestRemoveTodo6b22d4,
 			Detection: "regex",
 		},
 	}
@@ -234,7 +241,7 @@ func TestScanFile_Bad_NoMatchingLanguageRules(t *core.T) {
 			Severity:  "low",
 			Languages: []string{"php"},
 			Pattern:   `TODO`,
-			Fix:       "Remove TODO",
+			Fix:       scannerTestRemoveTodo6b22d4,
 			Detection: "regex",
 		},
 	}
@@ -260,7 +267,7 @@ func TestScanFile_Ugly_UnsupportedExtension(t *core.T) {
 			Severity:  "low",
 			Languages: []string{"go"},
 			Pattern:   `TODO`,
-			Fix:       "Remove TODO",
+			Fix:       scannerTestRemoveTodo6b22d4,
 			Detection: "regex",
 		},
 	}
@@ -284,12 +291,12 @@ func TestScanDir_Good_Subdirectories(t *core.T) {
 
 	rules := []Rule{
 		{
-			ID:        "test-001",
-			Title:     "Found a TODO",
+			ID:        scannerTestTest001f30bc6,
+			Title:     scannerTestFoundATodoe20638,
 			Severity:  "low",
 			Languages: []string{"go"},
 			Pattern:   `TODO`,
-			Fix:       "Remove TODO",
+			Fix:       scannerTestRemoveTodo6b22d4,
 			Detection: "regex",
 		},
 	}
@@ -306,16 +313,16 @@ func TestScanDir_Good_SkipsHiddenRootDirectory(t *core.T) {
 	dir := t.TempDir()
 	hiddenDir := filepath.Join(dir, ".git")
 	core.RequireNoError(t, os.MkdirAll(hiddenDir, 0o755))
-	core.RequireNoError(t, os.WriteFile(filepath.Join(hiddenDir, "main.go"), []byte("// TODO: hidden\n"), 0o644))
+	core.RequireNoError(t, os.WriteFile(filepath.Join(hiddenDir, scannerTestMainGo933828), []byte("// TODO: hidden\n"), 0o644))
 
 	rules := []Rule{
 		{
-			ID:        "test-001",
-			Title:     "Found a TODO",
+			ID:        scannerTestTest001f30bc6,
+			Title:     scannerTestFoundATodoe20638,
 			Severity:  "low",
 			Languages: []string{"go"},
 			Pattern:   `TODO`,
-			Fix:       "Remove TODO",
+			Fix:       scannerTestRemoveTodo6b22d4,
 			Detection: "regex",
 		},
 	}
@@ -332,16 +339,16 @@ func TestScanDir_Good_SkipsHiddenNestedDirectory(t *core.T) {
 	dir := t.TempDir()
 	hiddenDir := filepath.Join(dir, "services", ".generated")
 	core.RequireNoError(t, os.MkdirAll(hiddenDir, 0o755))
-	core.RequireNoError(t, os.WriteFile(filepath.Join(hiddenDir, "main.go"), []byte("// TODO: hidden\n"), 0o644))
+	core.RequireNoError(t, os.WriteFile(filepath.Join(hiddenDir, scannerTestMainGo933828), []byte("// TODO: hidden\n"), 0o644))
 
 	rules := []Rule{
 		{
-			ID:        "test-001",
-			Title:     "Found a TODO",
+			ID:        scannerTestTest001f30bc6,
+			Title:     scannerTestFoundATodoe20638,
 			Severity:  "low",
 			Languages: []string{"go"},
 			Pattern:   `TODO`,
-			Fix:       "Remove TODO",
+			Fix:       scannerTestRemoveTodo6b22d4,
 			Detection: "regex",
 		},
 	}
@@ -357,7 +364,7 @@ func TestScanDir_Good_SkipsHiddenNestedDirectory(t *core.T) {
 func TestScanDir_Bad_NonexistentDir(t *core.T) {
 	rules := []Rule{
 		{
-			ID:        "test-001",
+			ID:        scannerTestTest001f30bc6,
 			Title:     "Test",
 			Severity:  "low",
 			Languages: []string{"go"},

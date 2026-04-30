@@ -2,4 +2,6 @@
 
 package sample
 
-func Broken() {}
+func Broken() {
+	// Empty fixture function intentionally has no doc comment.
+}

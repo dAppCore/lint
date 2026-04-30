@@ -44,8 +44,8 @@ BASE_REPO_ROOTS = (
     Path("~/Code/lab").expanduser(),
 )
 LEAK_PATHS = (
-    "/" "home/claude/",
-    "/" "sandbox/",
+    "/home/claude/",
+    "/sandbox/",
 )
 LEAK_RE = re.compile("|".join(re.escape(path) for path in LEAK_PATHS))
 GIT_GREP_RE = "|".join(re.escape(path) for path in LEAK_PATHS)
@@ -325,15 +325,31 @@ def main() -> int:
     args = build_parser().parse_args()
     repo_roots = unique_paths(args.repo_root) if args.repo_root else default_repo_roots()
 
-    if args.list_roots:
-        for root in repo_roots:
-            emit({"type": "root", "root_path": str(root)})
+    emit_roots(repo_roots, args.list_roots)
 
     repos = discover_repos(repo_roots)
-    if args.list_repos:
-        for repo in repos:
-            emit({"type": "repo", "repo": repo_label(repo), "repo_path": str(repo)})
+    emit_repos(repos, args.list_repos)
 
+    leaks_by_repo, warnings = audit_repos(repos, args)
+    emit_summary(leaks_by_repo, warnings, len(repos), args)
+    return 0
+
+
+def emit_roots(repo_roots: Iterable[Path], enabled: bool) -> None:
+    if not enabled:
+        return
+    for root in repo_roots:
+        emit({"type": "root", "root_path": str(root)})
+
+
+def emit_repos(repos: Iterable[Path], enabled: bool) -> None:
+    if not enabled:
+        return
+    for repo in repos:
+        emit({"type": "repo", "repo": repo_label(repo), "repo_path": str(repo)})
+
+
+def audit_repos(repos: list[Path], args: argparse.Namespace) -> tuple[dict[str, list[Leak]], int]:
     leaks_by_repo: dict[str, list[Leak]] = defaultdict(list)
     warnings = 0
 
@@ -351,63 +367,84 @@ def main() -> int:
             )
             continue
 
-        for leak in leaks:
-            leaks_by_repo[leak.repo_label].append(leak)
-            emit(
-                {
-                    "type": "leak",
-                    "repo": leak.repo_label,
-                    "repo_path": str(leak.repo_path),
-                    "file": leak.file,
-                    "line": leak.line,
-                    "match": leak.match,
-                    "text": leak.text,
-                }
-            )
+        emit_repo_leaks(leaks_by_repo, leaks)
+        emit_repo_summary(repo, leaks, args.fix)
 
-        if leaks:
-            files = sorted({leak.file for leak in leaks})
-            emit(
-                {
-                    "type": "repo_summary",
-                    "repo": repo_label(repo),
-                    "repo_path": str(repo),
-                    "leak_count": len(leaks),
-                    "file_count": len(files),
-                    "files": files,
-                }
-            )
+    return leaks_by_repo, warnings
 
-            payload = ticket_payload(repo_label(repo), leaks)
-            emit(
-                {
-                    "type": "ticket",
-                    "repo": repo_label(repo),
-                    "repo_path": str(repo),
-                    "leak_count": len(leaks),
-                    "payload": payload,
-                    "command": suggested_ticket_command(payload),
-                }
-            )
 
-            if args.fix:
-                for file_name in files:
-                    emit(
-                        {
-                            "type": "fix_stub",
-                            "repo": repo_label(repo),
-                            "repo_path": str(repo),
-                            "file": file_name,
-                            "review_required": True,
-                            "command": fix_stub_command(repo, file_name),
-                        }
-                    )
+def emit_repo_leaks(leaks_by_repo: dict[str, list[Leak]], leaks: list[Leak]) -> None:
+    for leak in leaks:
+        leaks_by_repo[leak.repo_label].append(leak)
+        emit(
+            {
+                "type": "leak",
+                "repo": leak.repo_label,
+                "repo_path": str(leak.repo_path),
+                "file": leak.file,
+                "line": leak.line,
+                "match": leak.match,
+                "text": leak.text,
+            }
+        )
 
+
+def emit_repo_summary(repo: Path, leaks: list[Leak], fix: bool) -> None:
+    if not leaks:
+        return
+    files = sorted({leak.file for leak in leaks})
+    emit(
+        {
+            "type": "repo_summary",
+            "repo": repo_label(repo),
+            "repo_path": str(repo),
+            "leak_count": len(leaks),
+            "file_count": len(files),
+            "files": files,
+        }
+    )
+
+    payload = ticket_payload(repo_label(repo), leaks)
+    emit(
+        {
+            "type": "ticket",
+            "repo": repo_label(repo),
+            "repo_path": str(repo),
+            "leak_count": len(leaks),
+            "payload": payload,
+            "command": suggested_ticket_command(payload),
+        }
+    )
+    emit_fix_stubs(repo, files, fix)
+
+
+def emit_fix_stubs(repo: Path, files: list[str], enabled: bool) -> None:
+    if not enabled:
+        return
+    for file_name in files:
+        emit(
+            {
+                "type": "fix_stub",
+                "repo": repo_label(repo),
+                "repo_path": str(repo),
+                "file": file_name,
+                "review_required": True,
+                "command": fix_stub_command(repo, file_name),
+            }
+        )
+
+
+def emit_summary(
+    leaks_by_repo: dict[str, list[Leak]],
+    warnings: int,
+    repos_scanned: int,
+    args: argparse.Namespace,
+) -> None:
     total_leaks = sum(len(leaks) for leaks in leaks_by_repo.values())
     emit(
         {
             "type": "summary",
-            "repos_scanned": len(repos),
+            "repos_scanned": repos_scanned,
             "repos_with_leaks": len(leaks_by_repo),
             "total_leaks": total_leaks,
             "warnings": warnings,
@@ -415,7 +452,6 @@ def main() -> int:
             "fix_mode": "stub" if args.fix else "off",
         }
     )
-    return 0
 
 
 if __name__ == "__main__":

@@ -1,3 +1,4 @@
+---
 version: "3"
 
 tasks:
@@ -8,11 +9,19 @@ tasks:
           set -euo pipefail
           source ../../../_lib/run.sh
 
-          go build -trimpath -ldflags="-s -w" -o bin/core-lint ../../../../../cmd/core-lint
+          go build -trimpath -ldflags="-s -w" \
+            -o bin/core-lint ../../../../../cmd/core-lint
 
           rule_id="$(cat fixtures/rule-id.txt)"
           output="$(mktemp)"
-          run_capture_stdout 0 "$output" ./bin/core-lint lint catalog show "$rule_id"
-          jq -e '.id == "go-sec-001" and .severity == "high" and (.languages | index("go") != null)' "$output" >/dev/null
-          jq -e '.title == "SQL wildcard injection in LIKE clauses"' "$output" >/dev/null
+          run_capture_stdout 0 "$output" ./bin/core-lint lint catalog show \
+            "$rule_id"
+          jq -e '
+            .id == "go-sec-001"
+            and .severity == "high"
+            and (.languages | index("go") != null)
+          ' "$output" >/dev/null
+          jq -e '
+            .title == "SQL wildcard injection in LIKE clauses"
+          ' "$output" >/dev/null
           EOF

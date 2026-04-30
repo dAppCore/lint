@@ -9,6 +9,16 @@ import (
 	. "dappco.re/go"
 )
 
+const (
+	ax7TestAlphaTxt10e34b       = "alpha.txt"
+	ax7TestBadPatha1d16f        = "bad\x00path"
+	ax7TestEmptyTxt20c33f       = "empty.txt"
+	ax7TestMissingTxtacc363     = "missing.txt"
+	ax7TestNestedAlphaTxt3ef370 = "nested/alpha.txt"
+	ax7TestNewTxt5106a2         = "new.txt"
+	ax7TestOldTxt8106ca         = "old.txt"
+)
+
 func ax7Medium(t *T) Medium {
 	t.Helper()
 	medium, err := NewSandboxed(t.TempDir())
@@ -25,7 +35,7 @@ func TestIO_NewSandboxed_Good(t *T) {
 	medium, err := NewSandboxed(t.TempDir())
 	AssertNoError(t, err)
 	AssertNotNil(t, medium)
-	AssertFalse(t, medium.Exists("missing.txt"))
+	AssertFalse(t, medium.Exists(ax7TestMissingTxtacc363))
 }
 
 func TestIO_NewSandboxed_Bad(t *T) {
@@ -44,46 +54,46 @@ func TestIO_NewSandboxed_Ugly(t *T) {
 
 func TestIO_Medium_Read_Good(t *T) {
 	medium := ax7Medium(t)
-	RequireNoError(t, medium.Write("alpha.txt", "alpha"))
-	got, err := medium.Read("alpha.txt")
+	RequireNoError(t, medium.Write(ax7TestAlphaTxt10e34b, "alpha"))
+	got, err := medium.Read(ax7TestAlphaTxt10e34b)
 	AssertNoError(t, err)
 	AssertEqual(t, "alpha", got)
 }
 
 func TestIO_Medium_Read_Bad(t *T) {
 	medium := ax7Medium(t)
-	got, err := medium.Read("missing.txt")
+	got, err := medium.Read(ax7TestMissingTxtacc363)
 	AssertError(t, err)
 	AssertEqual(t, "", got)
 }
 
 func TestIO_Medium_Read_Ugly(t *T) {
 	medium := ax7Medium(t)
-	RequireNoError(t, medium.Write("empty.txt", ""))
-	got, err := medium.Read("empty.txt")
+	RequireNoError(t, medium.Write(ax7TestEmptyTxt20c33f, ""))
+	got, err := medium.Read(ax7TestEmptyTxt20c33f)
 	AssertNoError(t, err)
 	AssertEqual(t, "", got)
 }
 
 func TestIO_Medium_Write_Good(t *T) {
 	medium := ax7Medium(t)
-	err := medium.Write("nested/alpha.txt", "alpha")
+	err := medium.Write(ax7TestNestedAlphaTxt3ef370, "alpha")
 	AssertNoError(t, err)
-	AssertTrue(t, medium.IsFile("nested/alpha.txt"))
+	AssertTrue(t, medium.IsFile(ax7TestNestedAlphaTxt3ef370))
 }
 
 func TestIO_Medium_Write_Bad(t *T) {
 	medium := ax7Medium(t)
-	err := medium.Write("bad\x00path", "alpha")
+	err := medium.Write(ax7TestBadPatha1d16f, "alpha")
 	AssertError(t, err)
 	AssertNotNil(t, medium)
 }
 
 func TestIO_Medium_Write_Ugly(t *T) {
 	medium := ax7Medium(t)
-	err := medium.Write("empty.txt", "")
+	err := medium.Write(ax7TestEmptyTxt20c33f, "")
 	AssertNoError(t, err)
-	AssertTrue(t, medium.IsFile("empty.txt"))
+	AssertTrue(t, medium.IsFile(ax7TestEmptyTxt20c33f))
 }
 
 func TestIO_Medium_WriteMode_Good(t *T) {
@@ -97,7 +107,7 @@ func TestIO_Medium_WriteMode_Good(t *T) {
 
 func TestIO_Medium_WriteMode_Bad(t *T) {
 	medium := ax7Medium(t)
-	err := medium.WriteMode("bad\x00path", "alpha", 0o600)
+	err := medium.WriteMode(ax7TestBadPatha1d16f, "alpha", 0o600)
 	AssertError(t, err)
 	AssertNotNil(t, medium)
 }
@@ -134,17 +144,17 @@ func TestIO_Medium_EnsureDir_Ugly(t *T) {
 
 func TestIO_Medium_IsFile_Good(t *T) {
 	medium := ax7Medium(t)
-	RequireNoError(t, medium.Write("alpha.txt", "alpha"))
-	got := medium.IsFile("alpha.txt")
+	RequireNoError(t, medium.Write(ax7TestAlphaTxt10e34b, "alpha"))
+	got := medium.IsFile(ax7TestAlphaTxt10e34b)
 	AssertTrue(t, got)
-	AssertTrue(t, medium.Exists("alpha.txt"))
+	AssertTrue(t, medium.Exists(ax7TestAlphaTxt10e34b))
 }
 
 func TestIO_Medium_IsFile_Bad(t *T) {
 	medium := ax7Medium(t)
-	got := medium.IsFile("missing.txt")
+	got := medium.IsFile(ax7TestMissingTxtacc363)
 	AssertFalse(t, got)
-	AssertFalse(t, medium.Exists("missing.txt"))
+	AssertFalse(t, medium.Exists(ax7TestMissingTxtacc363))
 }
 
 func TestIO_Medium_IsFile_Ugly(t *T) {
@@ -157,30 +167,30 @@ func TestIO_Medium_IsFile_Ugly(t *T) {
 
 func TestIO_Medium_Delete_Good(t *T) {
 	medium := ax7Medium(t)
-	RequireNoError(t, medium.Write("alpha.txt", "alpha"))
-	err := medium.Delete("alpha.txt")
+	RequireNoError(t, medium.Write(ax7TestAlphaTxt10e34b, "alpha"))
+	err := medium.Delete(ax7TestAlphaTxt10e34b)
 	AssertNoError(t, err)
-	AssertFalse(t, medium.Exists("alpha.txt"))
+	AssertFalse(t, medium.Exists(ax7TestAlphaTxt10e34b))
 }
 
 func TestIO_Medium_Delete_Bad(t *T) {
 	medium := ax7Medium(t)
-	err := medium.Delete("missing.txt")
+	err := medium.Delete(ax7TestMissingTxtacc363)
 	AssertError(t, err)
-	AssertFalse(t, medium.Exists("missing.txt"))
+	AssertFalse(t, medium.Exists(ax7TestMissingTxtacc363))
 }
 
 func TestIO_Medium_Delete_Ugly(t *T) {
 	medium := ax7Medium(t)
-	RequireNoError(t, medium.Write("nested/alpha.txt", "alpha"))
-	err := medium.Delete("nested/alpha.txt")
+	RequireNoError(t, medium.Write(ax7TestNestedAlphaTxt3ef370, "alpha"))
+	err := medium.Delete(ax7TestNestedAlphaTxt3ef370)
 	AssertNoError(t, err)
 	AssertTrue(t, medium.IsDir("nested"))
 }
 
 func TestIO_Medium_DeleteAll_Good(t *T) {
 	medium := ax7Medium(t)
-	RequireNoError(t, medium.Write("nested/alpha.txt", "alpha"))
+	RequireNoError(t, medium.Write(ax7TestNestedAlphaTxt3ef370, "alpha"))
 	err := medium.DeleteAll("nested")
 	AssertNoError(t, err)
 	AssertFalse(t, medium.Exists("nested"))
@@ -202,24 +212,24 @@ func TestIO_Medium_DeleteAll_Ugly(t *T) {
 
 func TestIO_Medium_Rename_Good(t *T) {
 	medium := ax7Medium(t)
-	RequireNoError(t, medium.Write("old.txt", "alpha"))
-	err := medium.Rename("old.txt", "new.txt")
+	RequireNoError(t, medium.Write(ax7TestOldTxt8106ca, "alpha"))
+	err := medium.Rename(ax7TestOldTxt8106ca, ax7TestNewTxt5106a2)
 	AssertNoError(t, err)
-	AssertTrue(t, medium.IsFile("new.txt"))
+	AssertTrue(t, medium.IsFile(ax7TestNewTxt5106a2))
 }
 
 func TestIO_Medium_Rename_Bad(t *T) {
 	medium := ax7Medium(t)
-	err := medium.Rename("missing.txt", "new.txt")
+	err := medium.Rename(ax7TestMissingTxtacc363, ax7TestNewTxt5106a2)
 	AssertError(t, err)
-	AssertFalse(t, medium.Exists("new.txt"))
+	AssertFalse(t, medium.Exists(ax7TestNewTxt5106a2))
 }
 
 func TestIO_Medium_Rename_Ugly(t *T) {
 	medium := ax7Medium(t)
-	RequireNoError(t, medium.Write("old.txt", "alpha"))
-	RequireNoError(t, medium.Write("new.txt", "beta"))
-	err := medium.Rename("old.txt", "new.txt")
+	RequireNoError(t, medium.Write(ax7TestOldTxt8106ca, "alpha"))
+	RequireNoError(t, medium.Write(ax7TestNewTxt5106a2, "beta"))
+	err := medium.Rename(ax7TestOldTxt8106ca, ax7TestNewTxt5106a2)
 	AssertNoError(t, err)
 }
 
@@ -249,15 +259,15 @@ func TestIO_Medium_List_Ugly(t *T) {
 
 func TestIO_Medium_Stat_Good(t *T) {
 	medium := ax7Medium(t)
-	RequireNoError(t, medium.Write("alpha.txt", "alpha"))
-	info, err := medium.Stat("alpha.txt")
+	RequireNoError(t, medium.Write(ax7TestAlphaTxt10e34b, "alpha"))
+	info, err := medium.Stat(ax7TestAlphaTxt10e34b)
 	AssertNoError(t, err)
-	AssertEqual(t, "alpha.txt", info.Name())
+	AssertEqual(t, ax7TestAlphaTxt10e34b, info.Name())
 }
 
 func TestIO_Medium_Stat_Bad(t *T) {
 	medium := ax7Medium(t)
-	info, err := medium.Stat("missing.txt")
+	info, err := medium.Stat(ax7TestMissingTxtacc363)
 	AssertError(t, err)
 	AssertNil(t, info)
 }
@@ -272,8 +282,8 @@ func TestIO_Medium_Stat_Ugly(t *T) {
 
 func TestIO_Medium_Open_Good(t *T) {
 	medium := ax7Medium(t)
-	RequireNoError(t, medium.Write("alpha.txt", "alpha"))
-	file, err := medium.Open("alpha.txt")
+	RequireNoError(t, medium.Write(ax7TestAlphaTxt10e34b, "alpha"))
+	file, err := medium.Open(ax7TestAlphaTxt10e34b)
 	AssertNoError(t, err)
 	AssertNotNil(t, file)
 	ax7Close(t, file)
@@ -281,7 +291,7 @@ func TestIO_Medium_Open_Good(t *T) {
 
 func TestIO_Medium_Open_Bad(t *T) {
 	medium := ax7Medium(t)
-	file, err := medium.Open("missing.txt")
+	file, err := medium.Open(ax7TestMissingTxtacc363)
 	AssertError(t, err)
 	AssertNil(t, file)
 }
@@ -305,7 +315,7 @@ func TestIO_Medium_Create_Good(t *T) {
 
 func TestIO_Medium_Create_Bad(t *T) {
 	medium := ax7Medium(t)
-	writer, err := medium.Create("bad\x00path")
+	writer, err := medium.Create(ax7TestBadPatha1d16f)
 	AssertError(t, err)
 	AssertNil(t, writer)
 }
@@ -330,7 +340,7 @@ func TestIO_Medium_Append_Good(t *T) {
 
 func TestIO_Medium_Append_Bad(t *T) {
 	medium := ax7Medium(t)
-	writer, err := medium.Append("bad\x00path")
+	writer, err := medium.Append(ax7TestBadPatha1d16f)
 	AssertError(t, err)
 	AssertNil(t, writer)
 }
@@ -345,8 +355,8 @@ func TestIO_Medium_Append_Ugly(t *T) {
 
 func TestIO_Medium_ReadStream_Good(t *T) {
 	medium := ax7Medium(t)
-	RequireNoError(t, medium.Write("alpha.txt", "alpha"))
-	reader, err := medium.ReadStream("alpha.txt")
+	RequireNoError(t, medium.Write(ax7TestAlphaTxt10e34b, "alpha"))
+	reader, err := medium.ReadStream(ax7TestAlphaTxt10e34b)
 	AssertNoError(t, err)
 	data, readErr := stdio.ReadAll(reader)
 	AssertNoError(t, readErr)
@@ -356,15 +366,15 @@ func TestIO_Medium_ReadStream_Good(t *T) {
 
 func TestIO_Medium_ReadStream_Bad(t *T) {
 	medium := ax7Medium(t)
-	reader, err := medium.ReadStream("missing.txt")
+	reader, err := medium.ReadStream(ax7TestMissingTxtacc363)
 	AssertError(t, err)
 	AssertNil(t, reader)
 }
 
 func TestIO_Medium_ReadStream_Ugly(t *T) {
 	medium := ax7Medium(t)
-	RequireNoError(t, medium.Write("empty.txt", ""))
-	reader, err := medium.ReadStream("empty.txt")
+	RequireNoError(t, medium.Write(ax7TestEmptyTxt20c33f, ""))
+	reader, err := medium.ReadStream(ax7TestEmptyTxt20c33f)
 	AssertNoError(t, err)
 	data, readErr := stdio.ReadAll(reader)
 	AssertNoError(t, readErr)
@@ -383,7 +393,7 @@ func TestIO_Medium_WriteStream_Good(t *T) {
 
 func TestIO_Medium_WriteStream_Bad(t *T) {
 	medium := ax7Medium(t)
-	writer, err := medium.WriteStream("bad\x00path")
+	writer, err := medium.WriteStream(ax7TestBadPatha1d16f)
 	AssertError(t, err)
 	AssertNil(t, writer)
 }
@@ -398,17 +408,17 @@ func TestIO_Medium_WriteStream_Ugly(t *T) {
 
 func TestIO_Medium_Exists_Good(t *T) {
 	medium := ax7Medium(t)
-	RequireNoError(t, medium.Write("alpha.txt", "alpha"))
-	got := medium.Exists("alpha.txt")
+	RequireNoError(t, medium.Write(ax7TestAlphaTxt10e34b, "alpha"))
+	got := medium.Exists(ax7TestAlphaTxt10e34b)
 	AssertTrue(t, got)
-	AssertTrue(t, medium.IsFile("alpha.txt"))
+	AssertTrue(t, medium.IsFile(ax7TestAlphaTxt10e34b))
 }
 
 func TestIO_Medium_Exists_Bad(t *T) {
 	medium := ax7Medium(t)
-	got := medium.Exists("missing.txt")
+	got := medium.Exists(ax7TestMissingTxtacc363)
 	AssertFalse(t, got)
-	AssertFalse(t, medium.IsFile("missing.txt"))
+	AssertFalse(t, medium.IsFile(ax7TestMissingTxtacc363))
 }
 
 func TestIO_Medium_Exists_Ugly(t *T) {
@@ -428,10 +438,10 @@ func TestIO_Medium_IsDir_Good(t *T) {
 
 func TestIO_Medium_IsDir_Bad(t *T) {
 	medium := ax7Medium(t)
-	RequireNoError(t, medium.Write("alpha.txt", "alpha"))
-	got := medium.IsDir("alpha.txt")
+	RequireNoError(t, medium.Write(ax7TestAlphaTxt10e34b, "alpha"))
+	got := medium.IsDir(ax7TestAlphaTxt10e34b)
 	AssertFalse(t, got)
-	AssertTrue(t, medium.IsFile("alpha.txt"))
+	AssertTrue(t, medium.IsFile(ax7TestAlphaTxt10e34b))
 }
 
 func TestIO_Medium_IsDir_Ugly(t *T) {

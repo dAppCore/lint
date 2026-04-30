@@ -1,3 +1,4 @@
+---
 - id: test-001
   title: "Test rule one"
   severity: high

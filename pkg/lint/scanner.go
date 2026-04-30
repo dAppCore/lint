@@ -98,52 +98,9 @@ func (s *Scanner) ScanDir(root string) ([]Finding, error) {
 	}
 
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-
-		// Skip excluded directories and hidden directories.
-		if d.IsDir() {
-			name := d.Name()
-			if IsExcludedDir(name) {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-
-		// Only scan files with recognised language extensions.
-		lang := DetectLanguage(d.Name())
-		if lang == "" {
-			return nil
-		}
-
-		// Only match rules that target this file's language.
-		langRules := filterRulesByLanguage(s.rules, lang)
-		if len(langRules) == 0 {
-			return nil
-		}
-
-		raw, err := coreio.Local.Read(path)
-		if err != nil {
-			return core.E("Scanner.ScanDir", "reading "+path, err)
-		}
-		content := []byte(raw)
-
-		// Build a matcher scoped to this file's language.
-		matcher, err := NewMatcher(langRules)
-		if err != nil {
-			return err
-		}
-
-		// Use a relative path from root for cleaner output.
-		relPath, relErr := filepath.Rel(root, path)
-		if relErr != nil {
-			relPath = path
-		}
-
-		found := matcher.Match(relPath, content)
+		found, walkErr := s.scanDirEntry(root, path, d, err)
 		findings = append(findings, found...)
-		return nil
+		return walkErr
 	})
 
 	if err != nil {
@@ -151,6 +108,48 @@ func (s *Scanner) ScanDir(root string) ([]Finding, error) {
 	}
 
 	return findings, nil
+}
+
+func (s *Scanner) scanDirEntry(root string, path string, d fs.DirEntry, err error) ([]Finding, error) {
+	if err != nil {
+		return nil, err
+	}
+	if d.IsDir() {
+		if IsExcludedDir(d.Name()) {
+			return nil, filepath.SkipDir
+		}
+		return nil, nil
+	}
+
+	langRules := rulesForFile(s.rules, d.Name())
+	if len(langRules) == 0 {
+		return nil, nil
+	}
+	raw, err := coreio.Local.Read(path)
+	if err != nil {
+		return nil, core.E("Scanner.ScanDir", "reading "+path, err)
+	}
+	matcher, err := NewMatcher(langRules)
+	if err != nil {
+		return nil, err
+	}
+	return matcher.Match(relativeScanPath(root, path), []byte(raw)), nil
+}
+
+func rulesForFile(rules []Rule, name string) []Rule {
+	lang := DetectLanguage(name)
+	if lang == "" {
+		return nil
+	}
+	return filterRulesByLanguage(rules, lang)
+}
+
+func relativeScanPath(root string, path string) string {
+	relPath, relErr := filepath.Rel(root, path)
+	if relErr != nil {
+		return path
+	}
+	return relPath
 }
 
 // ScanFile scans a single file against all rules.

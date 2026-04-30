@@ -2,4 +2,6 @@
 
 package sample
 
-func Beta() {}
+func Beta() {
+	// Empty fixture function intentionally has no doc comment.
+}

@@ -1,3 +1,4 @@
+---
 version: "3"
 
 tasks:
@@ -14,7 +15,8 @@ tasks:
           commit="$(cat fixtures/commit.txt)"
           output="$(mktemp)"
           export PATH="$(pwd)/fixtures/bin:$PATH"
-          run_capture_all 1 "$output" ./bin/core qa watch --repo "$repo" --commit "$commit" --timeout 1s
+          run_capture_all 1 "$output" ./bin/core qa watch \
+            --repo "$repo" --commit "$commit" --timeout 1s
           grep -Fq "forge/example" "$output"
           grep -Fq "01234567" "$output"
           grep -Fq "Job: Build" "$output"

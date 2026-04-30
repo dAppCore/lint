@@ -21,10 +21,3 @@ require (
 	github.com/spf13/pflag v1.0.10 // indirect
 )
 
-replace dappco.re/go/cli => ./internal/gocli
-
-replace dappco.re/go/i18n => ./internal/goi18n
-
-replace dappco.re/go/io => ./internal/goio
-
-replace dappco.re/go/scm => ./internal/goscm

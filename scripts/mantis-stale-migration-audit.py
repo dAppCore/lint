@@ -43,6 +43,8 @@ DEFAULT_REPO_ROOTS = (
     Path("~/Code/lab").expanduser(),
 )
 REPO_SCOPES = {"core", "ofm", "lab"}
+GO_MOD_FILE = "go.mod"
+CORE_CACHE_MODULE = "dappco.re/go/core/cache"
 
 # Known sibling modules whose pre-migration form was dappco.re/go/core/<name>.
 # Keep this explicit so arbitrary dappco.re/go/core/* mentions are not treated
@@ -257,7 +259,7 @@ def extract_stale_refs(text: str) -> tuple[StaleRef, ...]:
 
 
 def read_go_module(repo_path: Path) -> str | None:
-    gomod = repo_path / "go.mod"
+    gomod = repo_path / GO_MOD_FILE
     if not gomod.exists():
         return None
     try:
@@ -308,7 +310,7 @@ def module_repo_index(repos: dict[str, RepoInfo]) -> dict[str, list[str]]:
             candidates.add(tail)
         for key in candidates:
             index.setdefault(key, []).append(repo_name)
-    for key in list(index):
+    for key in index:
         index[key] = sorted(set(index[key]))
     return index
 
@@ -424,20 +426,25 @@ def fallback_literal_scan(repo_path: Path, literal: str, max_matches: int = 20) 
         dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
         base = Path(dirpath)
         for filename in filenames:
-            file_path = base / filename
-            if not path_is_probably_text(file_path):
-                continue
-            try:
-                lines = file_path.read_text(errors="replace").splitlines()
-            except OSError:
-                continue
-            for lineno, line in enumerate(lines, 1):
-                if literal in line:
-                    rel = file_path.relative_to(repo_path)
-                    matches.append(f"{rel}:{lineno}:{line.strip()[:160]}")
-                    if len(matches) >= max_matches:
-                        return tuple(matches)
+            matches.extend(scan_file_for_literal(repo_path, base / filename, literal))
+            if len(matches) >= max_matches:
+                return tuple(matches[:max_matches])
     return tuple(matches)
+
+
+def scan_file_for_literal(repo_path: Path, file_path: Path, literal: str) -> list[str]:
+    if not path_is_probably_text(file_path):
+        return []
+    try:
+        lines = file_path.read_text(errors="replace").splitlines()
+    except OSError:
+        return []
+    matches = []
+    for lineno, line in enumerate(lines, 1):
+        if literal in line:
+            rel = file_path.relative_to(repo_path)
+            matches.append(f"{rel}:{lineno}:{line.strip()[:160]}")
+    return matches
 
 
 def grep_literal(repo_path: Path, literal: str, max_matches: int = 20) -> tuple[str, ...]:
@@ -659,32 +666,43 @@ def run_audit(args: argparse.Namespace) -> int:
     for i, ticket in enumerate(tickets, 1):
         if i % 25 == 0:
             sys.stderr.write(f"  ... {i}/{len(tickets)}\n")
-        issue = ticket
-        if not args.no_detail_fetch:
-            detail = fetch_issue(token, int(ticket.get("id") or 0))
-            if detail:
-                issue = detail
+        issue = audit_issue_payload(token, ticket, args.no_detail_fetch)
         result = audit_issue(issue, repos, index)
         results.append(result)
-        if result.status != "ignored" or args.show_ignored:
-            print(result_row(result))
-        if result.status == "live":
-            sys.stderr.write(
-                f"LIVE {result.ticket_id}: {result.repo} still contains {result.stale_literals}\n"
-            )
-            for match in result.matches[:5]:
-                sys.stderr.write(f"  {match}\n")
-        elif result.status == "skipped" and result.reason == "no-clear-target":
-            sys.stderr.write(
-                f"SKIP {result.ticket_id}: stale refs found but no clear target repo: "
-                f"{result.stale_literals}\n"
-            )
+        emit_audit_result(result, args.show_ignored)
 
+    print_audit_close_commands(results)
+    return 0
+
+
+def audit_issue_payload(token: str, ticket: dict, no_detail_fetch: bool) -> dict:
+    if no_detail_fetch:
+        return ticket
+    detail = fetch_issue(token, int(ticket.get("id") or 0))
+    return detail or ticket
+
+
+def emit_audit_result(result: AuditResult, show_ignored: bool) -> None:
+    if result.status != "ignored" or show_ignored:
+        print(result_row(result))
+    if result.status == "live":
+        sys.stderr.write(
+            f"LIVE {result.ticket_id}: {result.repo} still contains {result.stale_literals}\n"
+        )
+        for match in result.matches[:5]:
+            sys.stderr.write(f"  {match}\n")
+    elif result.status == "skipped" and result.reason == "no-clear-target":
+        sys.stderr.write(
+            f"SKIP {result.ticket_id}: stale refs found but no clear target repo: "
+            f"{result.stale_literals}\n"
+        )
+
+
+def print_audit_close_commands(results: list[AuditResult]) -> None:
     to_close = [r for r in results if r.status == "close"]
     live = [r for r in results if r.status == "live"]
     skipped = [r for r in results if r.status == "skipped"]
     ignored = [r for r in results if r.status == "ignored"]
-
     print()
     print("DRY-RUN close commands for supervisor review:")
     if not to_close:
@@ -698,15 +716,15 @@ def run_audit(args: argparse.Namespace) -> int:
         f"SUMMARY: {len(to_close)} closed, {len(live)} still-live, "
         f"{len(skipped)} skipped, {len(ignored)} ignored"
     )
-    return 0
 
 
 class AuditSelfTests(unittest.TestCase):
     def test_extract_stale_refs_filters_unknown_modules(self) -> None:
         refs = extract_stale_refs(
-            "go.mod imports dappco.re/go/core/cache and dappco.re/go/core/not-real"
+            f"{GO_MOD_FILE} imports {CORE_CACHE_MODULE} and "
+            "dappco.re/go/core/not-real"
         )
-        self.assertEqual(refs, (StaleRef("dappco.re/go/core/cache", "cache"),))
+        self.assertEqual(refs, (StaleRef(CORE_CACHE_MODULE, "cache"),))
 
     def test_guess_repo_prefers_summary_tag(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -714,20 +732,20 @@ class AuditSelfTests(unittest.TestCase):
             repo = root / "go-cache"
             repo.mkdir()
             subprocess.run(["git", "-C", str(repo), "init", "-q"], check=True)
-            (repo / "go.mod").write_text("module dappco.re/go/cache\n")
+            (repo / GO_MOD_FILE).write_text("module dappco.re/go/cache\n")
             repos = discover_repos([root])
             index = module_repo_index(repos)
-            stale_refs = (StaleRef("dappco.re/go/core/cache", "cache"),)
+            stale_refs = (StaleRef(CORE_CACHE_MODULE, "cache"),)
             guessed = guess_repo("[go-cache] stale", "core", "[go-cache] stale", stale_refs, repos, index)
         self.assertEqual(guessed, "go-cache")
 
     def test_filesystem_scan_finds_and_absents_literal(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            (root / "go.mod").write_text("module dappco.re/go/cache\n")
+            (root / GO_MOD_FILE).write_text("module dappco.re/go/cache\n")
             (root / "pkg").mkdir()
-            (root / "pkg" / "x.go").write_text('import "dappco.re/go/core/cache"\n')
-            self.assertTrue(fallback_literal_scan(root, "dappco.re/go/core/cache"))
+            (root / "pkg" / "x.go").write_text(f'import "{CORE_CACHE_MODULE}"\n')
+            self.assertTrue(fallback_literal_scan(root, CORE_CACHE_MODULE))
             self.assertFalse(fallback_literal_scan(root, "dappco.re/go/core/store"))
 
     def test_audit_issue_closes_when_absent(self) -> None:
@@ -736,13 +754,13 @@ class AuditSelfTests(unittest.TestCase):
             repo = root / "go-store"
             repo.mkdir()
             subprocess.run(["git", "-C", str(repo), "init", "-q"], check=True)
-            (repo / "go.mod").write_text("module dappco.re/go/store\n")
+            (repo / GO_MOD_FILE).write_text("module dappco.re/go/store\n")
             repos = discover_repos([root])
             index = module_repo_index(repos)
             issue = {
                 "id": 917,
                 "summary": "[go-store] stale module path",
-                "description": "go.mod imports dappco.re/go/core/store",
+                "description": f"{GO_MOD_FILE} imports dappco.re/go/core/store",
                 "project": {"name": "core"},
             }
             result = audit_issue(issue, repos, index)
@@ -760,13 +778,13 @@ class AuditSelfTests(unittest.TestCase):
             ):
                 repo.mkdir()
                 subprocess.run(["git", "-C", str(repo), "init", "-q"], check=True)
-                (repo / "go.mod").write_text(f"module {module_path}\n")
+                (repo / GO_MOD_FILE).write_text(f"module {module_path}\n")
             repos = discover_repos([root])
             index = module_repo_index(repos)
             issue = {
                 "id": 918,
                 "summary": "stale module path",
-                "description": "go.mod imports dappco.re/go/core/api",
+                "description": f"{GO_MOD_FILE} imports dappco.re/go/core/api",
                 "project": {"name": "core"},
             }
             result = audit_issue(issue, repos, index)

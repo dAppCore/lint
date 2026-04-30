@@ -23,6 +23,10 @@ import (
 	"dappco.re/go/scm/repos"
 )
 
+const (
+	cmdIssuesQaIssues972b25 = "qa.issues"
+)
+
 // Issue command flags
 var (
 	issuesMine     bool
@@ -115,45 +119,64 @@ func addIssuesCommand(parent *cli.Command) {
 }
 
 func runQAIssues() error {
-	// Check gh is available
 	if _, err := exec.LookPath("gh"); err != nil {
-		return core.E("qa.issues", i18n.T("error.gh_not_found"), nil)
+		return core.E(cmdIssuesQaIssues972b25, i18n.T("error.gh_not_found"), nil)
 	}
 
-	// Load registry
+	reg, err := loadIssuesRegistry()
+	if err != nil {
+		return err
+	}
+
+	fetched := fetchAllQAIssues(reg)
+	if len(fetched.issues) == 0 {
+		return handleNoIssues(fetched)
+	}
+
+	categorised := categoriseIssues(fetched.issues)
+	categorised = filterIssueCategories(categorised)
+	if issuesJSON {
+		return printCategorisedIssuesJSON(len(fetched.issues), categorised, fetched.errors)
+	}
+
+	printCategorisedIssues(categorised)
+	return nil
+}
+
+type issueFetchResult struct {
+	issues            []Issue
+	errors            []IssueFetchError
+	successfulFetches int
+}
+
+func loadIssuesRegistry() (*repos.Registry, error) {
 	var reg *repos.Registry
 	var err error
-
 	if issuesRegistry != "" {
 		reg, err = repos.LoadRegistry(io.Local, issuesRegistry)
 	} else {
 		registryPath, findErr := repos.FindRegistry(io.Local)
 		if findErr != nil {
-			return core.E("qa.issues", i18n.T("error.registry_not_found"), nil)
+			return nil, core.E(cmdIssuesQaIssues972b25, i18n.T("error.registry_not_found"), nil)
 		}
 		reg, err = repos.LoadRegistry(io.Local, registryPath)
 	}
 	if err != nil {
-		return core.E("qa.issues", "failed to load registry", err)
+		return nil, core.E(cmdIssuesQaIssues972b25, "failed to load registry", err)
 	}
+	return reg, nil
+}
 
-	// Fetch issues from all repos
-	var allIssues []Issue
+func fetchAllQAIssues(reg *repos.Registry) issueFetchResult {
+	result := issueFetchResult{}
 	fetchErrors := make([]IssueFetchError, 0)
 	repoList := reg.List()
-	// Registry repos are map-backed, so sort before fetching to keep output stable.
 	slices.SortFunc(repoList, func(a, b *repos.Repo) int {
 		return cmp.Compare(a.Name, b.Name)
 	})
-	successfulFetches := 0
 
 	for i, repo := range repoList {
-		if !issuesJSON {
-			cli.Print("%s %d/%d %s\n",
-				dimStyle.Render(i18n.T("cmd.qa.issues.fetching")),
-				i+1, len(repoList), repo.Name)
-		}
-
+		printIssueFetchProgress(i, len(repoList), repo.Name)
 		issues, err := fetchQAIssues(reg.Org, repo.Name, issuesLimit)
 		if err != nil {
 			fetchErrors = append(fetchErrors, IssueFetchError{
@@ -168,38 +191,53 @@ func runQAIssues() error {
 			}
 			continue // Skip repos with errors
 		}
-		allIssues = append(allIssues, issues...)
-		successfulFetches++
+		result.issues = append(result.issues, issues...)
+		result.successfulFetches++
 	}
-	totalIssues := len(allIssues)
+	result.errors = fetchErrors
+	return result
+}
 
-	if len(allIssues) == 0 {
-		emptyCategorised := map[string][]Issue{
-			"needs_response": {},
-			"ready":          {},
-			"blocked":        {},
-			"triage":         {},
-		}
-		if issuesJSON {
-			if err := printCategorisedIssuesJSON(0, emptyCategorised, fetchErrors); err != nil {
-				return err
-			}
-			if successfulFetches == 0 && len(fetchErrors) > 0 {
-				return cli.Err("failed to fetch issues from any repository")
-			}
-			return nil
-		}
-		if successfulFetches == 0 && len(fetchErrors) > 0 {
-			return cli.Err("failed to fetch issues from any repository")
-		}
-		cli.Text(i18n.T("cmd.qa.issues.no_issues"))
-		return nil
+func printIssueFetchProgress(index int, total int, repoName string) {
+	if issuesJSON {
+		return
 	}
+	cli.Print("%s %d/%d %s\n",
+		dimStyle.Render(i18n.T("cmd.qa.issues.fetching")),
+		index+1, total, repoName)
+}
 
-	// Categorise and prioritise issues
-	categorised := categoriseIssues(allIssues)
+func handleNoIssues(result issueFetchResult) error {
+	if issuesJSON {
+		if err := printCategorisedIssuesJSON(0, emptyIssueCategories(), result.errors); err != nil {
+			return err
+		}
+		return issueFetchFailure(result)
+	}
+	if err := issueFetchFailure(result); err != nil {
+		return err
+	}
+	cli.Text(i18n.T("cmd.qa.issues.no_issues"))
+	return nil
+}
 
-	// Filter based on flags
+func emptyIssueCategories() map[string][]Issue {
+	return map[string][]Issue{
+		"needs_response": {},
+		"ready":          {},
+		"blocked":        {},
+		"triage":         {},
+	}
+}
+
+func issueFetchFailure(result issueFetchResult) error {
+	if result.successfulFetches == 0 && len(result.errors) > 0 {
+		return cli.Err("failed to fetch issues from any repository")
+	}
+	return nil
+}
+
+func filterIssueCategories(categorised map[string][]Issue) map[string][]Issue {
 	if issuesMine {
 		categorised = filterMine(categorised)
 	}
@@ -209,15 +247,7 @@ func runQAIssues() error {
 	if issuesBlocked {
 		categorised = filterCategory(categorised, "blocked")
 	}
-
-	if issuesJSON {
-		return printCategorisedIssuesJSON(totalIssues, categorised, fetchErrors)
-	}
-
-	// Print categorised issues
-	printCategorisedIssues(categorised)
-
-	return nil
+	return categorised
 }
 
 func fetchQAIssues(org, repoName string, limit int) ([]Issue, error) {

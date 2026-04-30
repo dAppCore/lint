@@ -1,3 +1,4 @@
+---
 version: "3"
 
 tasks:
@@ -11,8 +12,16 @@ tasks:
           go build -trimpath -ldflags="-s -w" -o bin/core ../_harness
 
           output="$(mktemp)"
-          run_capture_stdout 1 "$output" ./bin/core qa docblock --json --threshold 100 fixtures/src
-          jq -e '(.passed == false) and (.coverage < .threshold)' "$output" >/dev/null
-          jq -e '(.missing | length == 2) and (.missing[0].name == "Beta") and (.missing[1].name == "Broken")' "$output" >/dev/null
+          run_capture_stdout 1 "$output" ./bin/core qa docblock \
+            --json --threshold 100 fixtures/src
+          jq -e '
+            (.passed == false)
+            and (.coverage < .threshold)
+          ' "$output" >/dev/null
+          jq -e '
+            (.missing | length == 2)
+            and (.missing[0].name == "Beta")
+            and (.missing[1].name == "Broken")
+          ' "$output" >/dev/null
           jq -e '(.warnings | length == 0)' "$output" >/dev/null
           EOF

@@ -10,6 +10,10 @@ import (
 	"strings"
 )
 
+const (
+	securityTestSetAppDebugFalseInEnv1d595b = "Set APP_DEBUG=false in .env"
+)
+
 func TestSecurityCheck_Fields(t *T) {
 	check := SecurityCheck{
 		ID:          "debug_mode",
@@ -18,7 +22,7 @@ func TestSecurityCheck_Fields(t *T) {
 		Severity:    "critical",
 		Passed:      false,
 		Message:     "Debug mode exposes sensitive information",
-		Fix:         "Set APP_DEBUG=false in .env",
+		Fix:         securityTestSetAppDebugFalseInEnv1d595b,
 		CWE:         "CWE-215",
 	}
 
@@ -27,7 +31,7 @@ func TestSecurityCheck_Fields(t *T) {
 	AssertEqual(t, "critical", check.Severity)
 	AssertFalse(t, check.Passed)
 	AssertEqual(t, "CWE-215", check.CWE)
-	AssertEqual(t, "Set APP_DEBUG=false in .env", check.Fix)
+	AssertEqual(t, securityTestSetAppDebugFalseInEnv1d595b, check.Fix)
 }
 
 func TestSecuritySummary_Fields(t *T) {
@@ -61,7 +65,7 @@ func TestRunEnvSecurityChecks_DebugTrue(t *T) {
 	AssertFalse(t, checks[0].Passed)
 	AssertEqual(t, "critical", checks[0].Severity)
 	AssertEqual(t, "Debug mode exposes sensitive information", checks[0].Message)
-	AssertEqual(t, "Set APP_DEBUG=false in .env", checks[0].Fix)
+	AssertEqual(t, securityTestSetAppDebugFalseInEnv1d595b, checks[0].Fix)
 }
 
 func TestRunEnvSecurityChecks_AllPass(t *T) {

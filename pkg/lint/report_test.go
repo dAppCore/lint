@@ -8,10 +8,17 @@ import (
 	"strings"
 )
 
+const (
+	reportTestDemoRule8a8880    = "demo-rule"
+	reportTestExampleGo927697   = "example.go"
+	reportTestGoSec001ea96b8    = "go-sec-001"
+	reportTestWriteFailed65e208 = "write failed"
+)
+
 func sampleFindings() []Finding {
 	return []Finding{
 		{
-			RuleID:   "go-sec-001",
+			RuleID:   reportTestGoSec001ea96b8,
 			Title:    "SQL injection",
 			Severity: "high",
 			File:     "store/query.go",
@@ -79,7 +86,7 @@ func TestWriteJSON_Good_Roundtrip(t *core.T) {
 	core.RequireNoError(t, err)
 
 	core.AssertLen(t, decoded, 3)
-	core.AssertEqual(t, "go-sec-001", decoded[0].RuleID)
+	core.AssertEqual(t, reportTestGoSec001ea96b8, decoded[0].RuleID)
 	core.AssertEqual(t, 42, decoded[0].Line)
 	core.AssertEqual(t, "handler.go", decoded[1].File)
 }
@@ -129,7 +136,7 @@ func TestWriteJSONL_Good_Empty(t *core.T) {
 func TestWriteJSONL_Bad_PropagatesWriterErrors(t *core.T) {
 	err := WriteJSONL(failingWriter{}, sampleFindings())
 	RequireError(t, err)
-	core.AssertContains(t, err.Error(), "write failed")
+	core.AssertContains(t, err.Error(), reportTestWriteFailed65e208)
 }
 
 func TestWriteText_Good(t *core.T) {
@@ -142,7 +149,7 @@ func TestWriteText_Good(t *core.T) {
 	core.AssertContains(t, output, "store/query.go:42")
 	core.AssertContains(t, output, "[high]")
 	core.AssertContains(t, output, "SQL injection")
-	core.AssertContains(t, output, "go-sec-001")
+	core.AssertContains(t, output, reportTestGoSec001ea96b8)
 	core.AssertContains(t, output, "handler.go:17")
 	core.AssertContains(t, output, "[medium]")
 }
@@ -160,11 +167,11 @@ func TestWriteReportGitHub_Good_MapsInfoToNotice(t *core.T) {
 	err := WriteReportGitHub(&buf, Report{
 		Findings: []Finding{{
 			Tool:     "demo",
-			File:     "example.go",
+			File:     reportTestExampleGo927697,
 			Line:     7,
 			Column:   3,
 			Severity: "info",
-			Code:     "demo-rule",
+			Code:     reportTestDemoRule8a8880,
 			Message:  "explanation",
 		}},
 	})
@@ -176,7 +183,7 @@ func TestWriteReportGitHub_Good_MapsInfoToNotice(t *core.T) {
 func TestWriteText_Bad_PropagatesWriterErrors(t *core.T) {
 	err := WriteText(failingWriter{}, sampleFindings())
 	RequireError(t, err)
-	core.AssertContains(t, err.Error(), "write failed")
+	core.AssertContains(t, err.Error(), reportTestWriteFailed65e208)
 }
 
 func TestWriteReportGitHub_Bad_PropagatesWriterErrors(t *core.T) {
@@ -192,11 +199,11 @@ func TestWriteReportSARIF_Good_MapsInfoToNote(t *core.T) {
 	err := WriteReportSARIF(&buf, Report{
 		Findings: []Finding{{
 			Tool:     "demo",
-			File:     "example.go",
+			File:     reportTestExampleGo927697,
 			Line:     7,
 			Column:   3,
 			Severity: "info",
-			Code:     "demo-rule",
+			Code:     reportTestDemoRule8a8880,
 			Message:  "explanation",
 		}},
 	})
@@ -218,11 +225,11 @@ func TestWriteReportJSON_Good_Roundtrip(t *core.T) {
 		Languages: []string{"go"},
 		Findings: []Finding{{
 			Tool:     "demo",
-			File:     "example.go",
+			File:     reportTestExampleGo927697,
 			Line:     7,
 			Column:   3,
 			Severity: "warning",
-			Code:     "demo-rule",
+			Code:     reportTestDemoRule8a8880,
 			Message:  "explanation",
 		}},
 		Summary: Summary{Total: 1, Warnings: 1, Passed: true},
@@ -234,7 +241,7 @@ func TestWriteReportJSON_Good_Roundtrip(t *core.T) {
 	core.AssertEqual(t, "demo", decoded.Project)
 	core.AssertEqual(t, []string{"go"}, decoded.Languages)
 	RequireLen(t, decoded.Findings, 1)
-	core.AssertEqual(t, "demo-rule", decoded.Findings[0].Code)
+	core.AssertEqual(t, reportTestDemoRule8a8880, decoded.Findings[0].Code)
 	core.AssertEqual(t, 1, decoded.Summary.Total)
 	core.AssertEqual(t, 1, decoded.Summary.Warnings)
 }
@@ -265,5 +272,5 @@ func TestWriteReportText_Bad_PropagatesWriterErrors(t *core.T) {
 type failingWriter struct{}
 
 func (failingWriter) Write([]byte) (int, error) {
-	return 0, errors.New("write failed")
+	return 0, errors.New(reportTestWriteFailed65e208)
 }

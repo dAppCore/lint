@@ -12,6 +12,14 @@ import (
 	core "dappco.re/go"
 )
 
+const (
+	adapterFormatbbcd14         = "--format"
+	adapterJsondf8565           = "--json"
+	adapterLintCompliance738e57 = "lint.compliance"
+	adapterLintSecuritye950fd   = "lint.security"
+	adapterParseError89bf3a     = "parse-error"
+)
+
 // Adapter wraps one lint tool and normalises its output to Finding values.
 type Adapter interface {
 	Name() string
@@ -54,7 +62,7 @@ type CatalogAdapter struct{}
 func defaultAdapters() []Adapter {
 	return []Adapter{
 		newCommandAdapter("golangci-lint", []string{"golangci-lint"}, []string{"go"}, "correctness", "", false, true, goProjectArguments("run", "--out-format", "json"), parseJSONDiagnostics),
-		newCommandAdapter("gosec", []string{"gosec"}, []string{"go"}, "security", "lint.security", true, false, goProjectArguments("-fmt", "json"), parseJSONDiagnostics),
+		newCommandAdapter("gosec", []string{"gosec"}, []string{"go"}, "security", adapterLintSecuritye950fd, true, false, goProjectArguments("-fmt", "json"), parseJSONDiagnostics),
 		newCommandAdapter("govulncheck", []string{"govulncheck"}, []string{"go"}, "security", "", false, false, goProjectArguments("-json"), parseGovulncheckDiagnostics),
 		newCommandAdapter("staticcheck", []string{"staticcheck"}, []string{"go"}, "correctness", "", false, true, goProjectArguments("-f", "json"), parseJSONDiagnostics),
 		newCommandAdapter("revive", []string{"revive"}, []string{"go"}, "style", "", false, true, goProjectArguments("-formatter", "json"), parseJSONDiagnostics),
@@ -63,27 +71,27 @@ func defaultAdapters() []Adapter {
 		newCommandAdapter("psalm", []string{"psalm"}, []string{"php"}, "correctness", "", false, true, projectPathArguments("--output-format=json"), parsePsalmDiagnostics),
 		newCommandAdapter("phpcs", []string{"phpcs"}, []string{"php"}, "style", "", false, true, projectPathArguments("--report=json"), parseJSONDiagnostics),
 		newCommandAdapter("phpmd", []string{"phpmd"}, []string{"php"}, "correctness", "", false, true, phpmdArguments(), parseJSONDiagnostics),
-		newCommandAdapter("pint", []string{"pint"}, []string{"php"}, "style", "", false, true, projectPathArguments("--format", "json"), parseJSONDiagnostics),
+		newCommandAdapter("pint", []string{"pint"}, []string{"php"}, "style", "", false, true, projectPathArguments(adapterFormatbbcd14, "json"), parseJSONDiagnostics),
 		newCommandAdapter("biome", []string{"biome"}, []string{"js", "ts"}, "style", "", false, true, projectPathArguments("check", "--reporter", "json"), parseJSONDiagnostics),
-		newCommandAdapter("oxlint", []string{"oxlint"}, []string{"js", "ts"}, "style", "", false, true, projectPathArguments("--format", "json"), parseJSONDiagnostics),
-		newCommandAdapter("eslint", []string{"eslint"}, []string{"js"}, "style", "", false, true, projectPathArguments("--format", "json"), parseJSONDiagnostics),
+		newCommandAdapter("oxlint", []string{"oxlint"}, []string{"js", "ts"}, "style", "", false, true, projectPathArguments(adapterFormatbbcd14, "json"), parseJSONDiagnostics),
+		newCommandAdapter("eslint", []string{"eslint"}, []string{"js"}, "style", "", false, true, projectPathArguments(adapterFormatbbcd14, "json"), parseJSONDiagnostics),
 		newCommandAdapter("typescript", []string{"tsc", "typescript"}, []string{"ts"}, "correctness", "", false, true, projectPathArguments("--pretty", "false"), parseTextDiagnostics),
 		newCommandAdapter("ruff", []string{"ruff"}, []string{"python"}, "style", "", false, true, projectPathArguments("check", "--output-format", "json"), parseJSONDiagnostics),
 		newCommandAdapter("mypy", []string{"mypy"}, []string{"python"}, "correctness", "", false, true, projectPathArguments("--output", "json"), parseJSONDiagnostics),
-		newCommandAdapter("bandit", []string{"bandit"}, []string{"python"}, "security", "lint.security", true, false, recursiveProjectPathArguments("-f", "json", "-r"), parseJSONDiagnostics),
+		newCommandAdapter("bandit", []string{"bandit"}, []string{"python"}, "security", adapterLintSecuritye950fd, true, false, recursiveProjectPathArguments("-f", "json", "-r"), parseJSONDiagnostics),
 		newCommandAdapter("pylint", []string{"pylint"}, []string{"python"}, "style", "", false, true, projectPathArguments("--output-format", "json"), parseJSONDiagnostics),
 		newCommandAdapter("shellcheck", []string{"shellcheck"}, []string{"shell"}, "correctness", "", false, true, filePathArguments("-f", "json"), parseJSONDiagnostics),
 		newCommandAdapter("hadolint", []string{"hadolint"}, []string{"dockerfile"}, "security", "", false, true, filePathArguments("-f", "json"), parseJSONDiagnostics),
 		newCommandAdapter("yamllint", []string{"yamllint"}, []string{"yaml"}, "style", "", false, true, projectPathArguments("-f", "parsable"), parseTextDiagnostics),
 		newCommandAdapter("jsonlint", []string{"jsonlint"}, []string{"json"}, "style", "", false, true, filePathArguments(), parseTextDiagnostics),
-		newCommandAdapter("markdownlint", []string{"markdownlint", "markdownlint-cli"}, []string{"markdown"}, "style", "", false, true, projectPathArguments("--json"), parseJSONDiagnostics),
+		newCommandAdapter("markdownlint", []string{"markdownlint", "markdownlint-cli"}, []string{"markdown"}, "style", "", false, true, projectPathArguments(adapterJsondf8565), parseJSONDiagnostics),
 		newCommandAdapter("prettier", []string{"prettier"}, []string{"js"}, "style", "", false, true, projectPathArguments("--list-different"), parsePrettierDiagnostics),
-		newCommandAdapter("gitleaks", []string{"gitleaks"}, []string{"*"}, "security", "lint.security", true, false, recursiveProjectPathArguments("detect", "--no-git", "--report-format", "json", "--source"), parseJSONDiagnostics),
-		newCommandAdapter("trivy", []string{"trivy"}, []string{"*"}, "security", "lint.security", true, false, projectPathArguments("fs", "--format", "json"), parseJSONDiagnostics),
-		newCommandAdapter("semgrep", []string{"semgrep"}, []string{"*"}, "security", "lint.security", true, false, projectPathArguments("--json"), parseJSONDiagnostics),
-		newCommandAdapter("syft", []string{"syft"}, []string{"*"}, "compliance", "lint.compliance", true, false, projectPathArguments("scan", "-o", "json"), parseJSONDiagnostics),
-		newCommandAdapter("grype", []string{"grype"}, []string{"*"}, "security", "lint.compliance", true, false, projectPathArguments("-o", "json"), parseJSONDiagnostics),
-		newCommandAdapter("scancode", []string{"scancode-toolkit", "scancode"}, []string{"*"}, "compliance", "lint.compliance", true, false, projectPathArguments("--json"), parseJSONDiagnostics),
+		newCommandAdapter("gitleaks", []string{"gitleaks"}, []string{"*"}, "security", adapterLintSecuritye950fd, true, false, recursiveProjectPathArguments("detect", "--no-git", "--report-format", "json", "--source"), parseJSONDiagnostics),
+		newCommandAdapter("trivy", []string{"trivy"}, []string{"*"}, "security", adapterLintSecuritye950fd, true, false, projectPathArguments("fs", adapterFormatbbcd14, "json"), parseJSONDiagnostics),
+		newCommandAdapter("semgrep", []string{"semgrep"}, []string{"*"}, "security", adapterLintSecuritye950fd, true, false, projectPathArguments(adapterJsondf8565), parseJSONDiagnostics),
+		newCommandAdapter("syft", []string{"syft"}, []string{"*"}, "compliance", adapterLintCompliance738e57, true, false, projectPathArguments("scan", "-o", "json"), parseJSONDiagnostics),
+		newCommandAdapter("grype", []string{"grype"}, []string{"*"}, "security", adapterLintCompliance738e57, true, false, projectPathArguments("-o", "json"), parseJSONDiagnostics),
+		newCommandAdapter("scancode", []string{"scancode-toolkit", "scancode"}, []string{"*"}, "compliance", adapterLintCompliance738e57, true, false, projectPathArguments(adapterJsondf8565), parseJSONDiagnostics),
 	}
 }
 
@@ -128,20 +136,30 @@ func (adapter CommandAdapter) Entitlement() string { return adapter.entitlement 
 func (adapter CommandAdapter) RequiresEntitlement() bool { return adapter.requiresEntitlement }
 
 func (adapter CommandAdapter) MatchesLanguage(languages []string) bool {
-	if len(adapter.languages) == 0 || len(languages) == 0 {
-		return true
-	}
-	if len(adapter.languages) == 1 && adapter.languages[0] == "*" {
+	if adapter.acceptsAnyLanguage(languages) {
 		return true
 	}
 	for _, language := range languages {
-		if strings.EqualFold(language, adapter.category) {
+		if adapter.matchesOneLanguage(language) {
 			return true
 		}
-		for _, supported := range adapter.languages {
-			if supported == language {
-				return true
-			}
+	}
+	return false
+}
+
+func (adapter CommandAdapter) acceptsAnyLanguage(languages []string) bool {
+	return len(adapter.languages) == 0 ||
+		len(languages) == 0 ||
+		(len(adapter.languages) == 1 && adapter.languages[0] == "*")
+}
+
+func (adapter CommandAdapter) matchesOneLanguage(language string) bool {
+	if strings.EqualFold(language, adapter.category) {
+		return true
+	}
+	for _, supported := range adapter.languages {
+		if supported == language {
+			return true
 		}
 	}
 	return false
@@ -161,21 +179,7 @@ func (adapter CommandAdapter) Run(ctx context.Context, input RunInput, files []s
 
 	binary, ok := adapter.availableBinary()
 	if !ok {
-		result.Tool.Status = "skipped"
-		result.Tool.Duration = "0s"
-		missingName := firstNonEmpty(adapter.Command(), adapter.name)
-		if missingName == "" {
-			missingName = adapter.name
-		}
-		result.Findings = []Finding{{
-			Tool:     adapter.name,
-			Severity: "info",
-			Code:     "missing-tool",
-			Message:  fmt.Sprintf("%s is not installed", missingName),
-			Category: adapter.category,
-		}}
-		result.Tool.Findings = len(result.Findings)
-		return result
+		return adapter.missingToolResult(result)
 	}
 
 	result.Tool.Version = probeCommandVersion(binary, input.Path)
@@ -199,26 +203,9 @@ func (adapter CommandAdapter) Run(ctx context.Context, input RunInput, files []s
 		return result
 	}
 
-	if adapter.parseOutput != nil {
-		if stdout != "" {
-			result.Findings = append(result.Findings, adapter.parseOutput(adapter.name, adapter.category, stdout)...)
-		}
-		if stderr != "" {
-			stderrFindings := adapter.parseOutput(adapter.name, adapter.category, stderr)
-			if !(hasNonParseErrorFinding(result.Findings) && onlyParseErrorFindings(stderrFindings)) {
-				result.Findings = append(result.Findings, stderrFindings...)
-			}
-		}
-		result.Findings = dedupeFindings(result.Findings)
-	}
+	adapter.appendParsedFindings(&result, stdout, stderr)
 	if len(result.Findings) == 0 && (stdout != "" || stderr != "") {
-		output := stdout
-		if output != "" && stderr != "" {
-			output += "\n" + stderr
-		} else if output == "" {
-			output = stderr
-		}
-		result.Findings = parseTextDiagnostics(adapter.name, adapter.category, output)
+		result.Findings = parseTextDiagnostics(adapter.name, adapter.category, combinedOutput(stdout, stderr))
 	}
 	if len(result.Findings) == 0 && runErr != nil {
 		result.Findings = []Finding{{
@@ -230,29 +217,77 @@ func (adapter CommandAdapter) Run(ctx context.Context, input RunInput, files []s
 		}}
 	}
 
-	for index := range result.Findings {
-		if result.Findings[index].Tool == "" {
-			result.Findings[index].Tool = adapter.name
-		}
-		if result.Findings[index].Category == "" {
-			result.Findings[index].Category = adapter.category
-		}
-		if result.Findings[index].Severity == "" {
-			result.Findings[index].Severity = defaultSeverityForCategory(adapter.category)
-		} else {
-			result.Findings[index].Severity = normaliseSeverity(result.Findings[index].Severity)
-		}
-	}
-
+	adapter.normaliseFindings(result.Findings)
 	result.Tool.Findings = len(result.Findings)
-	switch {
-	case runErr != nil || exitCode != 0 || len(result.Findings) > 0:
-		result.Tool.Status = "failed"
-	default:
-		result.Tool.Status = "passed"
-	}
-
+	result.Tool.Status = adapterStatus(runErr, exitCode, result.Findings)
 	return result
+}
+
+func (adapter CommandAdapter) missingToolResult(result AdapterResult) AdapterResult {
+	result.Tool.Status = "skipped"
+	result.Tool.Duration = "0s"
+	missingName := firstNonEmpty(adapter.Command(), adapter.name)
+	if missingName == "" {
+		missingName = adapter.name
+	}
+	result.Findings = []Finding{{
+		Tool:     adapter.name,
+		Severity: "info",
+		Code:     "missing-tool",
+		Message:  fmt.Sprintf("%s is not installed", missingName),
+		Category: adapter.category,
+	}}
+	result.Tool.Findings = len(result.Findings)
+	return result
+}
+
+func (adapter CommandAdapter) appendParsedFindings(result *AdapterResult, stdout string, stderr string) {
+	if adapter.parseOutput == nil {
+		return
+	}
+	if stdout != "" {
+		result.Findings = append(result.Findings, adapter.parseOutput(adapter.name, adapter.category, stdout)...)
+	}
+	if stderr != "" {
+		stderrFindings := adapter.parseOutput(adapter.name, adapter.category, stderr)
+		if !(hasNonParseErrorFinding(result.Findings) && onlyParseErrorFindings(stderrFindings)) {
+			result.Findings = append(result.Findings, stderrFindings...)
+		}
+	}
+	result.Findings = dedupeFindings(result.Findings)
+}
+
+func combinedOutput(stdout string, stderr string) string {
+	if stdout == "" {
+		return stderr
+	}
+	if stderr == "" {
+		return stdout
+	}
+	return stdout + "\n" + stderr
+}
+
+func (adapter CommandAdapter) normaliseFindings(findings []Finding) {
+	for index := range findings {
+		if findings[index].Tool == "" {
+			findings[index].Tool = adapter.name
+		}
+		if findings[index].Category == "" {
+			findings[index].Category = adapter.category
+		}
+		if findings[index].Severity == "" {
+			findings[index].Severity = defaultSeverityForCategory(adapter.category)
+			continue
+		}
+		findings[index].Severity = normaliseSeverity(findings[index].Severity)
+	}
+}
+
+func adapterStatus(runErr error, exitCode int, findings []Finding) string {
+	if runErr != nil || exitCode != 0 || len(findings) > 0 {
+		return "failed"
+	}
+	return "passed"
 }
 
 func probeCommandVersion(binary string, workingDir string) string {
@@ -318,17 +353,7 @@ func (CatalogAdapter) Run(ctx context.Context, input RunInput, files []string) A
 
 	catalog, err := loadBuiltinCatalog()
 	if err != nil {
-		result.Tool.Status = "failed"
-		result.Tool.Duration = time.Since(startedAt).Round(time.Millisecond).String()
-		result.Findings = []Finding{{
-			Tool:     "catalog",
-			Severity: "error",
-			Code:     "catalog-load",
-			Message:  err.Error(),
-			Category: "correctness",
-		}}
-		result.Tool.Findings = len(result.Findings)
-		return result
+		return catalogErrorResult(result, startedAt, "catalog-load", err)
 	}
 
 	rules := catalog.Rules
@@ -338,52 +363,75 @@ func (CatalogAdapter) Run(ctx context.Context, input RunInput, files []string) A
 
 	scanner, err := NewScanner(rules)
 	if err != nil {
-		result.Tool.Status = "failed"
-		result.Tool.Duration = time.Since(startedAt).Round(time.Millisecond).String()
-		result.Findings = []Finding{{
-			Tool:     "catalog",
-			Severity: "error",
-			Code:     "catalog-scan",
-			Message:  err.Error(),
-			Category: "correctness",
-		}}
-		result.Tool.Findings = len(result.Findings)
-		return result
+		return catalogErrorResult(result, startedAt, "catalog-scan", err)
+	}
+
+	findings := scanCatalogFindings(ctx, scanner, input.Path, files)
+	if err := ctx.Err(); err != nil {
+		return canceledCatalogResult(result, startedAt, findings)
+	}
+
+	normaliseCatalogFindings(catalog, findings)
+	result.Findings = findings
+	result.Tool.Findings = len(findings)
+	result.Tool.Duration = time.Since(startedAt).Round(time.Millisecond).String()
+	result.Tool.Status = catalogStatus(findings)
+	return result
+}
+
+func catalogErrorResult(result AdapterResult, startedAt time.Time, code string, err error) AdapterResult {
+	result.Tool.Status = "failed"
+	result.Tool.Duration = time.Since(startedAt).Round(time.Millisecond).String()
+	result.Findings = []Finding{{
+		Tool:     "catalog",
+		Severity: "error",
+		Code:     code,
+		Message:  err.Error(),
+		Category: "correctness",
+	}}
+	result.Tool.Findings = len(result.Findings)
+	return result
+}
+
+func scanCatalogFindings(ctx context.Context, scanner *Scanner, projectPath string, files []string) []Finding {
+	if len(files) == 0 {
+		if ctx.Err() != nil {
+			return nil
+		}
+		findings, _ := scanner.ScanDir(projectPath)
+		return findings
 	}
 
 	var findings []Finding
-	if len(files) > 0 {
-		for _, file := range files {
-			if err := ctx.Err(); err != nil {
-				break
-			}
-			scanPath := file
-			if !filepath.IsAbs(scanPath) {
-				scanPath = filepath.Join(input.Path, file)
-			}
-			fileFindings, scanErr := scanner.ScanFile(scanPath)
-			if scanErr != nil {
-				continue
-			}
-			findings = append(findings, fileFindings...)
-		}
-	} else {
+	for _, file := range files {
 		if ctx.Err() != nil {
-			result.Tool.Status = "canceled"
-			result.Tool.Duration = time.Since(startedAt).Round(time.Millisecond).String()
-			return result
+			break
 		}
-		findings, _ = scanner.ScanDir(input.Path)
+		fileFindings, scanErr := scanner.ScanFile(catalogScanPath(projectPath, file))
+		if scanErr != nil {
+			continue
+		}
+		findings = append(findings, fileFindings...)
 	}
+	return findings
+}
 
-	if err := ctx.Err(); err != nil {
-		result.Tool.Status = "canceled"
-		result.Tool.Duration = time.Since(startedAt).Round(time.Millisecond).String()
-		result.Tool.Findings = len(findings)
-		result.Findings = findings
-		return result
+func catalogScanPath(projectPath string, file string) string {
+	if filepath.IsAbs(file) {
+		return file
 	}
+	return filepath.Join(projectPath, file)
+}
 
+func canceledCatalogResult(result AdapterResult, startedAt time.Time, findings []Finding) AdapterResult {
+	result.Tool.Status = "canceled"
+	result.Tool.Duration = time.Since(startedAt).Round(time.Millisecond).String()
+	result.Tool.Findings = len(findings)
+	result.Findings = findings
+	return result
+}
+
+func normaliseCatalogFindings(catalog *Catalog, findings []Finding) {
 	for index := range findings {
 		rule := catalog.ByID(findings[index].RuleID)
 		findings[index].Tool = "catalog"
@@ -394,17 +442,13 @@ func (CatalogAdapter) Run(ctx context.Context, input RunInput, files []string) A
 			findings[index].Category = ruleCategory(*rule)
 		}
 	}
+}
 
-	result.Findings = findings
-	result.Tool.Findings = len(findings)
-	result.Tool.Duration = time.Since(startedAt).Round(time.Millisecond).String()
+func catalogStatus(findings []Finding) string {
 	if len(findings) > 0 {
-		result.Tool.Status = "failed"
-	} else {
-		result.Tool.Status = "passed"
+		return "failed"
 	}
-
-	return result
+	return "passed"
 }
 
 func loadBuiltinCatalog() (*Catalog, error) {
@@ -562,44 +606,15 @@ func topLevelJSONSegments(output string) ([]string, string) {
 	escaped := false
 
 	for index, current := range output {
-		if inString {
-			switch {
-			case escaped:
-				escaped = false
-			case current == '\\':
-				escaped = true
-			case current == '"':
-				inString = false
-			}
+		if consumeJSONStringRune(current, &inString, &escaped) {
 			continue
 		}
-
-		switch current {
-		case '"':
-			if depth > 0 {
-				inString = true
+		trailing, done := consumeJSONSegmentRune(output, index, current, &segments, &start, &depth, &inString)
+		if done {
+			if len(segments) == 0 {
+				return nil, trailing
 			}
-		case '{', '[':
-			if depth == 0 {
-				start = index
-			}
-			depth++
-		case '}', ']':
-			if depth == 0 {
-				return segments, strings.TrimSpace(output[index:])
-			}
-			depth--
-			if depth == 0 && start >= 0 {
-				segments = append(segments, output[start:index+1])
-				start = -1
-			}
-		default:
-			if depth == 0 && len(segments) == 0 && !isJSONWhitespace(current) {
-				return nil, output
-			}
-			if depth == 0 && len(segments) > 0 && !isJSONWhitespace(current) {
-				return segments, strings.TrimSpace(output[index:])
-			}
+			return segments, trailing
 		}
 	}
 
@@ -608,6 +623,72 @@ func topLevelJSONSegments(output string) ([]string, string) {
 	}
 
 	return segments, ""
+}
+
+func consumeJSONSegmentRune(
+	output string,
+	index int,
+	current rune,
+	segments *[]string,
+	start *int,
+	depth *int,
+	inString *bool,
+) (string, bool) {
+	switch current {
+	case '"':
+		*inString = *depth > 0
+	case '{', '[':
+		openJSONSegment(index, start, depth)
+	case '}', ']':
+		return closeJSONSegment(output, index, segments, start, depth)
+	default:
+		return jsonTrailingSegment(output, index, current, *depth, len(*segments))
+	}
+	return "", false
+}
+
+func openJSONSegment(index int, start *int, depth *int) {
+	if *depth == 0 {
+		*start = index
+	}
+	*depth++
+}
+
+func closeJSONSegment(output string, index int, segments *[]string, start *int, depth *int) (string, bool) {
+	if *depth == 0 {
+		return strings.TrimSpace(output[index:]), true
+	}
+	*depth--
+	if *depth == 0 && *start >= 0 {
+		*segments = append(*segments, output[*start:index+1])
+		*start = -1
+	}
+	return "", false
+}
+
+func consumeJSONStringRune(current rune, inString *bool, escaped *bool) bool {
+	if !*inString {
+		return false
+	}
+	switch {
+	case *escaped:
+		*escaped = false
+	case current == '\\':
+		*escaped = true
+	case current == '"':
+		*inString = false
+	}
+	return true
+}
+
+func jsonTrailingSegment(output string, index int, current rune, depth int, segmentCount int) (string, bool) {
+	if depth != 0 || isJSONWhitespace(current) {
+		return "", false
+	}
+	if segmentCount == 0 {
+		return output, true
+	}
+	return strings.TrimSpace(output[index:]), true
 }
 
 func isJSONWhitespace(value rune) bool {
@@ -623,7 +704,7 @@ func jsonParseFinding(tool string, category string, err any) Finding {
 	return Finding{
 		Tool:     tool,
 		Severity: "error",
-		Code:     "parse-error",
+		Code:     adapterParseError89bf3a,
 		Message:  fmt.Sprintf("failed to parse JSON output: %v", err),
 		Category: category,
 	}
@@ -910,7 +991,7 @@ func dedupeFindings(findings []Finding) []Finding {
 
 func hasNonParseErrorFinding(findings []Finding) bool {
 	for _, finding := range findings {
-		if finding.Code != "parse-error" {
+		if finding.Code != adapterParseError89bf3a {
 			return true
 		}
 	}
@@ -922,7 +1003,7 @@ func onlyParseErrorFindings(findings []Finding) bool {
 		return false
 	}
 	for _, finding := range findings {
-		if finding.Code != "parse-error" {
+		if finding.Code != adapterParseError89bf3a {
 			return false
 		}
 	}

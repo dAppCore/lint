@@ -6,6 +6,10 @@ import (
 	"path/filepath"
 )
 
+const (
+	formatTestTest35ea57 = "--test"
+)
+
 func TestDetectFormatter_PintConfig(t *T) {
 	dir := t.TempDir()
 
@@ -51,7 +55,7 @@ func TestBuildPintCommand_Defaults(t *T) {
 	// No vendor binary, so fallback to bare "pint"
 	AssertEqual(t, "pint", cmdName)
 	// Fix is false by default, so --test should be present
-	AssertContains(t, args, "--test")
+	AssertContains(t, args, formatTestTest35ea57)
 }
 
 func TestBuildPintCommand_Fix(t *T) {
@@ -61,7 +65,7 @@ func TestBuildPintCommand_Fix(t *T) {
 	cmdName, args := buildPintCommand(opts)
 
 	AssertEqual(t, "pint", cmdName)
-	AssertNotContains(t, args, "--test")
+	AssertNotContains(t, args, formatTestTest35ea57)
 }
 
 func TestBuildPintCommand_VendorBinary(t *T) {
@@ -89,7 +93,7 @@ func TestBuildPintCommand_AllFlags(t *T) {
 	}
 	_, args := buildPintCommand(opts)
 
-	AssertContains(t, args, "--test")
+	AssertContains(t, args, formatTestTest35ea57)
 	AssertContains(t, args, "--diff")
 	AssertContains(t, args, "--format=json")
 	AssertContains(t, args, "src/")

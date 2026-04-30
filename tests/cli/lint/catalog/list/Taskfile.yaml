@@ -1,3 +1,4 @@
+---
 version: "3"
 
 tasks:
@@ -8,11 +9,13 @@ tasks:
           set -euo pipefail
           source ../../../_lib/run.sh
 
-          go build -trimpath -ldflags="-s -w" -o bin/core-lint ../../../../../cmd/core-lint
+          go build -trimpath -ldflags="-s -w" \
+            -o bin/core-lint ../../../../../cmd/core-lint
 
           lang="$(cat fixtures/lang.txt)"
           output="$(mktemp)"
-          run_capture_all 0 "$output" ./bin/core-lint lint catalog list --lang "$lang"
+          run_capture_all 0 "$output" ./bin/core-lint lint catalog list \
+            --lang "$lang"
           grep -Fq "go-sec-001" "$output"
           grep -Fq "rule(s)" "$output"
           EOF

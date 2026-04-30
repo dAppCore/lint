@@ -6,13 +6,18 @@ import (
 	"path/filepath"
 )
 
+const (
+	refactorTestDryRun6f1586    = "--dry-run"
+	refactorTestRectorPhp58a377 = "rector.php"
+)
+
 // =============================================================================
 // DetectRector
 // =============================================================================
 
 func TestDetectRector_Good_RectorConfig(t *T) {
 	dir := t.TempDir()
-	mkFile(t, filepath.Join(dir, "rector.php"))
+	mkFile(t, filepath.Join(dir, refactorTestRectorPhp58a377))
 
 	AssertTrue(t, DetectRector(dir))
 }
@@ -28,7 +33,7 @@ func TestDetectRector_Bad_Empty(t *T) {
 	dir := t.TempDir()
 
 	AssertFalse(t, DetectRector(dir))
-	AssertFalse(t, fileExists(filepath.Join(dir, "rector.php")))
+	AssertFalse(t, fileExists(filepath.Join(dir, refactorTestRectorPhp58a377)))
 }
 
 // =============================================================================
@@ -43,7 +48,7 @@ func TestBuildRectorCommand_Good_Defaults(t *T) {
 	AssertEqual(t, "rector", cmdName)
 	// Fix is false by default, so --dry-run should be present
 	AssertContains(t, args, "process")
-	AssertContains(t, args, "--dry-run")
+	AssertContains(t, args, refactorTestDryRun6f1586)
 }
 
 func TestBuildRectorCommand_Good_Fix(t *T) {
@@ -53,7 +58,7 @@ func TestBuildRectorCommand_Good_Fix(t *T) {
 	cmdName, args := buildRectorCommand(opts)
 	AssertEqual(t, "rector", cmdName)
 	AssertContains(t, args, "process")
-	AssertNotContains(t, args, "--dry-run")
+	AssertNotContains(t, args, refactorTestDryRun6f1586)
 }
 
 func TestBuildRectorCommand_Good_VendorBinary(t *T) {
@@ -94,7 +99,7 @@ func TestBuildRectorCommand_Good_AllFlags(t *T) {
 
 	_, args := buildRectorCommand(opts)
 	AssertContains(t, args, "process")
-	AssertNotContains(t, args, "--dry-run")
+	AssertNotContains(t, args, refactorTestDryRun6f1586)
 	AssertContains(t, args, "--output-format")
 	AssertContains(t, args, "diff")
 	AssertContains(t, args, "--clear-cache")
@@ -113,7 +118,7 @@ func TestDetectRector_Good_BothConfigAndBinary(t *T) {
 	dir := t.TempDir()
 
 	// Create both config and vendor binary
-	RequireNoError(t, os.WriteFile(filepath.Join(dir, "rector.php"), []byte("<?php\n"), 0644))
+	RequireNoError(t, os.WriteFile(filepath.Join(dir, refactorTestRectorPhp58a377), []byte("<?php\n"), 0644))
 	mkFile(t, filepath.Join(dir, "vendor", "bin", "rector"))
 
 	AssertTrue(t, DetectRector(dir))

@@ -15,6 +15,13 @@ import (
 	lintpkg "dappco.re/go/lint/pkg/lint"
 )
 
+const (
+	mainCmdCatalogShow2419de          = "cmd.catalog.show"
+	mainCmdCheck11d6fd                = "cmd.check"
+	mainLoadingCataloge27725          = "loading catalog"
+	mainUnsupportedOutputFormat785877 = "unsupported output format "
+)
+
 func main() {
 	cli.WithAppName("core-lint")
 	cli.Main(cli.WithCommands("lint", addLintCommands))
@@ -144,7 +151,7 @@ func newDetectCommand(commandName string, summary string) *cli.Command {
 		case "json":
 			return writeIndentedJSON(command.OutOrStdout(), languages)
 		default:
-			return core.E("cmd.detect", "unsupported output format "+output, nil)
+			return core.E("cmd.detect", mainUnsupportedOutputFormat785877+output, nil)
 		}
 	})
 
@@ -182,7 +189,7 @@ func newToolsCommand(commandName string, summary string) *cli.Command {
 		case "json":
 			return writeIndentedJSON(command.OutOrStdout(), tools)
 		default:
-			return core.E("cmd.tools", "unsupported output format "+output, nil)
+			return core.E("cmd.tools", mainUnsupportedOutputFormat785877+output, nil)
 		}
 	})
 
@@ -256,87 +263,11 @@ func newCheckCommand() *cli.Command {
 	)
 
 	command := cli.NewCommand("check", "Scan files for pattern matches", "", func(command *cli.Command, args []string) error {
-		catalog, err := cataloglint.LoadEmbeddedCatalog()
-		if err != nil {
-			return core.E("cmd.check", "loading catalog", err)
-		}
-
-		rules := catalog.Rules
-		if language != "" {
-			rules = catalog.ForLanguage(language)
-			if len(rules) == 0 {
-				if _, err := fmt.Fprintf(os.Stderr, "no rules for language %q\n", language); err != nil {
-					return err
-				}
-				return nil
-			}
-		}
-		if severity != "" {
-			filtered := (&lintpkg.Catalog{Rules: rules}).AtSeverity(severity)
-			if len(filtered) == 0 {
-				if _, err := fmt.Fprintf(os.Stderr, "no rules at severity %q or above\n", severity); err != nil {
-					return err
-				}
-				return nil
-			}
-			rules = filtered
-		}
-
-		scanner, err := lintpkg.NewScanner(rules)
-		if err != nil {
-			return core.E("cmd.check", "creating scanner", err)
-		}
-
-		paths := args
-		if len(paths) == 0 {
-			paths = []string{"."}
-		}
-
-		var findings []lintpkg.Finding
-		for _, path := range paths {
-			info, err := os.Stat(path)
-			if err != nil {
-				return core.E("cmd.check", "stat "+path, err)
-			}
-
-			if info.IsDir() {
-				pathFindings, err := scanner.ScanDir(path)
-				if err != nil {
-					return err
-				}
-				findings = append(findings, pathFindings...)
-				continue
-			}
-
-			pathFindings, err := scanner.ScanFile(path)
-			if err != nil {
-				return err
-			}
-			findings = append(findings, pathFindings...)
-		}
-
-		switch format {
-		case "json":
-			return lintpkg.WriteJSON(command.OutOrStdout(), findings)
-		case "jsonl":
-			return lintpkg.WriteJSONL(command.OutOrStdout(), findings)
-		case "sarif":
-			report := lintpkg.Report{
-				Findings: findings,
-				Summary:  lintpkg.Summarise(findings),
-			}
-			return lintpkg.WriteReportSARIF(command.OutOrStdout(), report)
-		default:
-			if err := lintpkg.WriteText(command.OutOrStdout(), findings); err != nil {
-				return err
-			}
-			if format == "text" && len(findings) > 0 {
-				if err := writeCatalogSummary(command.OutOrStdout(), findings); err != nil {
-					return err
-				}
-			}
-			return nil
-		}
+		return runCheckCommand(command, args, checkOptions{
+			format:   format,
+			language: language,
+			severity: severity,
+		})
 	})
 
 	cli.StringFlag(command, &format, "format", "f", "text", "Output format: text, json, jsonl, sarif")
@@ -346,73 +277,182 @@ func newCheckCommand() *cli.Command {
 	return command
 }
 
+type checkOptions struct {
+	format   string
+	language string
+	severity string
+}
+
+func runCheckCommand(command *cli.Command, args []string, opts checkOptions) error {
+	catalog, err := cataloglint.LoadEmbeddedCatalog()
+	if err != nil {
+		return core.E(mainCmdCheck11d6fd, mainLoadingCataloge27725, err)
+	}
+
+	rules, ok, err := checkRules(catalog, opts)
+	if err != nil || !ok {
+		return err
+	}
+	scanner, err := lintpkg.NewScanner(rules)
+	if err != nil {
+		return core.E(mainCmdCheck11d6fd, "creating scanner", err)
+	}
+	findings, err := scanCheckPaths(scanner, args)
+	if err != nil {
+		return err
+	}
+	return writeCheckFindings(command.OutOrStdout(), opts.format, findings)
+}
+
+func checkRules(catalog *lintpkg.Catalog, opts checkOptions) ([]lintpkg.Rule, bool, error) {
+	rules := catalog.Rules
+	if opts.language != "" {
+		rules = catalog.ForLanguage(opts.language)
+		if len(rules) == 0 {
+			_, err := fmt.Fprintf(os.Stderr, "no rules for language %q\n", opts.language)
+			return nil, false, err
+		}
+	}
+	if opts.severity == "" {
+		return rules, true, nil
+	}
+	filtered := (&lintpkg.Catalog{Rules: rules}).AtSeverity(opts.severity)
+	if len(filtered) == 0 {
+		_, err := fmt.Fprintf(os.Stderr, "no rules at severity %q or above\n", opts.severity)
+		return nil, false, err
+	}
+	return filtered, true, nil
+}
+
+func scanCheckPaths(scanner *lintpkg.Scanner, args []string) ([]lintpkg.Finding, error) {
+	paths := args
+	if len(paths) == 0 {
+		paths = []string{"."}
+	}
+
+	var findings []lintpkg.Finding
+	for _, path := range paths {
+		pathFindings, err := scanCheckPath(scanner, path)
+		if err != nil {
+			return nil, err
+		}
+		findings = append(findings, pathFindings...)
+	}
+	return findings, nil
+}
+
+func scanCheckPath(scanner *lintpkg.Scanner, path string) ([]lintpkg.Finding, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return nil, core.E(mainCmdCheck11d6fd, "stat "+path, err)
+	}
+	if info.IsDir() {
+		return scanner.ScanDir(path)
+	}
+	return scanner.ScanFile(path)
+}
+
+func writeCheckFindings(writer io.Writer, format string, findings []lintpkg.Finding) error {
+	switch format {
+	case "json":
+		return lintpkg.WriteJSON(writer, findings)
+	case "jsonl":
+		return lintpkg.WriteJSONL(writer, findings)
+	case "sarif":
+		report := lintpkg.Report{
+			Findings: findings,
+			Summary:  lintpkg.Summarise(findings),
+		}
+		return lintpkg.WriteReportSARIF(writer, report)
+	default:
+		return writeTextCheckFindings(writer, format, findings)
+	}
+}
+
+func writeTextCheckFindings(writer io.Writer, format string, findings []lintpkg.Finding) error {
+	if err := lintpkg.WriteText(writer, findings); err != nil {
+		return err
+	}
+	if format != "text" || len(findings) == 0 {
+		return nil
+	}
+	return writeCatalogSummary(writer, findings)
+}
+
 func newCatalogCommand() *cli.Command {
 	catalogCmd := cli.NewGroup("catalog", "Browse the pattern catalog", "")
 
 	var listLanguage string
 	listCmd := cli.NewCommand("list", "List all rules in the catalog", "", func(command *cli.Command, args []string) error {
-		catalog, err := cataloglint.LoadEmbeddedCatalog()
-		if err != nil {
-			return core.E("cmd.catalog.list", "loading catalog", err)
-		}
-
-		rules := catalog.Rules
-		if listLanguage != "" {
-			rules = catalog.ForLanguage(listLanguage)
-		}
-		stdout := command.OutOrStdout()
-		if len(rules) == 0 {
-			if _, err := fmt.Fprintln(stdout, "No rules found."); err != nil {
-				return err
-			}
-			return nil
-		}
-
-		rules = append([]lintpkg.Rule(nil), rules...)
-		sort.Slice(rules, func(left int, right int) bool {
-			if rules[left].Severity == rules[right].Severity {
-				return strings.Compare(rules[left].ID, rules[right].ID) < 0
-			}
-			return strings.Compare(rules[left].Severity, rules[right].Severity) < 0
-		})
-
-		for _, rule := range rules {
-			if _, err := fmt.Fprintf(stdout, "%-14s [%-8s] %s\n", rule.ID, rule.Severity, rule.Title); err != nil {
-				return err
-			}
-		}
-		if _, err := fmt.Fprintf(os.Stderr, "\n%d rule(s)\n", len(rules)); err != nil {
-			return err
-		}
-		return nil
+		return runCatalogList(command.OutOrStdout(), listLanguage)
 	})
 	cli.StringFlag(listCmd, &listLanguage, "lang", "l", "", "Filter by language")
 
 	showCmd := cli.NewCommand("show", "Show details of a specific rule", "", func(command *cli.Command, args []string) error {
-		if len(args) == 0 {
-			return core.E("cmd.catalog.show", "rule ID required", nil)
-		}
-
-		catalog, err := cataloglint.LoadEmbeddedCatalog()
-		if err != nil {
-			return core.E("cmd.catalog.show", "loading catalog", err)
-		}
-
-		rule := catalog.ByID(args[0])
-		if rule == nil {
-			return core.E("cmd.catalog.show", "rule "+args[0]+" not found", nil)
-		}
-
-		data, err := json.MarshalIndent(rule, "", "  ")
-		if err != nil {
-			return err
-		}
-		fmt.Fprintf(command.OutOrStdout(), "%s\n", string(data))
-		return nil
+		return runCatalogShow(command.OutOrStdout(), args)
 	})
 
 	catalogCmd.AddCommand(listCmd, showCmd)
 	return catalogCmd
+}
+
+func runCatalogList(stdout io.Writer, listLanguage string) error {
+	catalog, err := cataloglint.LoadEmbeddedCatalog()
+	if err != nil {
+		return core.E("cmd.catalog.list", mainLoadingCataloge27725, err)
+	}
+
+	rules := catalog.Rules
+	if listLanguage != "" {
+		rules = catalog.ForLanguage(listLanguage)
+	}
+	if len(rules) == 0 {
+		_, err := fmt.Fprintln(stdout, "No rules found.")
+		return err
+	}
+
+	rules = sortedCatalogRules(rules)
+	for _, rule := range rules {
+		if _, err := fmt.Fprintf(stdout, "%-14s [%-8s] %s\n", rule.ID, rule.Severity, rule.Title); err != nil {
+			return err
+		}
+	}
+	_, err = fmt.Fprintf(os.Stderr, "\n%d rule(s)\n", len(rules))
+	return err
+}
+
+func sortedCatalogRules(rules []lintpkg.Rule) []lintpkg.Rule {
+	sorted := append([]lintpkg.Rule(nil), rules...)
+	sort.Slice(sorted, func(left int, right int) bool {
+		if sorted[left].Severity == sorted[right].Severity {
+			return strings.Compare(sorted[left].ID, sorted[right].ID) < 0
+		}
+		return strings.Compare(sorted[left].Severity, sorted[right].Severity) < 0
+	})
+	return sorted
+}
+
+func runCatalogShow(stdout io.Writer, args []string) error {
+	if len(args) == 0 {
+		return core.E(mainCmdCatalogShow2419de, "rule ID required", nil)
+	}
+
+	catalog, err := cataloglint.LoadEmbeddedCatalog()
+	if err != nil {
+		return core.E(mainCmdCatalogShow2419de, mainLoadingCataloge27725, err)
+	}
+
+	rule := catalog.ByID(args[0])
+	if rule == nil {
+		return core.E(mainCmdCatalogShow2419de, "rule "+args[0]+" not found", nil)
+	}
+
+	data, err := json.MarshalIndent(rule, "", "  ")
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(stdout, "%s\n", string(data))
+	return err
 }
 
 func writeReport(writer io.Writer, output string, report lintpkg.Report) error {
@@ -426,7 +466,7 @@ func writeReport(writer io.Writer, output string, report lintpkg.Report) error {
 	case "sarif":
 		return lintpkg.WriteReportSARIF(writer, report)
 	default:
-		return core.E("writeReport", "unsupported output format "+output, nil)
+		return core.E("writeReport", mainUnsupportedOutputFormat785877+output, nil)
 	}
 }
 

@@ -1,3 +1,4 @@
+---
 version: "3"
 
 tasks:
@@ -14,5 +15,9 @@ tasks:
           output="$(mktemp)"
           export PATH="../bin:$PATH"
           run_capture_stdout 0 "$output" ../../bin/core qa fmt --json
-          jq -e '.tool == "pint" and .changed == true and .files[0].path == "src/Bad.php"' "$output" >/dev/null
+          jq -e '
+            .tool == "pint"
+            and .changed == true
+            and .files[0].path == "src/Bad.php"
+          ' "$output" >/dev/null
           EOF

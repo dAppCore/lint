@@ -20,6 +20,10 @@ import (
 	"dappco.re/go/scm/repos"
 )
 
+const (
+	cmdHealthQaHealth2cf50a = "qa.health"
+)
+
 // Health command flags.
 var (
 	healthProblems bool
@@ -86,9 +90,24 @@ func addHealthCommand(parent *cli.Command) {
 
 func runHealth() error {
 	if _, err := exec.LookPath("gh"); err != nil {
-		return core.E("qa.health", i18n.T("error.gh_not_found"), nil)
+		return core.E(cmdHealthQaHealth2cf50a, i18n.T("error.gh_not_found"), nil)
 	}
 
+	reg, err := loadHealthRegistry()
+	if err != nil {
+		return err
+	}
+
+	allHealthResults := collectHealthResults(reg)
+	healthResults := filterHealthResults(allHealthResults, healthProblems)
+	summary := summariseHealthResults(len(reg.List()), len(healthResults), allHealthResults, healthProblems)
+	if healthJSON {
+		return printHealthJSON(summary, healthResults)
+	}
+	return printHealthSummary(summary, healthResults)
+}
+
+func loadHealthRegistry() (*repos.Registry, error) {
 	var reg *repos.Registry
 	var err error
 	if healthRegistry != "" {
@@ -96,14 +115,17 @@ func runHealth() error {
 	} else {
 		registryPath, findErr := repos.FindRegistry(io.Local)
 		if findErr != nil {
-			return core.E("qa.health", i18n.T("error.registry_not_found"), nil)
+			return nil, core.E(cmdHealthQaHealth2cf50a, i18n.T("error.registry_not_found"), nil)
 		}
 		reg, err = repos.LoadRegistry(io.Local, registryPath)
 	}
 	if err != nil {
-		return core.E("qa.health", "failed to load registry", err)
+		return nil, core.E(cmdHealthQaHealth2cf50a, "failed to load registry", err)
 	}
+	return reg, nil
+}
 
+func collectHealthResults(reg *repos.Registry) []RepoHealth {
 	repoList := reg.List()
 	allHealthResults := make([]RepoHealth, 0, len(repoList))
 	for _, repo := range repoList {
@@ -118,23 +140,23 @@ func runHealth() error {
 		}
 		return strings.Compare(a.Name, b.Name)
 	})
+	return allHealthResults
+}
 
-	healthResults := allHealthResults
-	if healthProblems {
-		problems := make([]RepoHealth, 0, len(healthResults))
-		for _, h := range healthResults {
-			if h.Status != "passing" {
-				problems = append(problems, h)
-			}
+func filterHealthResults(results []RepoHealth, problemsOnly bool) []RepoHealth {
+	if !problemsOnly {
+		return results
+	}
+	problems := make([]RepoHealth, 0, len(results))
+	for _, h := range results {
+		if h.Status != "passing" {
+			problems = append(problems, h)
 		}
-		healthResults = problems
 	}
+	return problems
+}
 
-	summary := summariseHealthResults(len(repoList), len(healthResults), allHealthResults, healthProblems)
-	if healthJSON {
-		return printHealthJSON(summary, healthResults)
-	}
-
+func printHealthSummary(summary HealthSummary, healthResults []RepoHealth) error {
 	cli.Print("%s: %d/%d repos healthy (%d%%)\n\n",
 		i18n.T("cmd.qa.health.summary"),
 		summary.Passing,

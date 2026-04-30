@@ -1,3 +1,4 @@
+---
 version: "3"
 
 tasks:
@@ -12,9 +13,18 @@ tasks:
 
           output="$(mktemp)"
           export PATH="$(pwd)/fixtures/bin:$PATH"
-          run_capture_stdout 0 "$output" ./bin/core qa issues --registry fixtures/repos.yaml --json
-          jq -e '.total_issues == 1 and .filtered_issues == 1' "$output" >/dev/null
-          jq -e '.categories[0].category == "needs_response" and .categories[0].issues[0].repo_name == "alpha"' "$output" >/dev/null
-          jq -e '.categories[0].issues[0].action_hint != ""' "$output" >/dev/null
+          run_capture_stdout 0 "$output" ./bin/core qa issues \
+            --registry fixtures/repos.yaml --json
+          jq -e '
+            .total_issues == 1
+            and .filtered_issues == 1
+          ' "$output" >/dev/null
+          jq -e '
+            .categories[0].category == "needs_response"
+            and .categories[0].issues[0].repo_name == "alpha"
+          ' "$output" >/dev/null
+          jq -e '
+            .categories[0].issues[0].action_hint != ""
+          ' "$output" >/dev/null
           jq -e '.fetch_errors[0].repo == "beta"' "$output" >/dev/null
           EOF

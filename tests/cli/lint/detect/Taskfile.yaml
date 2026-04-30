@@ -1,5 +1,5 @@
+---
 version: "3"
-
 tasks:
   test:
     cmds:
@@ -7,11 +7,10 @@ tasks:
           bash <<'EOF'
           set -euo pipefail
           source ../../_lib/run.sh
-
-          go build -trimpath -ldflags="-s -w" -o bin/core-lint ../../../../cmd/core-lint
-
+          go build -trimpath -ldflags="-s -w" \
+            -o bin/core-lint ../../../../cmd/core-lint
           output="$(mktemp)"
-          run_capture_stdout 0 "$output" ./bin/core-lint detect --output json ../check/fixtures
+          run_capture_stdout 0 "$output" ./bin/core-lint detect \
+            --output json ../check/fixtures
           jq -e '. == ["go"]' "$output" >/dev/null
           EOF
-

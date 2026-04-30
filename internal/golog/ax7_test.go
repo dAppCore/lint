@@ -6,11 +6,15 @@ import (
 	core "dappco.re/go"
 )
 
+const (
+	ax7TestRepoLoadb2f262 = "repo.load"
+)
+
 func TestLog_E_Good(t *core.T) {
 	cause := stderrors.New("root")
-	err := E("repo.load", "failed", cause)
+	err := E(ax7TestRepoLoadb2f262, "failed", cause)
 	core.AssertError(t, err)
-	core.AssertContains(t, err.Error(), "repo.load")
+	core.AssertContains(t, err.Error(), ax7TestRepoLoadb2f262)
 	core.AssertContains(t, err.Error(), "root")
 }
 
@@ -30,14 +34,14 @@ func TestLog_E_Ugly(t *core.T) {
 
 func TestLog_Wrap_Good(t *core.T) {
 	cause := stderrors.New("root")
-	err := Wrap(cause, "repo.load", "failed")
+	err := Wrap(cause, ax7TestRepoLoadb2f262, "failed")
 	core.AssertError(t, err)
 	core.AssertTrue(t, stderrors.Is(err, cause))
 	core.AssertContains(t, err.Error(), "failed")
 }
 
 func TestLog_Wrap_Bad(t *core.T) {
-	err := Wrap(nil, "repo.load", "failed")
+	err := Wrap(nil, ax7TestRepoLoadb2f262, "failed")
 	core.AssertNil(t, err)
 	core.AssertFalse(t, stderrors.Is(err, stderrors.New("missing")))
 }

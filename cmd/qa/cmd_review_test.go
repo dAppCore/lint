@@ -8,6 +8,10 @@ import (
 	"dappco.re/go/cli/pkg/cli"
 )
 
+const (
+	cmdReviewTestForgeExamplec3bd82 = "forge/example"
+)
+
 func TestRunReviewJSONOutput_PreservesPartialResultsAndFetchErrors(t *T) {
 	dir := t.TempDir()
 	writeExecutable(t, filepath.Join(dir, "gh"), `#!/bin/sh
@@ -57,7 +61,7 @@ esac
 	parent := &cli.Command{Use: "qa"}
 	addReviewCommand(parent)
 	command := findSubcommand(t, parent, "review")
-	RequireNoError(t, command.Flags().Set("repo", "forge/example"))
+	RequireNoError(t, command.Flags().Set("repo", cmdReviewTestForgeExamplec3bd82))
 	RequireNoError(t, command.Flags().Set("json", "true"))
 
 	output := captureStdout(t, func() {
@@ -73,7 +77,7 @@ esac
 	AssertEqual(t, 42, payload.Requested[0].Number)
 	AssertEqual(t, "Refine agent output", payload.Requested[0].Title)
 	RequireLen(t, payload.FetchErrors, 1)
-	AssertEqual(t, "forge/example", payload.FetchErrors[0].Repo)
+	AssertEqual(t, cmdReviewTestForgeExamplec3bd82, payload.FetchErrors[0].Repo)
 	AssertEqual(t, "mine", payload.FetchErrors[0].Scope)
 	AssertContains(t, payload.FetchErrors[0].Error, "simulated author query failure")
 }
@@ -107,7 +111,7 @@ esac
 	parent := &cli.Command{Use: "qa"}
 	addReviewCommand(parent)
 	command := findSubcommand(t, parent, "review")
-	RequireNoError(t, command.Flags().Set("repo", "forge/example"))
+	RequireNoError(t, command.Flags().Set("repo", cmdReviewTestForgeExamplec3bd82))
 	RequireNoError(t, command.Flags().Set("json", "true"))
 
 	var runErr error
@@ -175,7 +179,7 @@ esac
 	parent := &cli.Command{Use: "qa"}
 	addReviewCommand(parent)
 	command := findSubcommand(t, parent, "review")
-	RequireNoError(t, command.Flags().Set("repo", "forge/example"))
+	RequireNoError(t, command.Flags().Set("repo", cmdReviewTestForgeExamplec3bd82))
 
 	output := captureStdout(t, func() {
 		RequireNoError(t, command.RunE(command, nil))
@@ -216,7 +220,7 @@ esac
 	parent := &cli.Command{Use: "qa"}
 	addReviewCommand(parent)
 	command := findSubcommand(t, parent, "review")
-	RequireNoError(t, command.Flags().Set("repo", "forge/example"))
+	RequireNoError(t, command.Flags().Set("repo", cmdReviewTestForgeExamplec3bd82))
 
 	var runErr error
 	output := captureStdout(t, func() {

@@ -1,3 +1,4 @@
+---
 - id: go-cor-001
   title: "Goroutine launched without synchronisation"
   severity: medium
@@ -5,7 +6,9 @@
   tags: [correctness, concurrency]
   pattern: 'go\s+func\s*\('
   exclude_pattern: 'wg\.|\.Go\(|context\.|done\s*<-|select\s*\{'
-  fix: "Use a WaitGroup, errgroup, or context cancellation to track goroutine lifecycle"
+  fix: >-
+    Use a WaitGroup, errgroup, or context cancellation to track goroutine
+    lifecycle
   found_in: [go-process]
   example_bad: 'go func() { doWork() }()'
   example_good: 'wg.Add(1); go func() { defer wg.Done(); doWork() }()'
@@ -20,7 +23,9 @@
   tags: [correctness, concurrency]
   pattern: '\.Wait\(\)'
   exclude_pattern: 'select\s*\{|ctx\.Done|context\.With|time\.After'
-  fix: "Wrap Wait() in a select with context.Done() or time.After() to prevent indefinite blocking"
+  fix: >-
+    Wrap Wait() in a select with context.Done() or time.After() to prevent
+    indefinite blocking
   found_in: [go-process]
   example_bad: 'wg.Wait()'
   example_good: |
@@ -41,7 +46,9 @@
   tags: [correctness, errors]
   pattern: '^\s*(var\s+)?_\s*=\s*\w+\.\w+\('
   exclude_pattern: 'defer|Close\(|Flush\('
-  fix: "Handle the error explicitly — log it, return it, or document why it is safe to discard"
+  fix: >-
+    Handle the error explicitly — log it, return it, or document why it is safe
+    to discard
   found_in: [go-store, go-cache]
   example_bad: '_ = service.Process(data)'
   example_good: |
@@ -59,7 +66,8 @@
   tags: [correctness, panic]
   pattern: '\bpanic\('
   exclude_pattern: '_test\.go|// unreachable|Must\w+\('
-  fix: "Return an error instead of panicking — panics in libraries crash the caller"
+  fix: >-
+    Return an error instead of panicking — panics in libraries crash the caller
   found_in: [go-io, go-config]
   example_bad: 'panic("unexpected state")'
   example_good: 'return fmt.Errorf("unexpected state: %v", state)'
@@ -74,7 +82,9 @@
   tags: [correctness, filesystem]
   pattern: 'os\.Remove(All)?\('
   exclude_pattern: 'filepath\.Clean|ValidatePath|strings\.Contains.*\.\.'
-  fix: "Validate the path before deletion to prevent removing unintended files or directories"
+  fix: >-
+    Validate the path before deletion to prevent removing unintended files or
+    directories
   found_in: [go-io]
   example_bad: 'os.RemoveAll(userProvidedPath)'
   example_good: |

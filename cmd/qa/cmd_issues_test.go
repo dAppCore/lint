@@ -10,11 +10,15 @@ import (
 	"dappco.re/go/cli/pkg/cli"
 )
 
+const (
+	cmdIssuesTestReposYaml866131 = "repos.yaml"
+)
+
 func TestRunQAIssuesJSONOutput_UsesMachineFriendlyKeys(t *T) {
 	dir := t.TempDir()
 	commentTime := time.Now().UTC().Add(-1 * time.Hour).Format(time.RFC3339)
 	updatedAt := time.Now().UTC().Format(time.RFC3339)
-	writeTestFile(t, filepath.Join(dir, "repos.yaml"), `version: 1
+	writeTestFile(t, filepath.Join(dir, cmdIssuesTestReposYaml866131), `version: 1
 org: forge
 base_path: .
 repos:
@@ -70,7 +74,7 @@ esac
 	parent := &cli.Command{Use: "qa"}
 	addIssuesCommand(parent)
 	command := findSubcommand(t, parent, "issues")
-	RequireNoError(t, command.Flags().Set("registry", filepath.Join(dir, "repos.yaml")))
+	RequireNoError(t, command.Flags().Set("registry", filepath.Join(dir, cmdIssuesTestReposYaml866131)))
 	RequireNoError(t, command.Flags().Set("json", "true"))
 
 	output := captureStdout(t, func() {
@@ -98,7 +102,7 @@ esac
 
 func TestRunQAIssuesJSONOutput_SortsFetchErrorsByRepoName(t *T) {
 	dir := t.TempDir()
-	writeTestFile(t, filepath.Join(dir, "repos.yaml"), `version: 1
+	writeTestFile(t, filepath.Join(dir, cmdIssuesTestReposYaml866131), `version: 1
 org: forge
 base_path: .
 repos:
@@ -134,7 +138,7 @@ esac
 	parent := &cli.Command{Use: "qa"}
 	addIssuesCommand(parent)
 	command := findSubcommand(t, parent, "issues")
-	RequireNoError(t, command.Flags().Set("registry", filepath.Join(dir, "repos.yaml")))
+	RequireNoError(t, command.Flags().Set("registry", filepath.Join(dir, cmdIssuesTestReposYaml866131)))
 	RequireNoError(t, command.Flags().Set("json", "true"))
 
 	var runErr error
@@ -152,7 +156,7 @@ esac
 
 func TestRunQAIssuesJSONOutput_ReturnsErrorWhenAllFetchesFail(t *T) {
 	dir := t.TempDir()
-	writeTestFile(t, filepath.Join(dir, "repos.yaml"), `version: 1
+	writeTestFile(t, filepath.Join(dir, cmdIssuesTestReposYaml866131), `version: 1
 org: forge
 base_path: .
 repos:
@@ -188,7 +192,7 @@ esac
 	parent := &cli.Command{Use: "qa"}
 	addIssuesCommand(parent)
 	command := findSubcommand(t, parent, "issues")
-	RequireNoError(t, command.Flags().Set("registry", filepath.Join(dir, "repos.yaml")))
+	RequireNoError(t, command.Flags().Set("registry", filepath.Join(dir, cmdIssuesTestReposYaml866131)))
 	RequireNoError(t, command.Flags().Set("json", "true"))
 
 	var runErr error
@@ -209,7 +213,7 @@ esac
 
 func TestRunQAIssuesHumanOutput_ReturnsErrorWhenAllFetchesFail(t *T) {
 	dir := t.TempDir()
-	writeTestFile(t, filepath.Join(dir, "repos.yaml"), `version: 1
+	writeTestFile(t, filepath.Join(dir, cmdIssuesTestReposYaml866131), `version: 1
 org: forge
 base_path: .
 repos:
@@ -245,7 +249,7 @@ esac
 	parent := &cli.Command{Use: "qa"}
 	addIssuesCommand(parent)
 	command := findSubcommand(t, parent, "issues")
-	RequireNoError(t, command.Flags().Set("registry", filepath.Join(dir, "repos.yaml")))
+	RequireNoError(t, command.Flags().Set("registry", filepath.Join(dir, cmdIssuesTestReposYaml866131)))
 
 	var runErr error
 	output := captureStdout(t, func() {

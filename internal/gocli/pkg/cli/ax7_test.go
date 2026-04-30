@@ -188,7 +188,9 @@ func TestCLI_WithCommands_Good(t *core.T) {
 
 func TestCLI_WithCommands_Bad(t *core.T) {
 	root := NewGroup("root", "", "")
-	setup := WithCommands("", func(root *Command) {})
+	setup := WithCommands("", func(root *Command) {
+		// Empty callback verifies blank command names are skipped.
+	})
 	setup(root)
 	core.AssertEmpty(t, root.Commands())
 	core.AssertNotNil(t, root)

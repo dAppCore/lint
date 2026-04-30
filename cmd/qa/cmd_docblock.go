@@ -90,39 +90,53 @@ func RunDocblockCheck(paths []string, threshold float64, verbose, jsonOutput boo
 	result.Passed = result.Coverage >= threshold
 
 	if jsonOutput {
-		data, err := json.MarshalIndent(result, "", "  ")
-		if err != nil {
-			return err
-		}
-		cli.Print("%s\n", string(data))
-		if !result.Passed {
-			return cli.Err("docblock coverage %.1f%% below threshold %.1f%%", result.Coverage, threshold)
-		}
-		return nil
+		return printDocblockJSON(result, threshold)
 	}
 
-	// Print result
-	if verbose && len(result.Missing) > 0 {
-		cli.Print("%s\n\n", i18n.T("cmd.qa.docblock.missing_docs"))
-		for _, m := range result.Missing {
-			cli.Print("  %s:%d: %s %s\n",
-				dimStyle.Render(m.File),
-				m.Line,
-				dimStyle.Render(m.Kind),
-				m.Name,
-			)
-		}
-		cli.Blank()
-	}
+	printVerboseMissingDocblocks(result, verbose)
+	printDocblockWarnings(result)
+	return printDocblockSummary(result, threshold)
+}
 
-	if len(result.Warnings) > 0 {
-		for _, warning := range result.Warnings {
-			cli.Warnf("failed to parse %s: %s", warning.Path, warning.Error)
-		}
-		cli.Blank()
+func printDocblockJSON(result *DocblockResult, threshold float64) error {
+	data, err := json.MarshalIndent(result, "", "  ")
+	if err != nil {
+		return err
 	}
+	cli.Print("%s\n", string(data))
+	if !result.Passed {
+		return cli.Err("docblock coverage %.1f%% below threshold %.1f%%", result.Coverage, threshold)
+	}
+	return nil
+}
 
-	// Summary
+func printVerboseMissingDocblocks(result *DocblockResult, verbose bool) {
+	if !verbose || len(result.Missing) == 0 {
+		return
+	}
+	cli.Print("%s\n\n", i18n.T("cmd.qa.docblock.missing_docs"))
+	for _, m := range result.Missing {
+		cli.Print("  %s:%d: %s %s\n",
+			dimStyle.Render(m.File),
+			m.Line,
+			dimStyle.Render(m.Kind),
+			m.Name,
+		)
+	}
+	cli.Blank()
+}
+
+func printDocblockWarnings(result *DocblockResult) {
+	if len(result.Warnings) == 0 {
+		return
+	}
+	for _, warning := range result.Warnings {
+		cli.Warnf("failed to parse %s: %s", warning.Path, warning.Error)
+	}
+	cli.Blank()
+}
+
+func printDocblockSummary(result *DocblockResult, threshold float64) error {
 	coverageStr := fmt.Sprintf("%.1f%%", result.Coverage)
 	thresholdStr := fmt.Sprintf("%.1f%%", threshold)
 
@@ -219,44 +233,47 @@ func expandPatterns(patterns []string) ([]string, error) {
 
 	for _, pattern := range patterns {
 		if strings.HasSuffix(pattern, "/...") {
-			// Recursive pattern
 			base := strings.TrimSuffix(pattern, "/...")
 			if base == "." {
 				base = "."
 			}
-			err := filepath.Walk(base, func(path string, info os.FileInfo, err error) error {
-				if err != nil {
-					return nil // Skip errors
-				}
-				if !info.IsDir() {
-					return nil
-				}
-				// Skip vendor, testdata, and hidden directories (but not "." itself)
-				name := info.Name()
-				if name == "vendor" || name == "testdata" || (strings.HasPrefix(name, ".") && name != ".") {
-					return filepath.SkipDir
-				}
-				// Check if directory has Go files
-				if hasGoFiles(path) && !seen[path] {
-					dirs = append(dirs, path)
-					seen[path] = true
-				}
-				return nil
-			})
-			if err != nil {
+			if err := expandRecursivePattern(base, seen, &dirs); err != nil {
 				return nil, err
 			}
-		} else {
-			// Single directory
-			path := pattern
-			if !seen[path] && hasGoFiles(path) {
-				dirs = append(dirs, path)
-				seen[path] = true
-			}
+			continue
 		}
+		addDocblockDir(pattern, seen, &dirs)
 	}
 
 	return dirs, nil
+}
+
+func expandRecursivePattern(base string, seen map[string]bool, dirs *[]string) error {
+	return filepath.Walk(base, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if !info.IsDir() {
+			return nil
+		}
+		if shouldSkipDocblockDir(info.Name()) {
+			return filepath.SkipDir
+		}
+		addDocblockDir(path, seen, dirs)
+		return nil
+	})
+}
+
+func shouldSkipDocblockDir(name string) bool {
+	return name == "vendor" || name == "testdata" || (strings.HasPrefix(name, ".") && name != ".")
+}
+
+func addDocblockDir(path string, seen map[string]bool, dirs *[]string) {
+	if seen[path] || !hasGoFiles(path) {
+		return
+	}
+	*dirs = append(*dirs, path)
+	seen[path] = true
 }
 
 // hasGoFiles checks if a directory contains Go files.
@@ -275,85 +292,119 @@ func hasGoFiles(dir string) bool {
 
 // checkFile analyzes a single file for docblock coverage.
 func checkFile(fset *token.FileSet, filename string, file *ast.File, result *DocblockResult) {
-	// Make filename relative if possible
-	if cwd, err := os.Getwd(); err == nil {
-		if rel, err := filepath.Rel(cwd, filename); err == nil {
-			filename = rel
-		}
-	}
+	filename = relativeDocblockFilename(filename)
 
 	for _, decl := range file.Decls {
-		switch d := decl.(type) {
-		case *ast.FuncDecl:
-			// Skip unexported functions
-			if !ast.IsExported(d.Name.Name) {
-				continue
-			}
-			// Skip methods on unexported types
-			if d.Recv != nil && len(d.Recv.List) > 0 {
-				if recvType := getReceiverTypeName(d.Recv.List[0].Type); recvType != "" && !ast.IsExported(recvType) {
-					continue
-				}
-			}
+		checkDecl(fset, filename, decl, result)
+	}
+}
 
-			result.Total++
-			if d.Doc != nil && len(d.Doc.List) > 0 {
-				result.Documented++
-			} else {
-				pos := fset.Position(d.Pos())
-				result.Missing = append(result.Missing, MissingDocblock{
-					File: filename,
-					Line: pos.Line,
-					Name: d.Name.Name,
-					Kind: "func",
-				})
-			}
+func relativeDocblockFilename(filename string) string {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return filename
+	}
+	rel, err := filepath.Rel(cwd, filename)
+	if err != nil {
+		return filename
+	}
+	return rel
+}
 
-		case *ast.GenDecl:
-			for _, spec := range d.Specs {
-				switch s := spec.(type) {
-				case *ast.TypeSpec:
-					if !ast.IsExported(s.Name.Name) {
-						continue
-					}
-					result.Total++
-					// Type can have doc on GenDecl or TypeSpec
-					if (d.Doc != nil && len(d.Doc.List) > 0) || (s.Doc != nil && len(s.Doc.List) > 0) {
-						result.Documented++
-					} else {
-						pos := fset.Position(s.Pos())
-						result.Missing = append(result.Missing, MissingDocblock{
-							File: filename,
-							Line: pos.Line,
-							Name: s.Name.Name,
-							Kind: "type",
-						})
-					}
+func checkDecl(fset *token.FileSet, filename string, decl ast.Decl, result *DocblockResult) {
+	switch d := decl.(type) {
+	case *ast.FuncDecl:
+		checkFuncDecl(fset, filename, d, result)
+	case *ast.GenDecl:
+		checkGenDecl(fset, filename, d, result)
+	}
+}
 
-				case *ast.ValueSpec:
-					// Check exported consts and vars
-					for _, name := range s.Names {
-						if !ast.IsExported(name.Name) {
-							continue
-						}
-						result.Total++
-						// Value can have doc on GenDecl or ValueSpec
-						if (d.Doc != nil && len(d.Doc.List) > 0) || (s.Doc != nil && len(s.Doc.List) > 0) {
-							result.Documented++
-						} else {
-							pos := fset.Position(name.Pos())
-							result.Missing = append(result.Missing, MissingDocblock{
-								File: filename,
-								Line: pos.Line,
-								Name: name.Name,
-								Kind: kindFromToken(d.Tok),
-							})
-						}
-					}
-				}
-			}
+func checkFuncDecl(fset *token.FileSet, filename string, decl *ast.FuncDecl, result *DocblockResult) {
+	if !isExportedDocblockFunc(decl) {
+		return
+	}
+	recordDocblock(fset, filename, decl.Pos(), decl.Name.Name, "func", decl.Doc, result)
+}
+
+func isExportedDocblockFunc(decl *ast.FuncDecl) bool {
+	if !ast.IsExported(decl.Name.Name) {
+		return false
+	}
+	if decl.Recv == nil || len(decl.Recv.List) == 0 {
+		return true
+	}
+	recvType := getReceiverTypeName(decl.Recv.List[0].Type)
+	return recvType == "" || ast.IsExported(recvType)
+}
+
+func checkGenDecl(fset *token.FileSet, filename string, decl *ast.GenDecl, result *DocblockResult) {
+	for _, spec := range decl.Specs {
+		switch s := spec.(type) {
+		case *ast.TypeSpec:
+			checkTypeSpec(fset, filename, decl, s, result)
+		case *ast.ValueSpec:
+			checkValueSpec(fset, filename, decl, s, result)
 		}
 	}
+}
+
+func checkTypeSpec(
+	fset *token.FileSet,
+	filename string,
+	decl *ast.GenDecl,
+	spec *ast.TypeSpec,
+	result *DocblockResult,
+) {
+	if !ast.IsExported(spec.Name.Name) {
+		return
+	}
+	recordDocblock(fset, filename, spec.Pos(), spec.Name.Name, "type", mergedDoc(decl.Doc, spec.Doc), result)
+}
+
+func checkValueSpec(
+	fset *token.FileSet,
+	filename string,
+	decl *ast.GenDecl,
+	spec *ast.ValueSpec,
+	result *DocblockResult,
+) {
+	for _, name := range spec.Names {
+		if !ast.IsExported(name.Name) {
+			continue
+		}
+		recordDocblock(fset, filename, name.Pos(), name.Name, kindFromToken(decl.Tok), mergedDoc(decl.Doc, spec.Doc), result)
+	}
+}
+
+func mergedDoc(primary *ast.CommentGroup, fallback *ast.CommentGroup) *ast.CommentGroup {
+	if primary != nil && len(primary.List) > 0 {
+		return primary
+	}
+	return fallback
+}
+
+func recordDocblock(
+	fset *token.FileSet,
+	filename string,
+	pos token.Pos,
+	name string,
+	kind string,
+	doc *ast.CommentGroup,
+	result *DocblockResult,
+) {
+	result.Total++
+	if doc != nil && len(doc.List) > 0 {
+		result.Documented++
+		return
+	}
+	position := fset.Position(pos)
+	result.Missing = append(result.Missing, MissingDocblock{
+		File: filename,
+		Line: position.Line,
+		Name: name,
+		Kind: kind,
+	})
 }
 
 // getReceiverTypeName extracts the type name from a method receiver.

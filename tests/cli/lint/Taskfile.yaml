@@ -1,5 +1,5 @@
+---
 version: "3"
-
 tasks:
   test:
     cmds:
@@ -11,4 +11,3 @@ tasks:
       - task -d init test
       - task -d run test
       - task -d run-php test
-

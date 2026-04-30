@@ -119,7 +119,6 @@ func addReviewCommand(parent *cli.Command) {
 }
 
 func runReview() error {
-	// Check gh is available
 	if result := (core.App{}).Find("gh", "GitHub CLI"); !result.OK {
 		return core.E("qa.review", i18n.T("error.gh_not_found"), nil)
 	}
@@ -127,115 +126,152 @@ func runReview() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	// Determine repo
-	repoFullName := reviewRepo
-	if repoFullName == "" {
-		var err error
-		repoFullName, err = detectRepoFromGit()
-		if err != nil {
-			return core.E("qa.review", i18n.T("cmd.qa.review.error.no_repo"), nil)
-		}
+	repoFullName, err := resolveReviewRepo()
+	if err != nil {
+		return err
 	}
 
-	// Default: show both mine and requested if neither flag is set
+	scopes := selectedReviewScopes()
+	fetches := fetchReviewPRs(ctx, repoFullName, scopes)
+	return outputReview(repoFullName, scopes, fetches)
+}
+
+type reviewScopes struct {
+	showMine      bool
+	showRequested bool
+}
+
+type reviewFetches struct {
+	mine              []PullRequest
+	requested         []PullRequest
+	errors            []ReviewFetchError
+	mineFetched       bool
+	requestedFetched  bool
+	successfulFetches int
+}
+
+func resolveReviewRepo() (string, error) {
+	if reviewRepo != "" {
+		return reviewRepo, nil
+	}
+	repoFullName, err := detectRepoFromGit()
+	if err != nil {
+		return "", core.E("qa.review", i18n.T("cmd.qa.review.error.no_repo"), nil)
+	}
+	return repoFullName, nil
+}
+
+func selectedReviewScopes() reviewScopes {
 	showMine := reviewMine || (!reviewMine && !reviewRequested)
 	showRequested := reviewRequested || (!reviewMine && !reviewRequested)
-	minePRs := []PullRequest{}
-	requestedPRs := []PullRequest{}
-	fetchErrors := make([]ReviewFetchError, 0)
-	mineFetched := false
-	requestedFetched := false
-	successfulFetches := 0
+	return reviewScopes{showMine: showMine, showRequested: showRequested}
+}
 
-	if showMine {
-		prs, err := fetchPRs(ctx, repoFullName, "author:@me")
-		if err != nil {
-			fetchErrors = append(fetchErrors, ReviewFetchError{
-				Repo:  repoFullName,
-				Scope: "mine",
-				Error: core.Trim(err.Error()),
-			})
-			if !reviewJSON {
-				cli.Warnf("failed to fetch your PRs for %s: %s", repoFullName, core.Trim(err.Error()))
-			}
-		} else {
-			sort.Slice(prs, func(i, j int) bool {
-				if prs[i].Number == prs[j].Number {
-					return prs[i].Title < prs[j].Title
-				}
-				return prs[i].Number < prs[j].Number
-			})
-			minePRs = prs
-			mineFetched = true
-			successfulFetches++
-		}
+func fetchReviewPRs(ctx context.Context, repoFullName string, scopes reviewScopes) reviewFetches {
+	fetches := reviewFetches{errors: make([]ReviewFetchError, 0)}
+	if scopes.showMine {
+		fetches.mine, fetches.mineFetched = fetchReviewScope(ctx, repoFullName, "mine", "author:@me", &fetches)
 	}
-
-	if showRequested {
-		prs, err := fetchPRs(ctx, repoFullName, "review-requested:@me")
-		if err != nil {
-			fetchErrors = append(fetchErrors, ReviewFetchError{
-				Repo:  repoFullName,
-				Scope: "requested",
-				Error: core.Trim(err.Error()),
-			})
-			if !reviewJSON {
-				cli.Warnf("failed to fetch review requested PRs for %s: %s", repoFullName, core.Trim(err.Error()))
-			}
-		} else {
-			sort.Slice(prs, func(i, j int) bool {
-				if prs[i].Number == prs[j].Number {
-					return prs[i].Title < prs[j].Title
-				}
-				return prs[i].Number < prs[j].Number
-			})
-			requestedPRs = prs
-			requestedFetched = true
-			successfulFetches++
-		}
+	if scopes.showRequested {
+		fetches.requested, fetches.requestedFetched = fetchReviewScope(ctx, repoFullName, "requested", "review-requested:@me", &fetches)
 	}
+	return fetches
+}
 
+func fetchReviewScope(
+	ctx context.Context,
+	repoFullName string,
+	scope string,
+	query string,
+	fetches *reviewFetches,
+) ([]PullRequest, bool) {
+	prs, err := fetchPRs(ctx, repoFullName, query)
+	if err != nil {
+		recordReviewFetchError(repoFullName, scope, err, fetches)
+		return nil, false
+	}
+	sortPullRequests(prs)
+	fetches.successfulFetches++
+	return prs, true
+}
+
+func recordReviewFetchError(repoFullName string, scope string, err error, fetches *reviewFetches) {
+	message := core.Trim(err.Error())
+	fetches.errors = append(fetches.errors, ReviewFetchError{
+		Repo:  repoFullName,
+		Scope: scope,
+		Error: message,
+	})
+	if reviewJSON {
+		return
+	}
+	if scope == "mine" {
+		cli.Warnf("failed to fetch your PRs for %s: %s", repoFullName, message)
+		return
+	}
+	cli.Warnf("failed to fetch review requested PRs for %s: %s", repoFullName, message)
+}
+
+func sortPullRequests(prs []PullRequest) {
+	sort.Slice(prs, func(i, j int) bool {
+		if prs[i].Number == prs[j].Number {
+			return prs[i].Title < prs[j].Title
+		}
+		return prs[i].Number < prs[j].Number
+	})
+}
+
+func outputReview(repoFullName string, scopes reviewScopes, fetches reviewFetches) error {
 	output := reviewOutput{
-		Mine:             minePRs,
-		Requested:        requestedPRs,
-		TotalMine:        len(minePRs),
-		TotalRequested:   len(requestedPRs),
-		ShowingMine:      showMine,
-		ShowingRequested: showRequested,
-		FetchErrors:      fetchErrors,
+		Mine:             fetches.mine,
+		Requested:        fetches.requested,
+		TotalMine:        len(fetches.mine),
+		TotalRequested:   len(fetches.requested),
+		ShowingMine:      scopes.showMine,
+		ShowingRequested: scopes.showRequested,
+		FetchErrors:      fetches.errors,
 	}
 
 	if reviewJSON {
-		result := core.JSONMarshal(output)
-		if !result.OK {
-			return resultError(result, "qa.review.json")
-		}
-		cli.Print("%s\n", string(result.Value.([]byte)))
-		if successfulFetches == 0 && len(fetchErrors) > 0 {
-			return cli.Err("failed to fetch pull requests for %s", repoFullName)
-		}
-		return nil
+		return outputReviewJSON(repoFullName, output, fetches)
+	}
+	return outputReviewText(repoFullName, scopes, fetches)
+}
+
+func outputReviewJSON(repoFullName string, output reviewOutput, fetches reviewFetches) error {
+	result := core.JSONMarshal(output)
+	if !result.OK {
+		return resultError(result, "qa.review.json")
+	}
+	cli.Print("%s\n", string(result.Value.([]byte)))
+	return reviewFetchFailure(repoFullName, fetches)
+}
+
+func outputReviewText(repoFullName string, scopes reviewScopes, fetches reviewFetches) error {
+	if err := reviewFetchFailure(repoFullName, fetches); err != nil {
+		return err
 	}
 
-	if successfulFetches == 0 && len(fetchErrors) > 0 {
-		return cli.Err("failed to fetch pull requests for %s", repoFullName)
-	}
-
-	if showMine && mineFetched {
-		if err := printMyPRs(minePRs); err != nil {
+	if scopes.showMine && fetches.mineFetched {
+		if err := printMyPRs(fetches.mine); err != nil {
 			return err
 		}
 	}
 
-	if showRequested && requestedFetched {
-		if showMine && mineFetched {
+	if scopes.showRequested && fetches.requestedFetched {
+		if scopes.showMine && fetches.mineFetched {
 			cli.Blank()
 		}
-		if err := printRequestedPRs(requestedPRs); err != nil {
-			return err
-		}
+		return printRequestedPRs(fetches.requested)
 	}
 
+	return nil
+}
+
+func reviewFetchFailure(repoFullName string, fetches reviewFetches) error {
+	if fetches.successfulFetches == 0 && len(fetches.errors) > 0 {
+		return cli.Err("failed to fetch pull requests for %s", repoFullName)
+	}
 	return nil
 }
 
@@ -435,70 +471,74 @@ func printPRForReview(pr PullRequest) {
 
 // analyzePRStatus determines the status, style, and action for a PR
 func analyzePRStatus(pr PullRequest) (status string, style *cli.AnsiStyle, action string) {
-	// Check if draft
 	if pr.IsDraft {
 		return "◯", dimStyle, "Draft - convert to ready when done"
 	}
 
-	// Check CI status
-	ciPassed := true
-	ciFailed := false
-	ciPending := false
-	var failedChecks []string
-
-	if pr.StatusChecks != nil {
-		for _, check := range pr.StatusChecks.Contexts {
-			switch check.Conclusion {
-			case "FAILURE", "failure":
-				ciFailed = true
-				ciPassed = false
-				failedChecks = append(failedChecks, check.Name)
-			case "PENDING", "pending", "":
-				if check.State == "PENDING" || check.State == "" {
-					ciPending = true
-					ciPassed = false
-				}
-			}
-		}
-	}
-
-	// Check review status
+	ci := prCIStatus(pr)
 	approved := pr.ReviewDecision == "APPROVED"
 	changesRequested := pr.ReviewDecision == "CHANGES_REQUESTED"
-
-	// Check mergeable status
 	hasConflicts := pr.Mergeable == "CONFLICTING"
 
-	// Determine overall status
 	if hasConflicts {
 		return "✗", errorStyle, "Needs rebase - has merge conflicts"
 	}
-
-	if ciFailed {
-		if len(failedChecks) > 0 {
-			sort.Strings(failedChecks)
-			return "✗", errorStyle, core.Sprintf("CI failed: %s", failedChecks[0])
-		}
-		return "✗", errorStyle, "CI failed"
+	if ci.failed {
+		return failedPRStatus(ci.failedChecks)
 	}
-
 	if changesRequested {
 		return "✗", warningStyle, "Changes requested - address review feedback"
 	}
-
-	if ciPending {
+	if ci.pending {
 		return "◯", warningStyle, "CI running..."
 	}
-
 	if !approved && pr.ReviewDecision != "" {
 		return "◯", warningStyle, "Awaiting review"
 	}
-
-	if approved && ciPassed {
+	if approved && ci.passed {
 		return "✓", successStyle, "Ready to merge"
 	}
-
 	return "◯", dimStyle, ""
+}
+
+type pullRequestCIStatus struct {
+	passed       bool
+	failed       bool
+	pending      bool
+	failedChecks []string
+}
+
+func prCIStatus(pr PullRequest) pullRequestCIStatus {
+	ci := pullRequestCIStatus{passed: true}
+	if pr.StatusChecks == nil {
+		return ci
+	}
+	for _, check := range pr.StatusChecks.Contexts {
+		applyCheckStatus(&ci, check)
+	}
+	return ci
+}
+
+func applyCheckStatus(ci *pullRequestCIStatus, check StatusContext) {
+	switch check.Conclusion {
+	case "FAILURE", "failure":
+		ci.failed = true
+		ci.passed = false
+		ci.failedChecks = append(ci.failedChecks, check.Name)
+	case "PENDING", "pending", "":
+		if check.State == "PENDING" || check.State == "" {
+			ci.pending = true
+			ci.passed = false
+		}
+	}
+}
+
+func failedPRStatus(failedChecks []string) (string, *cli.AnsiStyle, string) {
+	if len(failedChecks) == 0 {
+		return "✗", errorStyle, "CI failed"
+	}
+	sort.Strings(failedChecks)
+	return "✗", errorStyle, core.Sprintf("CI failed: %s", failedChecks[0])
 }
 
 // truncate shortens a string to max length (rune-safe for UTF-8)

@@ -36,6 +36,7 @@ func TestFixture_Beta_Good(t *T) {
 func TestFixture_Beta_Bad(t *T) {
 	var called bool
 	AssertNotPanics(t, func() {
+		Beta()
 		called = true
 	})
 	AssertTrue(t, called)
@@ -58,6 +59,7 @@ func TestFixture_Broken_Good(t *T) {
 func TestFixture_Broken_Bad(t *T) {
 	var called bool
 	AssertNotPanics(t, func() {
+		Broken()
 		called = true
 	})
 	AssertTrue(t, called)

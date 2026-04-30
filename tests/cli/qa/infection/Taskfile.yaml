@@ -1,3 +1,4 @@
+---
 version: "3"
 
 tasks:
@@ -12,7 +13,9 @@ tasks:
 
           cd fixtures/project
           output="$(mktemp)"
-          run_capture_all 1 "$output" ../../bin/core qa infection --min-msi 80 --min-covered-msi 90 --threads 8 --filter src --only-covered
+          run_capture_all 1 "$output" ../../bin/core qa infection \
+            --min-msi 80 --min-covered-msi 90 --threads 8 \
+            --filter src --only-covered
           grep -Fq "Mutation Testing" "$output"
           grep -Fq -- "--min-msi=80" "$output"
           grep -Fq -- "--min-covered-msi=90" "$output"

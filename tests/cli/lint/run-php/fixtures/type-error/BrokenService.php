@@ -15,7 +15,7 @@ namespace Fixtures\TypeError;
  */
 final class BrokenService
 {
-    public function compute(int $left, int $right): int
+    public function compute(int $_left, int $_right): int
     {
         return 'not-an-int';
     }
