@@ -1,0 +1,13 @@
+go 1.26.2
+
+// Workspace mode for development: resolves local core/go dependency repos.
+// CI should use GOWORK=off so go/go.mod tags drive reproducible builds.
+
+use (
+	./go
+	./external/go
+	./external/cli
+	./external/go-i18n
+	./external/go-io/go
+	./external/go-scm/go
+)
