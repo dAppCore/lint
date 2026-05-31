@@ -21,7 +21,7 @@ require (
 )
 
 require (
-	dappco.re/go v0.9.0
+	dappco.re/go v0.10.3
 	dappco.re/go/cli v0.9.0
 	dappco.re/go/i18n v0.9.0
 	dappco.re/go/io v0.9.0
