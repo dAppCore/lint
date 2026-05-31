@@ -86,3 +86,44 @@ func TestPrintWatchStatus_GoodBadUgly(t *T) {
 	AssertContains(t, output, "a")
 	AssertContains(t, output, "b")
 }
+
+// TestParseGitHubRepo_Good_ParsesSSHURL extracts org/repo from an SSH remote.
+func TestParseGitHubRepo_Good_ParsesSSHURL(t *T) {
+	result := parseGitHubRepo("git@github.com:dappcore/lint.git")
+	RequireResultOK(t, result)
+	AssertEqual(t, "dappcore/lint", result.Value.(string))
+}
+
+// TestParseGitHubRepo_Ugly_ParsesHTTPSURL extracts org/repo from an HTTPS
+// remote, stripping the .git suffix.
+func TestParseGitHubRepo_Ugly_ParsesHTTPSURL(t *T) {
+	result := parseGitHubRepo("https://github.com/dappcore/lint.git")
+	RequireResultOK(t, result)
+	AssertEqual(t, "dappcore/lint", result.Value.(string))
+}
+
+// TestParseGitHubRepo_Bad_NonGitHubURLFails fails on a URL that is not a GitHub
+// remote.
+func TestParseGitHubRepo_Bad_NonGitHubURLFails(t *T) {
+	result := parseGitHubRepo("https://gitlab.com/foo/bar.git")
+	AssertFalse(t, result.OK)
+}
+
+// TestResolveCommit_Good_SpecifiedPassesThrough returns the supplied commit
+// without consulting git.
+func TestResolveCommit_Good_SpecifiedPassesThrough(t *T) {
+	result := resolveCommit("abc1234")
+	RequireResultOK(t, result)
+	AssertEqual(t, "abc1234", result.Value.(string))
+}
+
+// TestPrintWatchHeader_GoodBadUgly prints the repo name and an abbreviated
+// commit SHA (truncated to 8 chars when longer).
+func TestPrintWatchHeader_GoodBadUgly(t *T) {
+	output := captureStdout(t, func() {
+		printWatchHeader("dappcore/lint", "0123456789abcdef")
+	})
+	AssertContains(t, output, "dappcore/lint")
+	AssertContains(t, output, "01234567")
+	AssertNotContains(t, output, "0123456789abcdef")
+}
