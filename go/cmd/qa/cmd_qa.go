@@ -21,15 +21,6 @@ import (
 
 var qaCore = newQACore()
 
-func init() {
-	cli.RegisterCommands(func(c *core.Core) {
-		result := AddQACommands(c)
-		if !result.OK {
-			core.Warn("qa command registration failed", "err", result.Error())
-		}
-	})
-}
-
 // Style aliases from shared package
 var (
 	successStyle = cli.SuccessStyle
@@ -138,9 +129,10 @@ func qaCommandExitCode(err error) int {
 
 func newQACore() *core.Core {
 	c := core.New()
-	svc, err := i18n.NewWithFS(locales.FS, ".")
-	if err == nil {
-		c.I18n().SetTranslator(svc)
+	if r := i18n.NewWithFS(locales.FS, "."); r.OK {
+		if svc, ok := r.Value.(*i18n.Service); ok {
+			c.I18n().SetTranslator(svc)
+		}
 	}
 	return c
 }
