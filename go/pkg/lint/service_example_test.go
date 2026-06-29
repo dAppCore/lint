@@ -23,3 +23,19 @@ func ExampleService_InstallHook() {
 func ExampleService_RemoveHook() {
 	_ = (*Service).RemoveHook
 }
+
+func ExampleNewServiceFor() {
+	_ = NewServiceFor
+}
+
+func ExampleRegister() {
+	_ = Register
+}
+
+func ExampleService_OnStartup() {
+	_ = (*Service).OnStartup
+}
+
+func ExampleService_OnShutdown() {
+	_ = (*Service).OnShutdown
+}

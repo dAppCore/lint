@@ -73,19 +73,166 @@ type ToolRun struct {
 	Findings int    `json:"findings"`
 }
 
-// Service orchestrates the configured lint adapters for a project.
+// LintConfigOptions configures the lint service. Empty config gives
+// the built-in adapter registry; reserved for future tunables (extra
+// adapters, default exclusions, custom output paths) without breaking
+// existing callers.
 //
+// Usage example: `cfg := lint.LintConfigOptions{}`
+type LintConfigOptions struct{}
+
+// Service orchestrates the configured lint adapters for a project and
+// hosts the canonical Core registration handle. Embeds
+// *core.ServiceRuntime[LintConfigOptions] for typed options access
+// when constructed via NewServiceFor / Register; library callers use
+// NewService() (no Core attachment) which leaves ServiceRuntime nil.
+//
+//	// Library use (no Core)
 //	svc := lint.NewService()
 //	result := svc.Run(ctx, lint.RunInput{Path: ".", Output: "json"})
+//
+//	// Core registration
+//	c, _ := core.New(core.WithName("lint", lint.NewServiceFor(lint.LintConfigOptions{})))
 type Service struct {
-	adapters []Adapter
+	*core.ServiceRuntime[LintConfigOptions]
+	adapters      []Adapter
+	registrations core.Once
 }
 
-// NewService constructs a lint orchestrator with the built-in adapter registry.
+// NewService constructs a lint orchestrator with the built-in adapter
+// registry — library use, no Core attachment. ServiceRuntime is nil
+// on the returned Service; OnStartup / handler methods will be no-ops.
 //
 //	svc := lint.NewService()
 func NewService() *Service {
 	return &Service{adapters: defaultAdapters()}
+}
+
+// NewServiceFor returns a factory that builds a Core-attached lint
+// Service with the supplied LintConfigOptions and produces a *Service
+// ready for c.Service() registration.
+//
+// Usage example: `c, _ := core.New(core.WithName("lint", lint.NewServiceFor(lint.LintConfigOptions{})))`
+func NewServiceFor(config LintConfigOptions) func(*core.Core) core.Result {
+	return func(c *core.Core) core.Result {
+		return core.Ok(&Service{
+			ServiceRuntime: core.NewServiceRuntime(c, config),
+			adapters:       defaultAdapters(),
+		})
+	}
+}
+
+// Register builds the lint service with default LintConfigOptions and
+// returns the service Result directly — the imperative-style
+// alternative to NewServiceFor for consumers wiring services without
+// WithName options.
+//
+// Usage example: `r := lint.Register(c); svc := r.Value.(*lint.Service)`
+func Register(c *core.Core) core.Result {
+	return NewServiceFor(LintConfigOptions{})(c)
+}
+
+// OnStartup registers the lint action handlers on the attached Core.
+// No-op when ServiceRuntime is nil (library construction). Implements
+// core.Startable. Idempotent via core.Once.
+//
+// Usage example: `r := svc.OnStartup(ctx)`
+func (service *Service) OnStartup(context.Context) core.Result {
+	if service == nil || service.ServiceRuntime == nil {
+		return core.Ok(nil)
+	}
+	service.registrations.Do(func() {
+		c := service.Core()
+		if c == nil {
+			return
+		}
+		c.Action("lint.run", service.handleRun)
+		c.Action("lint.tools", service.handleTools)
+		c.Action("lint.install_hook", service.handleInstallHook)
+		c.Action("lint.remove_hook", service.handleRemoveHook)
+		c.Action("lint.write_default_config", service.handleWriteDefaultConfig)
+	})
+	return core.Ok(nil)
+}
+
+// OnShutdown is a no-op — adapter lifecycles are bounded by individual
+// Run calls. Implements core.Stoppable.
+//
+// Usage example: `r := svc.OnShutdown(ctx)`
+func (service *Service) OnShutdown(context.Context) core.Result {
+	return core.Ok(nil)
+}
+
+// handleRun — `lint.run` action handler. Reads opts.{path, output,
+// config, schedule, fail_on, category, lang, hook, ci, sbom} as a
+// RunInput and returns the resulting Report in r.Value.
+//
+// Usage example: `r := c.Action("lint.run").Run(ctx, core.NewOptions(core.Option{Key: "path", Value: "."}, core.Option{Key: "output", Value: "json"}))`
+func (service *Service) handleRun(ctx core.Context, opts core.Options) core.Result {
+	if service == nil {
+		return core.Fail(core.E("lint.run", "service not initialised", nil))
+	}
+	return service.Run(ctx, RunInput{
+		Path:     opts.String("path"),
+		Output:   opts.String("output"),
+		Config:   opts.String("config"),
+		Schedule: opts.String("schedule"),
+		FailOn:   opts.String("fail_on"),
+		Category: opts.String("category"),
+		Lang:     opts.String("lang"),
+		Hook:     opts.Bool("hook"),
+		CI:       opts.Bool("ci"),
+		SBOM:     opts.Bool("sbom"),
+	})
+}
+
+// handleTools — `lint.tools` action handler. Reads opts.languages
+// ([]string) and returns []ToolInfo describing the supported linter
+// tools and PATH availability in r.Value.
+//
+// Usage example: `r := c.Action("lint.tools").Run(ctx, core.NewOptions(core.Option{Key: "languages", Value: []string{"go"}}))`
+func (service *Service) handleTools(_ core.Context, opts core.Options) core.Result {
+	if service == nil {
+		return core.Fail(core.E("lint.tools", "service not initialised", nil))
+	}
+	languages, _ := opts.Get("languages").Value.([]string)
+	return core.Ok(service.Tools(languages))
+}
+
+// handleInstallHook — `lint.install_hook` action handler. Reads
+// opts.path and installs the lint pre-commit hook into the project's
+// git hook directory.
+//
+// Usage example: `r := c.Action("lint.install_hook").Run(ctx, core.NewOptions(core.Option{Key: "path", Value: "."}))`
+func (service *Service) handleInstallHook(_ core.Context, opts core.Options) core.Result {
+	if service == nil {
+		return core.Fail(core.E("lint.install_hook", "service not initialised", nil))
+	}
+	return service.InstallHook(opts.String("path"))
+}
+
+// handleRemoveHook — `lint.remove_hook` action handler. Reads
+// opts.path and removes the lint pre-commit hook from the project's
+// git hook directory.
+//
+// Usage example: `r := c.Action("lint.remove_hook").Run(ctx, core.NewOptions(core.Option{Key: "path", Value: "."}))`
+func (service *Service) handleRemoveHook(_ core.Context, opts core.Options) core.Result {
+	if service == nil {
+		return core.Fail(core.E("lint.remove_hook", "service not initialised", nil))
+	}
+	return service.RemoveHook(opts.String("path"))
+}
+
+// handleWriteDefaultConfig — `lint.write_default_config` action
+// handler. Reads opts.path + opts.force and writes the default
+// .core/lint.yaml config to the project root.
+//
+// Usage example: `r := c.Action("lint.write_default_config").Run(ctx, core.NewOptions(core.Option{Key: "path", Value: "."}, core.Option{Key: "force", Value: true}))`
+func (service *Service) handleWriteDefaultConfig(_ core.Context, opts core.Options) core.Result {
+	if service == nil {
+		return core.Fail(core.E("lint.write_default_config", "service not initialised", nil))
+	}
+	return service.WriteDefaultConfig(opts.String("path"), opts.Bool("force"))
 }
 
 // Run executes the selected adapters and returns the merged report.
