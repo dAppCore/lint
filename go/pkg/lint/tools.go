@@ -538,7 +538,7 @@ func (t *Toolkit) GitLog(n int) core.Result {
 // CheckPerms walks a directory and flags files with overly permissive modes.
 func (t *Toolkit) CheckPerms(dir string) core.Result {
 	var issues []PermIssue
-	err := core.PathWalkDir(core.PathJoin(t.Dir, dir), func(path string, entry core.FsDirEntry, walkErr error) error {
+	r := core.PathWalkDir(core.PathJoin(t.Dir, dir), func(path string, entry core.FsDirEntry, walkErr error) error {
 		if walkErr != nil {
 			return nil
 		}
@@ -565,7 +565,8 @@ func (t *Toolkit) CheckPerms(dir string) core.Result {
 		}
 		return nil
 	})
-	if err != nil {
+	if !r.OK {
+		err, _ := r.Value.(error)
 		return core.Fail(core.E("Toolkit.CheckPerms", "walk failed", err))
 	}
 	return core.Ok(issues)

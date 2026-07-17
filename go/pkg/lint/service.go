@@ -698,7 +698,7 @@ func (collector *configuredFileCollector) shouldSkipFile(candidate string, relat
 }
 
 func (collector *configuredFileCollector) walkDir(absolutePath string) core.Result {
-	walkErr := core.PathWalkDir(absolutePath, func(currentPath string, entry fs.DirEntry, walkErr error) error {
+	r := core.PathWalkDir(absolutePath, func(currentPath string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
@@ -716,7 +716,8 @@ func (collector *configuredFileCollector) walkDir(absolutePath string) core.Resu
 		collector.addFile(currentPath)
 		return nil
 	})
-	if walkErr != nil {
+	if !r.OK {
+		walkErr, _ := r.Value.(error)
 		return core.Fail(core.E("collectConfiguredFiles", "walk "+absolutePath, walkErr))
 	}
 	return core.Ok(nil)

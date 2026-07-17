@@ -96,7 +96,7 @@ func (s *Scanner) ScanDir(root string) core.Result {
 		return core.Ok(findings)
 	}
 
-	err := core.PathWalkDir(root, func(path string, d fs.DirEntry, err error) error {
+	r := core.PathWalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		entryResult := s.scanDirEntry(root, path, d, err)
 		if !entryResult.OK {
 			if entryResult.Value == fs.SkipDir {
@@ -109,7 +109,8 @@ func (s *Scanner) ScanDir(root string) core.Result {
 		return nil
 	})
 
-	if err != nil {
+	if !r.OK {
+		err, _ := r.Value.(error)
 		return core.Fail(core.E("Scanner.ScanDir", "scanning "+root, err))
 	}
 
