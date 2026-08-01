@@ -64,7 +64,7 @@ func normaliseComplexityConfig(cfg ComplexityConfig) ComplexityConfig {
 
 func analyseComplexityDir(cfg ComplexityConfig) core.Result {
 	var results []ComplexityResult
-	err := core.PathWalkDir(cfg.Path, func(path string, entry core.FsDirEntry, walkErr error) error {
+	walkResult := core.PathWalkDir(cfg.Path, func(path string, entry core.FsDirEntry, walkErr error) error {
 		if walkErr != nil {
 			return nil
 		}
@@ -76,7 +76,7 @@ func analyseComplexityDir(cfg ComplexityConfig) core.Result {
 		results = append(results, analyseComplexityFile(path, cfg.Threshold)...)
 		return nil
 	})
-	if err != nil {
+	if err := walkResult.Err(); err != nil {
 		return core.Fail(core.E("AnalyseComplexity", "walk "+cfg.Path, err))
 	}
 

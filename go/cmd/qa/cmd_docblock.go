@@ -231,7 +231,7 @@ func expandPatterns(patterns []string) core.Result {
 }
 
 func expandRecursivePattern(base string, seen map[string]bool, dirs *[]string) core.Result {
-	err := core.PathWalkDir(base, func(path string, info core.FsDirEntry, walkErr error) error {
+	walkResult := core.PathWalkDir(base, func(path string, info core.FsDirEntry, walkErr error) error {
 		if walkErr != nil {
 			return nil
 		}
@@ -244,7 +244,7 @@ func expandRecursivePattern(base string, seen map[string]bool, dirs *[]string) c
 		addDocblockDir(path, seen, dirs)
 		return nil
 	})
-	if err != nil {
+	if err := walkResult.Err(); err != nil {
 		return core.Fail(err)
 	}
 	return core.Ok(nil)
