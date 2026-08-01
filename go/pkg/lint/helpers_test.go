@@ -1,8 +1,6 @@
 package lint
 
 import (
-	"context"
-
 	core "dappco.re/go"
 )
 
@@ -218,14 +216,14 @@ func TestRegister_Good_BuildsCoreAttachedService(t *core.T) {
 	svc := serviceResult.Value.(*Service)
 	RequireNotNil(t, svc)
 
-	RequireResultOK(t, svc.OnStartup(context.Background()))
-	RequireResultOK(t, svc.OnShutdown(context.Background()))
+	RequireResultOK(t, svc.OnStartup(t.Context()))
+	RequireResultOK(t, svc.OnShutdown(t.Context()))
 }
 
 // TestOnStartup_Ugly_NilRuntimeIsNoOp returns OK for a library-constructed
 // service with no attached Core.
 func TestOnStartup_Ugly_NilRuntimeIsNoOp(t *core.T) {
 	svc := NewService()
-	RequireResultOK(t, svc.OnStartup(context.Background()))
-	RequireResultOK(t, svc.OnShutdown(context.Background()))
+	RequireResultOK(t, svc.OnStartup(t.Context()))
+	RequireResultOK(t, svc.OnShutdown(t.Context()))
 }

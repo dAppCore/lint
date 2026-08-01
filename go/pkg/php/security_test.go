@@ -1,7 +1,6 @@
 package php
 
 import (
-	"context"
 	. "dappco.re/go"
 	"net/http"
 	"net/http/httptest"
@@ -164,7 +163,7 @@ func TestRunSecurityChecks_Summary(t *T) {
 	envContent := "APP_DEBUG=true\nAPP_KEY=base64:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa=\nAPP_URL=http://insecure.com\n"
 	RequireResultOK(t, WriteFile(PathJoin(dir, ".env"), []byte(envContent), 0644))
 
-	result := RequireResult[*SecurityResult](t, RunSecurityChecks(context.Background(), SecurityOptions{Dir: dir}))
+	result := RequireResult[*SecurityResult](t, RunSecurityChecks(t.Context(), SecurityOptions{Dir: dir}))
 
 	// Find the env-related checks by ID
 	byID := make(map[string]SecurityCheck)
@@ -189,7 +188,7 @@ func TestRunSecurityChecks_Summary(t *T) {
 
 func TestRunSecurityChecks_DefaultsDir(t *T) {
 	// Test that empty Dir defaults to cwd (should not error)
-	result := RequireResult[*SecurityResult](t, RunSecurityChecks(context.Background(), SecurityOptions{}))
+	result := RequireResult[*SecurityResult](t, RunSecurityChecks(t.Context(), SecurityOptions{}))
 	AssertNotNil(t, result)
 	AssertNotNil(t, result.Summary)
 	AssertGreaterOrEqual(t, result.Summary.Total, 0)
@@ -199,7 +198,7 @@ func TestRunSecurityChecks_SeverityFilterCritical(t *T) {
 	dir := t.TempDir()
 	setupSecurityFixture(t, dir, "APP_DEBUG=true\nAPP_KEY=short\nAPP_URL=http://example.com\n")
 
-	result := RequireResult[*SecurityResult](t, RunSecurityChecks(context.Background(), SecurityOptions{
+	result := RequireResult[*SecurityResult](t, RunSecurityChecks(t.Context(), SecurityOptions{
 		Dir:      dir,
 		Severity: "critical",
 	}))
@@ -236,7 +235,7 @@ func TestRunSecurityChecks_URLAddsHeaderCheck(t *T) {
 	}))
 	defer server.Close()
 
-	result := RequireResult[*SecurityResult](t, RunSecurityChecks(context.Background(), SecurityOptions{
+	result := RequireResult[*SecurityResult](t, RunSecurityChecks(t.Context(), SecurityOptions{
 		Dir: dir,
 		URL: server.URL,
 	}))
@@ -261,7 +260,7 @@ func TestRunSecurityChecks_URLAddsHeaderCheck(t *T) {
 func TestRunSecurityChecks_InvalidSeverity(t *T) {
 	dir := t.TempDir()
 
-	result := RunSecurityChecks(context.Background(), SecurityOptions{
+	result := RunSecurityChecks(t.Context(), SecurityOptions{
 		Dir:      dir,
 		Severity: "banana",
 	})

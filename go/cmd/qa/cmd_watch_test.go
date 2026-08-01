@@ -1,7 +1,6 @@
 package qa
 
 import (
-	"context"
 	. "dappco.re/go"
 )
 
@@ -76,7 +75,7 @@ esac
 	}
 
 	output := captureStdout(t, func() {
-		result := printResults(context.Background(), "forge/alpha", runs)
+		result := printResults(t.Context(), "forge/alpha", runs)
 		RequireResultError(t, result)
 	})
 

@@ -3,6 +3,7 @@ package lint
 import (
 	"context"
 	core "dappco.re/go"
+	"slices"
 )
 
 const (
@@ -35,7 +36,7 @@ func Run() {
 `), 0o644))
 
 	svc := &Service{adapters: []Adapter{newCatalogAdapter()}}
-	report := requireServiceRun(t, svc, context.Background(), RunInput{
+	report := requireServiceRun(t, svc, t.Context(), RunInput{
 		Path:   dir,
 		FailOn: "warning",
 	})
@@ -83,7 +84,7 @@ func Run() {
 	RequireResultOK(t, core.WriteFile(core.PathJoin(dir, ".core", serviceTestLintYamle8fcb1), []byte("paths:\n  - services\n"), 0o644))
 
 	svc := &Service{adapters: []Adapter{newCatalogAdapter()}}
-	report := requireServiceRun(t, svc, context.Background(), RunInput{
+	report := requireServiceRun(t, svc, t.Context(), RunInput{
 		Path:   dir,
 		FailOn: "warning",
 	})
@@ -110,7 +111,7 @@ func Run() {
 `), 0o644))
 
 	svc := &Service{adapters: []Adapter{newCatalogAdapter()}}
-	report := requireServiceRun(t, svc, context.Background(), RunInput{
+	report := requireServiceRun(t, svc, t.Context(), RunInput{
 		Path:   dir,
 		Files:  []string{},
 		FailOn: "warning",
@@ -152,7 +153,7 @@ func Run() {
 	RequireResultOK(t, core.WriteFile(core.PathJoin(dir, ".core", serviceTestLintYamle8fcb1), []byte("exclude:\n  - services\n"), 0o644))
 
 	svc := &Service{adapters: []Adapter{newCatalogAdapter()}}
-	report := requireServiceRun(t, svc, context.Background(), RunInput{
+	report := requireServiceRun(t, svc, t.Context(), RunInput{
 		Path:   dir,
 		FailOn: "warning",
 	})
@@ -182,7 +183,7 @@ func Run() {
 	RequireResultOK(t, core.WriteFile(core.PathJoin(dir, ".core", serviceTestLintYamle8fcb1), []byte("paths:\n  - .hidden\n"), 0o644))
 
 	svc := &Service{adapters: []Adapter{newCatalogAdapter()}}
-	report := requireServiceRun(t, svc, context.Background(), RunInput{
+	report := requireServiceRun(t, svc, t.Context(), RunInput{
 		Path:   dir,
 		FailOn: "warning",
 	})
@@ -222,7 +223,7 @@ func Run() {
 	RequireResultOK(t, core.WriteFile(core.PathJoin(dir, ".core", serviceTestLintYamle8fcb1), []byte("paths:\n  - root.go\n  - .hidden/scoped.go\n"), 0o644))
 
 	svc := &Service{adapters: []Adapter{newCatalogAdapter()}}
-	report := requireServiceRun(t, svc, context.Background(), RunInput{
+	report := requireServiceRun(t, svc, t.Context(), RunInput{
 		Path:   dir,
 		FailOn: "warning",
 	})
@@ -268,7 +269,7 @@ func Run() {
 `), 0o644))
 
 	svc := &Service{adapters: []Adapter{newCatalogAdapter()}}
-	report := requireServiceRun(t, svc, context.Background(), RunInput{
+	report := requireServiceRun(t, svc, t.Context(), RunInput{
 		Path:     dir,
 		Schedule: "nightly",
 	})
@@ -299,7 +300,7 @@ func TestServiceRun_Good_LanguageShortcutIgnoresCiAndSbomGroups(t *core.T) {
 		shortcutAdapter{name: "compliance-tool", category: "compliance"},
 	}}
 
-	report := requireServiceRun(t, svc, context.Background(), RunInput{
+	report := requireServiceRun(t, svc, t.Context(), RunInput{
 		Path:   dir,
 		Lang:   "go",
 		CI:     true,
@@ -327,7 +328,7 @@ func TestServiceRun_Good_LanguageShortcutExcludesInfraGroup(t *core.T) {
 		shortcutAdapter{name: "shell-tool", category: "correctness"},
 	}}
 
-	report := requireServiceRun(t, svc, context.Background(), RunInput{
+	report := requireServiceRun(t, svc, t.Context(), RunInput{
 		Path:   dir,
 		Lang:   "php",
 		FailOn: "warning",
@@ -366,7 +367,7 @@ func run2() {
 	runTestCommand(t, dir, "git", "add", serviceTestGoMod12bb12, serviceTestStagedGo033be3)
 
 	svc := &Service{adapters: []Adapter{newCatalogAdapter()}}
-	report := requireServiceRun(t, svc, context.Background(), RunInput{
+	report := requireServiceRun(t, svc, t.Context(), RunInput{
 		Path:   dir,
 		Hook:   true,
 		FailOn: "warning",
@@ -394,7 +395,7 @@ func run() {
 `), 0o644))
 
 	svc := &Service{adapters: []Adapter{newCatalogAdapter()}}
-	report := requireServiceRun(t, svc, context.Background(), RunInput{
+	report := requireServiceRun(t, svc, t.Context(), RunInput{
 		Path:   dir,
 		Hook:   true,
 		FailOn: "warning",
@@ -438,7 +439,7 @@ func TestServiceRun_JS_PrettierFindings(t *core.T) {
 	svc := &Service{adapters: []Adapter{
 		newCommandAdapter("prettier", []string{"prettier"}, []string{"js"}, "style", "", false, true, projectPathArguments("--list-different"), parsePrettierDiagnostics),
 	}}
-	report := requireServiceRun(t, svc, context.Background(), RunInput{
+	report := requireServiceRun(t, svc, t.Context(), RunInput{
 		Path:   dir,
 		FailOn: "warning",
 	})
@@ -482,7 +483,7 @@ exit 0
 	svc := &Service{adapters: []Adapter{
 		newCommandAdapter("prettier", []string{"prettier"}, []string{"js"}, "style", "", false, true, projectPathArguments("--list-different"), parsePrettierDiagnostics),
 	}}
-	report := requireServiceRun(t, svc, context.Background(), RunInput{
+	report := requireServiceRun(t, svc, t.Context(), RunInput{
 		Path:   dir,
 		FailOn: "warning",
 	})
@@ -502,7 +503,7 @@ func TestServiceRun_Good_ReportsMissingToolAsInfoFinding(t *core.T) {
 	svc := &Service{adapters: []Adapter{
 		newCommandAdapter("missing-tool", []string{"definitely-not-installed-xyz"}, []string{"php"}, "correctness", "", false, true, projectPathArguments(), parseTextDiagnostics),
 	}}
-	report := requireServiceRun(t, svc, context.Background(), RunInput{
+	report := requireServiceRun(t, svc, t.Context(), RunInput{
 		Path:   dir,
 		FailOn: "warning",
 	})
@@ -538,7 +539,7 @@ func TestServiceRun_Good_DeduplicatesMergedFindings(t *core.T) {
 		duplicateAdapter{name: "dup", finding: finding},
 	}}
 
-	report := requireServiceRun(t, svc, context.Background(), RunInput{
+	report := requireServiceRun(t, svc, t.Context(), RunInput{
 		Path:   dir,
 		FailOn: "warning",
 	})
@@ -565,7 +566,7 @@ func TestServiceRun_Good_StopsDispatchingAfterContextCancel(t *core.T) {
     - second
 `), 0o644))
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	var secondRan bool
@@ -645,12 +646,7 @@ func (adapter recordingAdapter) Entitlement() string { return "" }
 func (adapter recordingAdapter) RequiresEntitlement() bool { return false }
 
 func (adapter recordingAdapter) MatchesLanguage(languages []string) bool {
-	for _, language := range languages {
-		if language == "php" {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(languages, "php")
 }
 
 func (adapter recordingAdapter) Category() string { return "correctness" }
@@ -688,12 +684,7 @@ func (adapter cancellingAdapter) Entitlement() string { return "" }
 func (adapter cancellingAdapter) RequiresEntitlement() bool { return false }
 
 func (adapter cancellingAdapter) MatchesLanguage(languages []string) bool {
-	for _, language := range languages {
-		if language == "php" {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(languages, "php")
 }
 
 func (adapter cancellingAdapter) Category() string { return "correctness" }
@@ -731,12 +722,7 @@ func (adapter duplicateAdapter) Entitlement() string { return "" }
 func (adapter duplicateAdapter) RequiresEntitlement() bool { return false }
 
 func (adapter duplicateAdapter) MatchesLanguage(languages []string) bool {
-	for _, language := range languages {
-		if language == "go" {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(languages, "go")
 }
 
 func (adapter duplicateAdapter) Category() string { return "correctness" }

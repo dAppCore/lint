@@ -165,7 +165,7 @@ func WriteReportSARIF(w io.Writer, report Report) core.Result {
 	}
 	type sarifPhysicalLocation struct {
 		ArtifactLocation sarifArtifactLocation `json:"artifactLocation"`
-		Region           sarifRegion           `json:"region,omitempty"`
+		Region           sarifRegion           `json:"region"`
 	}
 	type sarifLocation struct {
 		PhysicalLocation sarifPhysicalLocation `json:"physicalLocation"`

@@ -2,6 +2,7 @@ package lint
 
 import (
 	"context"
+	"slices"
 	"strconv"
 	"time"
 
@@ -135,12 +136,7 @@ func (adapter CommandAdapter) MatchesLanguage(languages []string) bool {
 	if adapter.acceptsAnyLanguage(languages) {
 		return true
 	}
-	for _, language := range languages {
-		if adapter.matchesOneLanguage(language) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(languages, adapter.matchesOneLanguage)
 }
 
 func (adapter CommandAdapter) acceptsAnyLanguage(languages []string) bool {
@@ -153,12 +149,7 @@ func (adapter CommandAdapter) matchesOneLanguage(language string) bool {
 	if core.Lower(language) == core.Lower(adapter.category) {
 		return true
 	}
-	for _, supported := range adapter.languages {
-		if supported == language {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(adapter.languages, language)
 }
 
 func (adapter CommandAdapter) Category() string { return adapter.category }
@@ -999,11 +990,8 @@ func onlyParseErrorFindings(findings []Finding) bool {
 func filterRulesByTag(rules []Rule, tag string) []Rule {
 	var filtered []Rule
 	for _, rule := range rules {
-		for _, currentTag := range rule.Tags {
-			if currentTag == tag {
-				filtered = append(filtered, rule)
-				break
-			}
+		if slices.Contains(rule.Tags, tag) {
+			filtered = append(filtered, rule)
 		}
 	}
 	return filtered
@@ -1067,12 +1055,7 @@ func firstVersionLine(output string) string {
 }
 
 func containsString(values []string, target string) bool {
-	for _, value := range values {
-		if value == target {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(values, target)
 }
 
 const defaultCatalogRulesYAML = `

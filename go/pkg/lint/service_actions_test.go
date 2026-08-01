@@ -1,8 +1,6 @@
 package lint
 
 import (
-	"context"
-
 	core "dappco.re/go"
 )
 
@@ -18,7 +16,7 @@ func newStartedService(t *core.T) (*core.Core, *Service) {
 	RequireResultOK(t, result)
 	svc := result.Value.(*Service)
 	RequireResultOK(t, c.RegisterService("lint", svc))
-	RequireResultOK(t, svc.OnStartup(context.Background()))
+	RequireResultOK(t, svc.OnStartup(t.Context()))
 	return c, svc
 }
 
@@ -26,7 +24,7 @@ func newStartedService(t *core.T) (*core.Core, *Service) {
 // the action returns a non-empty []ToolInfo.
 func TestHandleTools_Good_DispatchReturnsToolInfo(t *core.T) {
 	c, _ := newStartedService(t)
-	result := c.Action("lint.tools").Run(context.Background(), core.NewOptions(
+	result := c.Action("lint.tools").Run(t.Context(), core.NewOptions(
 		core.Option{Key: "languages", Value: []string{"go"}},
 	))
 	RequireResultOK(t, result)
@@ -39,7 +37,7 @@ func TestHandleTools_Good_DispatchReturnsToolInfo(t *core.T) {
 func TestHandleWriteDefaultConfig_Good_DispatchWritesConfig(t *core.T) {
 	c, _ := newStartedService(t)
 	dir := t.TempDir()
-	result := c.Action("lint.write_default_config").Run(context.Background(), core.NewOptions(
+	result := c.Action("lint.write_default_config").Run(t.Context(), core.NewOptions(
 		core.Option{Key: "path", Value: dir},
 	))
 	RequireResultOK(t, result)
@@ -52,8 +50,8 @@ func TestHandleWriteDefaultConfig_Bad_DispatchExistingFails(t *core.T) {
 	c, _ := newStartedService(t)
 	dir := t.TempDir()
 	opts := core.NewOptions(core.Option{Key: "path", Value: dir})
-	RequireResultOK(t, c.Action("lint.write_default_config").Run(context.Background(), opts))
-	result := c.Action("lint.write_default_config").Run(context.Background(), opts)
+	RequireResultOK(t, c.Action("lint.write_default_config").Run(t.Context(), opts))
+	result := c.Action("lint.write_default_config").Run(t.Context(), opts)
 	core.AssertFalse(t, result.OK)
 }
 
@@ -66,7 +64,7 @@ func TestHandleRun_Good_DispatchProducesReport(t *core.T) {
 	RequireResultOK(t, core.WriteFile(core.PathJoin(dir, "clean.go"), []byte("package sample\n\nfunc Clean() {}\n"), 0o644))
 	t.Setenv("PATH", t.TempDir())
 
-	result := c.Action("lint.run").Run(context.Background(), core.NewOptions(
+	result := c.Action("lint.run").Run(t.Context(), core.NewOptions(
 		core.Option{Key: "path", Value: dir},
 		core.Option{Key: "output", Value: "json"},
 		core.Option{Key: "files", Value: []string{"clean.go"}},
@@ -89,12 +87,12 @@ func TestHandleInstallRemoveHook_Good_DispatchRoundTrips(t *core.T) {
 		t.Skip("git init failed")
 	}
 
-	install := c.Action("lint.install_hook").Run(context.Background(), core.NewOptions(
+	install := c.Action("lint.install_hook").Run(t.Context(), core.NewOptions(
 		core.Option{Key: "path", Value: dir},
 	))
 	RequireResultOK(t, install)
 
-	remove := c.Action("lint.remove_hook").Run(context.Background(), core.NewOptions(
+	remove := c.Action("lint.remove_hook").Run(t.Context(), core.NewOptions(
 		core.Option{Key: "path", Value: dir},
 	))
 	RequireResultOK(t, remove)
@@ -104,7 +102,7 @@ func TestHandleInstallRemoveHook_Good_DispatchRoundTrips(t *core.T) {
 // service receiver is nil.
 func TestHandlers_Ugly_NilServiceFail(t *core.T) {
 	var svc *Service
-	ctx := context.Background()
+	ctx := t.Context()
 	opts := core.NewOptions()
 	core.AssertFalse(t, svc.handleRun(ctx, opts).OK)
 	core.AssertFalse(t, svc.handleTools(ctx, opts).OK)

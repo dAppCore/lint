@@ -1,7 +1,6 @@
 package php
 
 import (
-	"context"
 	. "dappco.re/go"
 )
 
@@ -193,7 +192,7 @@ func TestRunAudit_SkipsNpmWithoutPackageJSON(t *T) {
 	// RunAudit should only return composer result (npm skipped)
 	// Note: composer will fail since it's not installed in the test env,
 	// but the important thing is npm audit is NOT run
-	results := RequireResult[[]AuditResult](t, RunAudit(context.Background(), AuditOptions{
+	results := RequireResult[[]AuditResult](t, RunAudit(t.Context(), AuditOptions{
 		Dir:    dir,
 		Output: Stdout(),
 	}))
@@ -208,7 +207,7 @@ func TestRunAudit_IncludesNpmWithPackageJSON(t *T) {
 	dir := t.TempDir()
 	RequireResultOK(t, WriteFile(PathJoin(dir, "package.json"), []byte(`{"name":"test"}`), 0644))
 
-	results := RequireResult[[]AuditResult](t, RunAudit(context.Background(), AuditOptions{
+	results := RequireResult[[]AuditResult](t, RunAudit(t.Context(), AuditOptions{
 		Dir:    dir,
 		Output: Stdout(),
 	}))

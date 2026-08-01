@@ -65,7 +65,7 @@ func TestAdapter_CommandAdapter_Good(t *core.T) {
 	langs[0] = "mutated"
 	core.AssertEqual(t, []string{"go"}, adapter.Languages())
 
-	result := adapter.Run(context.Background(), RunInput{Path: t.TempDir()}, nil)
+	result := adapter.Run(t.Context(), RunInput{Path: t.TempDir()}, nil)
 	RequireEqual(t, "passed", result.Tool.Status)
 	core.AssertEqual(t, "demo-tool version 1.2.3", result.Tool.Version)
 	core.AssertEqual(t, 0, result.Tool.Findings)
@@ -80,7 +80,7 @@ func TestAdapter_CommandAdapter_Bad(t *core.T) {
 		category:  "security",
 	}
 
-	result := adapter.Run(context.Background(), RunInput{Path: t.TempDir()}, nil)
+	result := adapter.Run(t.Context(), RunInput{Path: t.TempDir()}, nil)
 	RequireEqual(t, "skipped", result.Tool.Status)
 	core.AssertEqual(t, "0s", result.Tool.Duration)
 	RequireLen(t, result.Findings, 1)
@@ -110,7 +110,7 @@ func TestAdapter_CommandAdapter_ParsesStdoutAndStderr(t *core.T) {
 		parseJSONDiagnostics,
 	).(CommandAdapter)
 
-	result := adapter.Run(context.Background(), RunInput{Path: t.TempDir()}, nil)
+	result := adapter.Run(t.Context(), RunInput{Path: t.TempDir()}, nil)
 	if result.Tool.Status != "failed" {
 		t.Fatalf("status = %q, want failed", result.Tool.Status)
 	}
@@ -158,7 +158,7 @@ func TestAdapter_CommandAdapter_Ugly(t *core.T) {
 		nil,
 	).(CommandAdapter)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	ctx, cancel := context.WithTimeout(t.Context(), 100*time.Millisecond)
 	defer cancel()
 
 	result := adapter.Run(ctx, RunInput{Path: t.TempDir()}, nil)
@@ -282,7 +282,7 @@ func TestAdapter_CommandAdapter_JSONStdoutIgnoresStderr(t *core.T) {
 		parseJSONDiagnostics,
 	).(CommandAdapter)
 
-	result := adapter.Run(context.Background(), RunInput{Path: t.TempDir()}, nil)
+	result := adapter.Run(t.Context(), RunInput{Path: t.TempDir()}, nil)
 	RequireEqual(t, "failed", result.Tool.Status)
 	RequireLen(t, result.Findings, 1)
 	core.AssertEqual(t, "X1", result.Findings[0].Code)
@@ -370,7 +370,7 @@ func Run() {
 	core.AssertEqual(t, "correctness", adapter.Category())
 	core.AssertTrue(t, adapter.Fast())
 
-	result := adapter.Run(context.Background(), RunInput{Path: dir}, []string{adapterTestInputGo4114eb})
+	result := adapter.Run(t.Context(), RunInput{Path: dir}, []string{adapterTestInputGo4114eb})
 	RequireEqual(t, "failed", result.Tool.Status)
 	RequireLen(t, result.Findings, 1)
 	core.AssertEqual(t, "catalog", result.Findings[0].Tool)
@@ -380,7 +380,7 @@ func Run() {
 	core.AssertEqual(t, "Silent error swallowing with blank identifier", result.Findings[0].Title)
 	core.AssertEqual(t, result.Findings[0].Title, result.Findings[0].Message)
 
-	filtered := adapter.Run(context.Background(), RunInput{Path: dir, Category: "security"}, []string{adapterTestInputGo4114eb})
+	filtered := adapter.Run(t.Context(), RunInput{Path: dir, Category: "security"}, []string{adapterTestInputGo4114eb})
 	RequireEqual(t, "passed", filtered.Tool.Status)
 	core.AssertEmpty(t, filtered.Findings)
 }
@@ -396,7 +396,7 @@ func TestAdapter_CatalogAdapter_Ugly(t *core.T) {
 	RequireResultOK(t, core.WriteFile(core.PathJoin(dir, adapterTestInputGo4114eb), []byte("package sample\n"), 0o644))
 
 	adapter := CatalogAdapter{}
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
 	result := adapter.Run(ctx, RunInput{Path: dir}, []string{adapterTestInputGo4114eb})

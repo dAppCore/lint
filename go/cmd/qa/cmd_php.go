@@ -649,7 +649,7 @@ type sarifRule struct {
 	Name             string       `json:"name"`
 	ShortDescription sarifMessage `json:"shortDescription"`
 	FullDescription  sarifMessage `json:"fullDescription"`
-	Help             sarifMessage `json:"help,omitempty"`
+	Help             sarifMessage `json:"help"`
 	Properties       any          `json:"properties,omitempty"`
 }
 
