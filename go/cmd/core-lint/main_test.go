@@ -1,10 +1,10 @@
 package main
 
 import (
-	. "dappco.re/go"
+	. "github.com/dappcore/go"
 	"sync"
 
-	lintpkg "dappco.re/go/lint/pkg/lint"
+	lintpkg "github.com/dappcore/lint/go/pkg/lint"
 )
 
 const (

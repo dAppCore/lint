@@ -4,9 +4,9 @@ import (
 	"context"
 	"sort"
 
-	core "dappco.re/go"
-	cataloglint "dappco.re/go/lint"
-	lintpkg "dappco.re/go/lint/pkg/lint"
+	core "github.com/dappcore/go"
+	cataloglint "github.com/dappcore/lint/go"
+	lintpkg "github.com/dappcore/lint/go/pkg/lint"
 )
 
 const (

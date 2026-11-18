@@ -6,7 +6,7 @@ import (
 	"io"
 	"slices"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // AuditOptions configures dependency security auditing.

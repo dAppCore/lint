@@ -1,6 +1,6 @@
 package lint
 
-import core "dappco.re/go"
+import core "github.com/dappcore/go"
 
 // VulnFinding represents a single vulnerability found by govulncheck.
 type VulnFinding struct {

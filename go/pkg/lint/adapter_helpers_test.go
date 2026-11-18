@@ -3,7 +3,7 @@ package lint
 import (
 	"time"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestCombinedOutput_GoodBadUgly joins stdout and stderr, returning the

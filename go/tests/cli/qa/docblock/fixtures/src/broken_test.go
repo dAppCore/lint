@@ -2,7 +2,7 @@
 
 package sample
 
-import . "dappco.re/go"
+import . "github.com/dappcore/go"
 
 func TestBroken_Broken_Good(t *T) {
 	subject := Broken

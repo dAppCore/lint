@@ -14,8 +14,8 @@ import (
 	"go/token"
 	"slices"
 
-	core "dappco.re/go"
-	"dappco.re/go/cli/pkg/cli"
+	core "github.com/dappcore/go"
+	"github.com/dappcore/cli/go/pkg/cli"
 )
 
 // Docblock command flags

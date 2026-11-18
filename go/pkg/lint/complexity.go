@@ -5,7 +5,7 @@ import (
 	"go/parser"
 	"go/token"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // ComplexityConfig controls cyclomatic complexity analysis.

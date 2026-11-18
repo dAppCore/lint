@@ -3,7 +3,7 @@ package lint
 import (
 	"io/fs"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // isNotExistError recognises missing-file errors from stdlib and core media.

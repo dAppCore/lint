@@ -3,9 +3,9 @@ package main
 import (
 	"bytes"
 
-	. "dappco.re/go"
+	. "github.com/dappcore/go"
 
-	lintpkg "dappco.re/go/lint/pkg/lint"
+	lintpkg "github.com/dappcore/lint/go/pkg/lint"
 )
 
 // newWriters returns commandWriters backed by in-memory buffers so dispatch

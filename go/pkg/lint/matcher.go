@@ -3,7 +3,7 @@ package lint
 import (
 	"regexp"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // Finding represents a single match of a rule against a source file.

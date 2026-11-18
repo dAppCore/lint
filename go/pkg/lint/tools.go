@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"time"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // ToolFinding represents a single issue found by an external tool (e.g. go vet).

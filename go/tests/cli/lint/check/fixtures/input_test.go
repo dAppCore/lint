@@ -2,7 +2,7 @@
 
 package sample
 
-import . "dappco.re/go"
+import . "github.com/dappcore/go"
 
 func TestInput_Run_Good(t *T) {
 	subject := Run

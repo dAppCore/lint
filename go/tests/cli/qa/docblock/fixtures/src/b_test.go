@@ -2,7 +2,7 @@
 
 package sample
 
-import . "dappco.re/go"
+import . "github.com/dappcore/go"
 
 func TestB_Beta_Good(t *T) {
 	subject := Beta

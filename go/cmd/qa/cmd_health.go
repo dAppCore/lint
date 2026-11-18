@@ -10,10 +10,10 @@ import (
 	"cmp"
 	"slices"
 
-	core "dappco.re/go"
-	"dappco.re/go/cli/pkg/cli"
-	"dappco.re/go/io"
-	"dappco.re/go/scm/repos"
+	core "github.com/dappcore/go"
+	"github.com/dappcore/cli/go/pkg/cli"
+	"github.com/dappcore/go-io/go"
+	"github.com/dappcore/go-scm/go/repos"
 )
 
 const (

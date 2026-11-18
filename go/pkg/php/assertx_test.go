@@ -1,6 +1,6 @@
 package php
 
-import . "dappco.re/go"
+import . "github.com/dappcore/go"
 
 func RequireError(t TB, err error, msg ...string) {
 	t.Helper()

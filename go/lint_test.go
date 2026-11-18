@@ -1,8 +1,8 @@
 package lint
 
 import (
-	. "dappco.re/go"
-	lintpkg "dappco.re/go/lint/pkg/lint"
+	. "github.com/dappcore/go"
+	lintpkg "github.com/dappcore/lint/go/pkg/lint"
 )
 
 func TestLint_LoadEmbeddedCatalog_Good(t *T) {

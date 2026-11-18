@@ -1,7 +1,7 @@
 package detect
 
 import (
-	. "dappco.re/go"
+	. "github.com/dappcore/go"
 )
 
 func TestIsGoProject_Good(t *T) {

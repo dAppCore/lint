@@ -1,6 +1,6 @@
 package main
 
-import . "dappco.re/go"
+import . "github.com/dappcore/go"
 
 func RequireEqual(t TB, want, got any, msg ...string) {
 	t.Helper()
