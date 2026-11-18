@@ -1,6 +1,6 @@
 package lint
 
-import core "dappco.re/go"
+import core "github.com/dappcore/go"
 
 // ResolveRunOutputFormat resolves the report writer from the run input and project config.
 //

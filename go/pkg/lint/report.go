@@ -3,7 +3,7 @@ package lint
 import (
 	"io"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // Summary holds aggregate counts for a set of findings.

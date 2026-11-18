@@ -1,7 +1,7 @@
 package locales
 
 import (
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestEmbedFS_Good_ContainsEnglishLocale asserts the embedded filesystem

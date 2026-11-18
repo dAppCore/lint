@@ -1,7 +1,7 @@
 package qa
 
 import (
-	. "dappco.re/go"
+	. "github.com/dappcore/go"
 )
 
 func TestRunDocblockCheckJSONOutput_IsDeterministicAndKeepsWarnings(t *T) {

@@ -3,7 +3,7 @@ package gocmd
 import (
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // AddGoCommands registers the full `core go` surface without error (every

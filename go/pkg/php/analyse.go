@@ -4,7 +4,7 @@ import (
 	"context"
 	"io"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // AnalyseOptions configures PHP static analysis.

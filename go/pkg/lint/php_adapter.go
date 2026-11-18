@@ -3,7 +3,7 @@ package lint
 import (
 	"strconv"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // parsePHPStanDiagnostics parses phpstan --error-format=json into Finding values.

@@ -5,7 +5,7 @@ package lint
 import (
 	"testing"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestNewService_Defaults — root NewService re-exports pkg/lint.NewServiceFor

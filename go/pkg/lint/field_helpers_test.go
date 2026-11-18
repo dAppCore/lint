@@ -1,7 +1,7 @@
 package lint
 
 import (
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestIntField_Good_AcceptsNumericKinds resolves the first present key across

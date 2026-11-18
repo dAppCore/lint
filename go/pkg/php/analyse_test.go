@@ -1,7 +1,7 @@
 package php
 
 import (
-	. "dappco.re/go"
+	. "github.com/dappcore/go"
 )
 
 // mkFile creates a file (and parent directories) for testing.

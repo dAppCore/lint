@@ -6,9 +6,9 @@
 //
 // The full Service implementation (Service struct, LintConfigServiceOptions,
 // adapters, RunInput, ToolInfo, Report, etc.) lives in
-// dappco.re/go/lint/pkg/lint and is already canonical-shape. This file
+// github.com/dappcore/lint/go/pkg/lint and is already canonical-shape. This file
 // is the root-package surface so consumers calling `lint.NewService(...)`
-// from `import "dappco.re/go/lint"` get the canon without having to
+// from `import "github.com/dappcore/lint/go"` get the canon without having to
 // reach into the pkg/lint subpackage.
 //
 //	c, _ := core.New(
@@ -23,8 +23,8 @@
 package lint
 
 import (
-	core "dappco.re/go"
-	lintpkg "dappco.re/go/lint/pkg/lint"
+	core "github.com/dappcore/go"
+	lintpkg "github.com/dappcore/lint/go/pkg/lint"
 )
 
 // ServiceOptions is the canonical-shape configuration alias for the root lint

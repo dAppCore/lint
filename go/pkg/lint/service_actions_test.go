@@ -1,7 +1,7 @@
 package lint
 
 import (
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // newStartedService builds a Core-attached lint service and runs OnStartup so

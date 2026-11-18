@@ -44,7 +44,7 @@ DEFAULT_REPO_ROOTS = (
 )
 REPO_SCOPES = {"core", "ofm", "lab"}
 GO_MOD_FILE = "go.mod"
-CORE_CACHE_MODULE = "dappco.re/go/core/cache"
+CORE_CACHE_MODULE = "github.com/dappcore/go-cache/go"
 
 # Known sibling modules whose pre-migration form was dappco.re/go/core/<name>.
 # Keep this explicit so arbitrary dappco.re/go/core/* mentions are not treated
@@ -732,7 +732,7 @@ class AuditSelfTests(unittest.TestCase):
             repo = root / "go-cache"
             repo.mkdir()
             subprocess.run(["git", "-C", str(repo), "init", "-q"], check=True)
-            (repo / GO_MOD_FILE).write_text("module dappco.re/go/cache\n")
+            (repo / GO_MOD_FILE).write_text("module github.com/dappcore/go-cache/go\n")
             repos = discover_repos([root])
             index = module_repo_index(repos)
             stale_refs = (StaleRef(CORE_CACHE_MODULE, "cache"),)
@@ -742,11 +742,11 @@ class AuditSelfTests(unittest.TestCase):
     def test_filesystem_scan_finds_and_absents_literal(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            (root / GO_MOD_FILE).write_text("module dappco.re/go/cache\n")
+            (root / GO_MOD_FILE).write_text("module github.com/dappcore/go-cache/go\n")
             (root / "pkg").mkdir()
             (root / "pkg" / "x.go").write_text(f'import "{CORE_CACHE_MODULE}"\n')
             self.assertTrue(fallback_literal_scan(root, CORE_CACHE_MODULE))
-            self.assertFalse(fallback_literal_scan(root, "dappco.re/go/core/store"))
+            self.assertFalse(fallback_literal_scan(root, "github.com/dappcore/go-store/go"))
 
     def test_audit_issue_closes_when_absent(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -754,13 +754,13 @@ class AuditSelfTests(unittest.TestCase):
             repo = root / "go-store"
             repo.mkdir()
             subprocess.run(["git", "-C", str(repo), "init", "-q"], check=True)
-            (repo / GO_MOD_FILE).write_text("module dappco.re/go/store\n")
+            (repo / GO_MOD_FILE).write_text("module github.com/dappcore/go-store/go\n")
             repos = discover_repos([root])
             index = module_repo_index(repos)
             issue = {
                 "id": 917,
                 "summary": "[go-store] stale module path",
-                "description": f"{GO_MOD_FILE} imports dappco.re/go/core/store",
+                "description": f"{GO_MOD_FILE} imports github.com/dappcore/go-store/go",
                 "project": {"name": "core"},
             }
             result = audit_issue(issue, repos, index)
@@ -773,8 +773,8 @@ class AuditSelfTests(unittest.TestCase):
             repo_api = root / "api"
             repo_go_api = root / "go-api"
             for repo, module_path in (
-                (repo_api, "dappco.re/go/api"),
-                (repo_go_api, "dappco.re/go/core/api"),
+                (repo_api, "github.com/dappcore/api/go"),
+                (repo_go_api, "github.com/dappcore/api/go"),
             ):
                 repo.mkdir()
                 subprocess.run(["git", "-C", str(repo), "init", "-q"], check=True)
@@ -784,7 +784,7 @@ class AuditSelfTests(unittest.TestCase):
             issue = {
                 "id": 918,
                 "summary": "stale module path",
-                "description": f"{GO_MOD_FILE} imports dappco.re/go/core/api",
+                "description": f"{GO_MOD_FILE} imports github.com/dappcore/api/go",
                 "project": {"name": "core"},
             }
             result = audit_issue(issue, repos, index)

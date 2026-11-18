@@ -1,13 +1,13 @@
-module dappco.re/go/lint
+module github.com/dappcore/lint/go
 
 go 1.26.2
 
 require gopkg.in/yaml.v3 v3.0.1
 
 require (
-	dappco.re/go/log v0.13.1 // indirect
-	dappco.re/go/process v0.16.1 // indirect
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
+	github.com/dappcore/go-log/go v0.14.0 // indirect
+	github.com/dappcore/go-process/go v0.17.0 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/mattn/go-runewidth v0.0.27 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
@@ -18,9 +18,9 @@ require (
 )
 
 require (
-	dappco.re/go v0.12.0
-	dappco.re/go/cli v0.13.0
-	dappco.re/go/i18n v0.12.1
-	dappco.re/go/io v0.15.3
-	dappco.re/go/scm v0.22.0
+	github.com/dappcore/cli/go v0.14.0
+	github.com/dappcore/go v0.14.0
+	github.com/dappcore/go-i18n/go v0.13.0
+	github.com/dappcore/go-io/go v0.16.0
+	github.com/dappcore/go-scm/go v0.23.0
 )

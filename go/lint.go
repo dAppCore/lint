@@ -4,8 +4,8 @@ package lint
 import (
 	"embed"
 
-	core "dappco.re/go"
-	lintpkg "dappco.re/go/lint/pkg/lint"
+	core "github.com/dappcore/go"
+	lintpkg "github.com/dappcore/lint/go/pkg/lint"
 )
 
 //go:embed catalog/*.yaml

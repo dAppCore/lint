@@ -1,7 +1,7 @@
 package lint
 
 import (
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 func TestParseVulnCheckJSON_WithFindings(t *core.T) {

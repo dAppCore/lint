@@ -13,10 +13,10 @@ package qa
 import (
 	"context"
 
-	core "dappco.re/go"
-	"dappco.re/go/cli/pkg/cli"
-	"dappco.re/go/i18n"
-	"dappco.re/go/lint/locales"
+	core "github.com/dappcore/go"
+	"github.com/dappcore/cli/go/pkg/cli"
+	"github.com/dappcore/go-i18n/go"
+	"github.com/dappcore/lint/go/locales"
 )
 
 var qaCore = newQACore()

@@ -1,7 +1,7 @@
 package lint
 
 import (
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 // TestPassesThreshold_Good_ErrorGate passes only when there are no errors at

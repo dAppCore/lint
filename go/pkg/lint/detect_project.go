@@ -3,7 +3,7 @@ package lint
 import (
 	"slices"
 
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 var projectLanguageByExtension = map[string]string{

@@ -1,9 +1,9 @@
 package qa
 
 import (
-	. "dappco.re/go"
+	. "github.com/dappcore/go"
 
-	"dappco.re/go/lint/pkg/php"
+	"github.com/dappcore/lint/go/pkg/php"
 )
 
 // TestGetSeverityStyle_GoodBadUgly maps known severities to their dedicated

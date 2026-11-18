@@ -1,7 +1,7 @@
 package qa
 
 import (
-	. "dappco.re/go"
+	. "github.com/dappcore/go"
 )
 
 // TestQaFailure_GoodBadUgly wraps a nil error as an OK result and a non-nil

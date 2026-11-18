@@ -1,7 +1,7 @@
 package lint
 
 import (
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 )
 
 func TestPHPAdapter_ParsePHPStan_Good(t *core.T) {

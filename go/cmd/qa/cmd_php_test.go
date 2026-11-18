@@ -1,9 +1,9 @@
 package qa
 
 import (
-	. "dappco.re/go"
+	. "github.com/dappcore/go"
 
-	"dappco.re/go/cli/pkg/cli"
+	"github.com/dappcore/cli/go/pkg/cli"
 )
 
 const (

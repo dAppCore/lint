@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"time"
 
-	"dappco.re/go"
-	coreio "dappco.re/go/io"
+	"github.com/dappcore/go"
+	coreio "github.com/dappcore/go-io/go"
 )
 
 const (

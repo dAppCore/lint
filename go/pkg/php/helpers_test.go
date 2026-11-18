@@ -1,7 +1,7 @@
 package php
 
 import (
-	. "dappco.re/go"
+	. "github.com/dappcore/go"
 )
 
 // TestSecuritySeverityRank_Good_OrdersBySeverity asserts the rank ordering runs

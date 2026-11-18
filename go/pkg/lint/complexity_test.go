@@ -1,6 +1,6 @@
 package lint
 
-import core "dappco.re/go"
+import core "github.com/dappcore/go"
 
 func TestAnalyseComplexitySource_Simple(t *core.T) {
 	src := `package main

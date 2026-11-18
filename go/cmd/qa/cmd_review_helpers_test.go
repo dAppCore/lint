@@ -1,7 +1,7 @@
 package qa
 
 import (
-	. "dappco.re/go"
+	. "github.com/dappcore/go"
 )
 
 // TestPrintMyPRs_Good_RendersCountAndRows prints the PR count header and one

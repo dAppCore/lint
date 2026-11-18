@@ -2,7 +2,7 @@ package lint
 
 import (
 	"context"
-	core "dappco.re/go"
+	core "github.com/dappcore/go"
 	"runtime"
 	"time"
 )

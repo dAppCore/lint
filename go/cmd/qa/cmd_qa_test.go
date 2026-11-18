@@ -1,6 +1,6 @@
 package qa
 
-import . "dappco.re/go"
+import . "github.com/dappcore/go"
 
 func TestCmdQa_AddQACommands_Good(t *T) {
 	subject := AddQACommands

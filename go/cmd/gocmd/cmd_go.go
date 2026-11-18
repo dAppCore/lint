@@ -12,9 +12,9 @@
 package gocmd
 
 import (
-	core "dappco.re/go"
-	"dappco.re/go/cli/pkg/cli"
-	"dappco.re/go/lint/pkg/lint"
+	core "github.com/dappcore/go"
+	"github.com/dappcore/cli/go/pkg/cli"
+	"github.com/dappcore/lint/go/pkg/lint"
 )
 
 // Shared styles from the CLI library, matching `core qa`'s output.

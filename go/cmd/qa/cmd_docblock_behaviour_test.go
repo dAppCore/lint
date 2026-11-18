@@ -3,7 +3,7 @@ package qa
 import (
 	"go/token"
 
-	. "dappco.re/go"
+	. "github.com/dappcore/go"
 )
 
 // TestCheckDocblockCoverage_Good_CountsAllExportedKinds builds a fixture with a

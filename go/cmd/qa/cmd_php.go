@@ -16,10 +16,10 @@ import (
 	"context"
 	"sort"
 
-	core "dappco.re/go"
-	"dappco.re/go/cli/pkg/cli"
-	"dappco.re/go/lint/pkg/detect"
-	"dappco.re/go/lint/pkg/php"
+	core "github.com/dappcore/go"
+	"github.com/dappcore/cli/go/pkg/cli"
+	"github.com/dappcore/lint/go/pkg/detect"
+	"github.com/dappcore/lint/go/pkg/php"
 )
 
 const (
